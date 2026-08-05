@@ -1,13 +1,162 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Availability</title>
-    <link rel="stylesheet" href="css/style.css" />
-  </head>
-  <body>
-    <header><h1>Availability</h1></header>
-    <main><p>Framework page.</p></main>
-  </body>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Driver Availability</title>
+
+<link rel="stylesheet" href="css/admin.css">
+</head>
+
+<body>
+
+<div class="overlay"></div>
+
+<div class="admin-layout">
+
+<aside class="sidebar" id="sidebar">
+
+<h2>Transport Admin</h2>
+
+<a href="dashboard.html">🏠 Dashboard</a>
+<a href="bookings.html">📖 Bookings</a>
+<a href="customers.html">👥 Customers</a>
+<a href="drivers.html">🚖 Drivers</a>
+<a href="availability.html" class="active">🟢 Availability</a>
+<a href="accounts.html">💷 Accounts</a>
+<a href="calendar.html">📅 Calendar</a>
+<a href="reports.html">📊 Reports</a>
+<a href="email-templates.html">📧 Email Templates</a>
+<a href="settings.html">⚙️ Settings</a>
+
+<hr style="margin:25px 0;border-color:#374151;">
+
+<a href="login.html">🚪 Logout</a>
+
+</aside>
+
+<main class="main">
+
+<div class="topbar">
+
+<div class="topbar-left">
+
+<button
+class="menu-toggle"
+id="menuToggle">
+
+☰
+
+</button>
+
+<h2>Driver Availability</h2>
+
+</div>
+
+<div>
+
+<strong>Christopher</strong><br>
+<small>Administrator</small>
+
+</div>
+
+</div>
+
+<div class="stats">
+
+<div class="card green">
+<h3>Available Drivers</h3>
+<div class="stat">5</div>
+</div>
+
+<div class="card orange">
+<h3>On Jobs</h3>
+<div class="stat">3</div>
+</div>
+
+<div class="card blue">
+<h3>On Break</h3>
+<div class="stat">1</div>
+</div>
+
+<div class="card red">
+<h3>Offline</h3>
+<div class="stat">2</div>
+</div>
+
+</div>
+
+<div class="card">
+
+<h3>Driver Status</h3>
+
+<table>
+
+<thead>
+
+<tr>
+<th>Driver</th>
+<th>Vehicle</th>
+<th>Status</th>
+<th>Current Job</th>
+<th>Updated</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<td>Nick</td>
+<td>Tesla Model 3</td>
+<td>🟢 Available</td>
+<td>-</td>
+<td>18:35</td>
+</tr>
+
+<tr>
+<td>Francis</td>
+<td>Toyota Corolla</td>
+<td>🟠 On Job</td>
+<td>Cardiff Airport</td>
+<td>18:34</td>
+</tr>
+
+<tr>
+<td>Stan</td>
+<td>MG4</td>
+<td>🔵 Break</td>
+<td>-</td>
+<td>18:20</td>
+</tr>
+
+<tr>
+<td>Rasool</td>
+<td>Ford Galaxy</td>
+<td>🟠 On Job</td>
+<td>Bristol Airport</td>
+<td>18:31</td>
+</tr>
+
+<tr>
+<td>NG</td>
+<td>Tesla Model 3</td>
+<td>🔴 Offline</td>
+<td>-</td>
+<td>16:15</td>
+</tr>
+
+</tbody>
+
+</table>
+
+</div>
+
+</main>
+
+</div>
+
+<script src="js/admin.js"></script>
+
+</body>
 </html>
