@@ -1,0 +1,200 @@
+/* ===================================================
+   DRIVER PORTAL
+=================================================== */
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    font-family:Arial, Helvetica, sans-serif;
+    background:#eef2f7;
+    color:#1f2937;
+}
+
+.driver-container{
+    max-width:1400px;
+    margin:auto;
+    padding:30px;
+}
+
+/* Header */
+
+.driver-header{
+    background:#ffffff;
+    border-radius:16px;
+    padding:30px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    box-shadow:0 10px 25px rgba(0,0,0,.08);
+    margin-bottom:30px;
+}
+
+.driver-header h1{
+    font-size:34px;
+    margin-bottom:8px;
+}
+
+.driver-header p{
+    color:#6b7280;
+    font-size:16px;
+}
+
+.driver-header button{
+    background:#ef4444;
+    color:white;
+    border:none;
+    padding:14px 28px;
+    border-radius:12px;
+    cursor:pointer;
+    font-size:15px;
+    font-weight:bold;
+    transition:.25s;
+}
+
+.driver-header button:hover{
+    background:#dc2626;
+}
+
+/* Stats */
+
+.driver-stats{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:20px;
+    margin-bottom:30px;
+}
+
+.card{
+    background:white;
+    border-radius:16px;
+    padding:24px;
+    box-shadow:0 8px 20px rgba(0,0,0,.08);
+}
+
+.card h2,
+.card h3{
+    margin-bottom:14px;
+}
+
+.card h3{
+    color:#6b7280;
+    font-size:15px;
+}
+
+.card div{
+    font-size:34px;
+    font-weight:bold;
+    color:#2563eb;
+}
+
+/* Jobs */
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:20px;
+}
+
+th{
+    text-align:left;
+    background:#f8fafc;
+    padding:15px;
+    font-size:14px;
+}
+
+td{
+    padding:15px;
+    border-top:1px solid #e5e7eb;
+}
+
+tbody tr:hover{
+    background:#f9fafb;
+}
+
+table button{
+    background:#2563eb;
+    color:white;
+    border:none;
+    padding:9px 18px;
+    border-radius:8px;
+    cursor:pointer;
+}
+
+table button:hover{
+    background:#1d4ed8;
+}
+
+/* Bottom Buttons */
+
+.driver-actions{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:18px;
+    margin-top:30px;
+}
+
+.driver-actions button{
+    background:#2563eb;
+    color:white;
+    border:none;
+    border-radius:14px;
+    padding:18px;
+    font-size:17px;
+    font-weight:bold;
+    cursor:pointer;
+    transition:.25s;
+}
+
+.driver-actions button:hover{
+    transform:translateY(-3px);
+    background:#1d4ed8;
+}
+
+/* Mobile */
+
+@media(max-width:1000px){
+
+.driver-header{
+    flex-direction:column;
+    text-align:center;
+    gap:20px;
+}
+
+.driver-stats{
+    grid-template-columns:repeat(2,1fr);
+}
+
+.driver-actions{
+    grid-template-columns:repeat(2,1fr);
+}
+
+}
+
+@media(max-width:700px){
+
+.driver-container{
+    padding:15px;
+}
+
+.driver-header h1{
+    font-size:28px;
+}
+
+.driver-stats{
+    grid-template-columns:1fr;
+}
+
+.driver-actions{
+    grid-template-columns:1fr;
+}
+
+table{
+    display:block;
+    overflow-x:auto;
+}
+
+}

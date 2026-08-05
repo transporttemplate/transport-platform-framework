@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customers</title>
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+
+<aside class="sidebar">
+<h2>Transport Admin</h2>
+
+<a href="dashboard.html">🏠 Dashboard</a>
+<a href="bookings.html">📖 Bookings</a>
+<a class="active" href="customers.html">👥 Customers</a>
+<a href="drivers.html">🚖 Drivers</a>
+<a href="accounts.html">💷 Finance</a>
+<a href="calendar.html">📅 Calendar</a>
+<a href="reports.html">📊 Reports</a>
+<a href="email-templates.html">📧 Email Templates</a>
+<a href="settings.html">⚙️ Settings</a>
+
+<hr style="margin:25px 0;border-color:#374151;">
+
+<a href="login.html">🚪 Logout</a>
+</aside>
+
+<main class="main">
+
+<div class="topbar">
+<h2>Customers</h2>
+<button>+ Add Customer</button>
+</div>
+
+<div class="stats">
+<div class="card blue">
+<h3>Total Customers</h3>
+<div class="stat">152</div>
+</div>
+
+<div class="card green">
+<h3>Regular Customers</h3>
+<div class="stat">48</div>
+</div>
+
+<div class="card orange">
+<h3>Bookings This Month</h3>
+<div class="stat">214</div>
+</div>
+
+<div class="card red">
+<h3>Outstanding Balance</h3>
+<div class="stat">£320</div>
+</div>
+</div>
+
+<div class="card">
+<h3>Search Customers</h3>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px;margin-top:20px;">
+<input type="text" placeholder="Search by name">
+<input type="text" placeholder="Phone number">
+<input type="email" placeholder="Email address">
+<select>
+<option>All Customers</option>
+<option>Regular</option>
+<option>New</option>
+<option>Business</option>
+</select>
+</div>
+</div>
+
+<div class="card" style="margin-top:25px;">
+<h3>Customer List</h3>
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Phone</th>
+<th>Email</th>
+<th>Bookings</th>
+<th>Total Spent</th>
+<th>Last Journey</th>
+<th>Action</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>John Smith</td>
+<td>07123 456789</td>
+<td>john@example.com</td>
+<td>18</td>
+<td>£1,540</td>
+<td>Cardiff Airport</td>
+<td><button>View</button></td>
+</tr>
+
+<tr>
+<td>Sarah Jones</td>
+<td>07777 123456</td>
+<td>sarah@example.com</td>
+<td>6</td>
+<td>£680</td>
+<td>Bristol Airport</td>
+<td><button>View</button></td>
+</tr>
+
+<tr>
+<td>David Evans</td>
+<td>07888 654321</td>
+<td>david@example.com</td>
+<td>2</td>
+<td>£210</td>
+<td>Heathrow Airport</td>
+<td><button>View</button></td>
+</tr>
+
+</tbody>
+</table>
+
+<div style="display:flex;justify-content:center;gap:10px;margin-top:25px;">
+<button>Previous</button>
+<button>1</button>
+<button>2</button>
+<button>3</button>
+<button>Next</button>
+</div>
+
+</div>
+
+</main>
+
+</div>
+
+</body>
+</html>

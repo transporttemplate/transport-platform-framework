@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finance</title>
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+<div class="admin-layout">
+
+<aside class="sidebar">
+<h2>Transport Admin</h2>
+<a href="dashboard.html">🏠 Dashboard</a>
+<a href="bookings.html">📖 Bookings</a>
+<a href="customers.html">👥 Customers</a>
+<a href="drivers.html">🚖 Drivers</a>
+<a class="active" href="accounts.html">💷 Finance</a>
+<a href="calendar.html">📅 Calendar</a>
+<a href="reports.html">📊 Reports</a>
+<a href="email-templates.html">📧 Email Templates</a>
+<a href="settings.html">⚙️ Settings</a>
+<hr style="margin:25px 0;border-color:#374151;">
+<a href="login.html">🚪 Logout</a>
+</aside>
+
+<main class="main">
+
+<div class="topbar">
+<h2>Finance</h2>
+<button>+ Create Invoice</button>
+</div>
+
+<div class="stats">
+<div class="card blue"><h3>Today's Revenue</h3><div class="stat">£0.00</div></div>
+<div class="card green"><h3>This Week</h3><div class="stat">£0.00</div></div>
+<div class="card orange"><h3>Outstanding</h3><div class="stat">£0.00</div></div>
+<div class="card red"><h3>Refunds</h3><div class="stat">£0.00</div></div>
+</div>
+
+<div class="grid-2">
+
+<div class="card">
+<h3>Recent Payments</h3>
+<table>
+<thead>
+<tr>
+<th>Date</th>
+<th>Customer</th>
+<th>Amount</th>
+<th>Method</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>05 Aug</td><td>John Smith</td><td>£120</td><td>Card</td><td>Paid</td></tr>
+<tr><td>05 Aug</td><td>Sarah Jones</td><td>£180</td><td>Cash</td><td>Paid</td></tr>
+<tr><td>05 Aug</td><td>ABC Ltd</td><td>£460</td><td>Invoice</td><td>Outstanding</td></tr>
+</tbody>
+</table>
+</div>
+
+<div>
+<div class="card" style="margin-bottom:20px;">
+<h3>Quick Actions</h3>
+<button>Create Invoice</button><br><br>
+<button>Record Payment</button><br><br>
+<button>Issue Refund</button><br><br>
+<button>Export Accounts</button>
+</div>
+
+<div class="card">
+<h3>Payment Breakdown</h3>
+<p>💳 Card: £0.00</p><br>
+<p>💷 Cash: £0.00</p><br>
+<p>🏢 Account: £0.00</p><br>
+<p>💰 Deposits: £0.00</p>
+</div>
+</div>
+
+</div>
+
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings</title>
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+<div class="admin-layout">
+
+<aside class="sidebar">
+<h2>Transport Admin</h2>
+<a href="dashboard.html">🏠 Dashboard</a>
+<a href="bookings.html">📖 Bookings</a>
+<a href="customers.html">👥 Customers</a>
+<a href="drivers.html">🚖 Drivers</a>
+<a href="accounts.html">💷 Finance</a>
+<a href="calendar.html">📅 Calendar</a>
+<a href="reports.html">📊 Reports</a>
+<a href="email-templates.html">📧 Email Templates</a>
+<a class="active" href="settings.html">⚙️ Settings</a>
+<hr style="margin:25px 0;border-color:#374151;">
+<a href="login.html">🚪 Logout</a>
+</aside>
+
+<main class="main">
+
+<div class="topbar">
+<h2>Platform Settings</h2>
+<button>💾 Save Changes</button>
+</div>
+
+<div class="card">
+<h3>Company Information</h3>
+<input placeholder="Company Name">
+<input placeholder="Phone Number">
+<input placeholder="Email Address">
+<input placeholder="Website">
+<input placeholder="Business Address">
+</div>
+
+<div class="card" style="margin-top:25px;">
+<h3>🟢 Business Hours & Availability</h3>
+
+<label>Business Status</label>
+<select>
+<option>Open for Bookings</option>
+<option>Closed</option>
+<option>Holiday Mode</option>
+<option>Emergency Closure</option>
+</select>
+
+<div style="display:grid;grid-template-columns:160px 1fr 1fr;gap:12px;margin-top:20px;">
+<strong>Day</strong><strong>Open</strong><strong>Close</strong>
+
+<span>Monday</span><input type="time" value="06:00"><input type="time" value="22:00">
+<span>Tuesday</span><input type="time" value="06:00"><input type="time" value="22:00">
+<span>Wednesday</span><input type="time" value="06:00"><input type="time" value="22:00">
+<span>Thursday</span><input type="time" value="06:00"><input type="time" value="22:00">
+<span>Friday</span><input type="time" value="06:00"><input type="time" value="23:59">
+<span>Saturday</span><input type="time" value="07:00"><input type="time" value="02:00">
+<span>Sunday</span><input type="time" value="08:00"><input type="time" value="20:00">
+</div>
+
+<label style="margin-top:20px;display:block;">Holiday From</label>
+<input type="date">
+
+<label>Holiday To</label>
+<input type="date">
+
+<label>Website Notice</label>
+<textarea rows="3" placeholder="e.g. We are currently closed for annual leave until 12 August."></textarea>
+
+<label><input type="checkbox" style="width:auto;margin-right:8px;">Accept advance bookings while closed</label>
+</div>
+
+<div class="grid-2" style="margin-top:25px;">
+<div class="card">
+<h3>Pricing</h3>
+<label>First Mile (£)</label><input value="4.50">
+<label>Minimum Fare (£)</label><input value="10.00">
+<label>Waiting Time (£/min)</label><input value="0.40">
+<label>Default Driver Commission (%)</label><input value="15">
+</div>
+
+<div class="card">
+<h3>Integrations</h3>
+<label>Google Maps API Key</label><input placeholder="API Key">
+<label>Google Calendar ID</label><input placeholder="Calendar ID">
+<label>Stripe Publishable Key</label><input placeholder="Stripe Key">
+<label>Supabase URL</label><input placeholder="Supabase URL">
+<label>Supabase API Key</label><input placeholder="Supabase Key">
+</div>
+</div>
+
+<div class="card" style="margin-top:25px;">
+<h3>Email & Booking Settings</h3>
+<textarea rows="4" placeholder="Booking confirmation email template"></textarea>
+<textarea rows="4" placeholder="Deposit policy"></textarea>
+</div>
+
+</main>
+</div>
+</body>
+</html>

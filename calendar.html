@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calendar</title>
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+
+<aside class="sidebar">
+<h2>Transport Admin</h2>
+<a href="dashboard.html">🏠 Dashboard</a>
+<a href="bookings.html">📖 Bookings</a>
+<a href="customers.html">👥 Customers</a>
+<a href="drivers.html">🚖 Drivers</a>
+<a href="accounts.html">💷 Finance</a>
+<a class="active" href="calendar.html">📅 Calendar</a>
+<a href="reports.html">📊 Reports</a>
+<a href="email-templates.html">📧 Email Templates</a>
+<a href="settings.html">⚙️ Settings</a>
+<hr style="margin:25px 0;border-color:#374151;">
+<a href="login.html">🚪 Logout</a>
+</aside>
+
+<main class="main">
+
+<div class="topbar">
+<h2>Booking Calendar</h2>
+<button>+ New Booking</button>
+</div>
+
+<div class="stats">
+<div class="card blue"><h3>Today's Jobs</h3><div class="stat">18</div></div>
+<div class="card green"><h3>Drivers Working</h3><div class="stat">6</div></div>
+<div class="card orange"><h3>Airport Runs</h3><div class="stat">9</div></div>
+<div class="card red"><h3>Unassigned</h3><div class="stat">2</div></div>
+</div>
+
+<div class="card">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+<button>◀ Previous</button>
+<h2>August 2026</h2>
+<button>Next ▶</button>
+</div>
+
+<table>
+<thead>
+<tr>
+<th>Monday</th>
+<th>Tuesday</th>
+<th>Wednesday</th>
+<th>Thursday</th>
+<th>Friday</th>
+<th>Saturday</th>
+<th>Sunday</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>3</strong><br><small>🚖 Nick<br>✈ Cardiff</small></td>
+<td><strong>4</strong><br><small>🚖 Francis<br>✈ Bristol</small></td>
+<td><strong>5</strong><br><small>🚖 Stan</small></td>
+<td><strong>6</strong><br><small>🚖 Chris</small></td>
+<td><strong>7</strong><br><small>✈ Heathrow</small></td>
+<td><strong>8</strong><br><small>🚖 6 Jobs</small></td>
+<td><strong>9</strong><br><small>🚖 4 Jobs</small></td>
+</tr>
+<tr>
+<td style="height:120px;"></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div class="grid-2" style="margin-top:25px;">
+<div class="card">
+<h3>Today's Schedule</h3>
+<table>
+<tr><th>Time</th><th>Driver</th><th>Journey</th></tr>
+<tr><td>08:30</td><td>Nick</td><td>Cardiff Airport</td></tr>
+<tr><td>10:15</td><td>Francis</td><td>Bristol Airport</td></tr>
+<tr><td>14:00</td><td>Stan</td><td>Heathrow</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h3>Upcoming</h3>
+<p>🟢 Driver Available</p><br>
+<p>🟠 Airport Pickup</p><br>
+<p>🔵 Corporate Booking</p><br>
+<p>🔴 Needs Assigning</p>
+</div>
+</div>
+
+</main>
+</div>
+</body>
+</html>

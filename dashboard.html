@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard</title>
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+
+<aside class="sidebar">
+<h2>Transport Admin</h2>
+
+<a class="active" href="dashboard.html">🏠 Dashboard</a>
+<a href="bookings.html">📖 Bookings</a>
+<a href="customers.html">👥 Customers</a>
+<a href="drivers.html">🚖 Drivers</a>
+<a href="accounts.html">💷 Accounts</a>
+<a href="calendar.html">📅 Calendar</a>
+<a href="reports.html">📊 Reports</a>
+<a href="email-templates.html">📧 Email Templates</a>
+<a href="settings.html">⚙️ Settings</a>
+
+<hr style="margin:25px 0;border-color:#374151;">
+
+<a href="login.html">🚪 Logout</a>
+</aside>
+
+<main class="main">
+
+<div class="topbar">
+<h2>Dashboard</h2>
+<div>
+<strong>Christopher</strong><br>
+<small>Administrator</small>
+</div>
+</div>
+
+<div class="stats">
+
+<div class="card blue">
+<h3>Today's Revenue</h3>
+<div class="stat">£0.00</div>
+</div>
+
+<div class="card green">
+<h3>Today's Bookings</h3>
+<div class="stat">0</div>
+</div>
+
+<div class="card orange">
+<h3>Drivers Online</h3>
+<div class="stat">0</div>
+</div>
+
+<div class="card red">
+<h3>Jobs Waiting</h3>
+<div class="stat">0</div>
+</div>
+
+</div>
+
+<div class="grid-2">
+
+<div class="card">
+<h3>Upcoming Bookings</h3>
+
+<table>
+<thead>
+<tr>
+<th>Time</th>
+<th>Customer</th>
+<th>Journey</th>
+<th>Status</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>08:30</td>
+<td>Example</td>
+<td>Cardiff Airport</td>
+<td>Pending</td>
+</tr>
+
+<tr>
+<td>10:15</td>
+<td>Example</td>
+<td>Bristol Airport</td>
+<td>Assigned</td>
+</tr>
+
+<tr>
+<td>13:45</td>
+<td>Example</td>
+<td>Heathrow Airport</td>
+<td>Confirmed</td>
+</tr>
+</tbody>
+
+</table>
+
+</div>
+
+<div>
+
+<div class="card" style="margin-bottom:20px;">
+<h3>Quick Actions</h3>
+
+<p><button>New Booking</button></p><br>
+<p><button>Add Driver</button></p><br>
+<p><button>Edit Prices</button></p><br>
+<p><button>Open Calendar</button></p>
+
+</div>
+
+<div class="card">
+<h3>Recent Activity</h3>
+
+<ul>
+<li>✅ Booking Created</li>
+<li>🚖 Driver Assigned</li>
+<li>💳 Payment Received</li>
+<li>📧 Confirmation Sent</li>
+</ul>
+
+</div>
+
+</div>
+
+</div>
+
+</main>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Email Templates</title>
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+<div class="admin-layout">
+
+<aside class="sidebar">
+<h2>Transport Admin</h2>
+<a href="dashboard.html">🏠 Dashboard</a>
+<a href="bookings.html">📖 Bookings</a>
+<a href="customers.html">👥 Customers</a>
+<a href="drivers.html">🚖 Drivers</a>
+<a href="accounts.html">💷 Finance</a>
+<a href="calendar.html">📅 Calendar</a>
+<a href="reports.html">📊 Reports</a>
+<a class="active" href="email-templates.html">📧 Email Templates</a>
+<a href="settings.html">⚙️ Settings</a>
+<hr style="margin:25px;border-color:#374151;">
+<a href="login.html">🚪 Logout</a>
+</aside>
+
+<main class="main">
+
+<div class="topbar">
+<h2>Email Templates</h2>
+<button>💾 Save Templates</button>
+</div>
+
+<div class="stats">
+<div class="card blue"><h3>Templates</h3><div class="stat">6</div></div>
+<div class="card green"><h3>Sent Today</h3><div class="stat">48</div></div>
+<div class="card orange"><h3>Failed</h3><div class="stat">0</div></div>
+<div class="card red"><h3>Queue</h3><div class="stat">2</div></div>
+</div>
+
+<div class="grid-2" style="margin-top:25px;">
+<div class="card">
+<h3>Select Template</h3>
+<select>
+<option>Booking Confirmation</option>
+<option>Driver Assigned</option>
+<option>Booking Cancelled</option>
+<option>Payment Received</option>
+<option>Invoice Sent</option>
+<option>Password Reset</option>
+</select>
+
+<p style="margin-top:20px;"><strong>Available Variables</strong></p>
+<ul>
+<li>{CustomerName}</li>
+<li>{BookingReference}</li>
+<li>{PickupAddress}</li>
+<li>{Destination}</li>
+<li>{JourneyDate}</li>
+<li>{DriverName}</li>
+<li>{Amount}</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>Email Subject</h3>
+<input value="Your booking has been confirmed">
+
+<h3 style="margin-top:20px;">Email Body</h3>
+<textarea rows="16">Hi {CustomerName},
+
+Your booking ({BookingReference}) has been confirmed.
+
+Pickup: {PickupAddress}
+Destination: {Destination}
+Date: {JourneyDate}
+Driver: {DriverName}
+
+Thank you for choosing us.</textarea>
+</div>
+</div>
+
+</main>
+</div>
+</body>
+</html>

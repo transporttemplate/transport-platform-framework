@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drivers</title>
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+<div class="admin-layout">
+<aside class="sidebar">
+<h2>Transport Admin</h2>
+<a href="dashboard.html">🏠 Dashboard</a>
+<a href="bookings.html">📖 Bookings</a>
+<a href="customers.html">👥 Customers</a>
+<a class="active" href="drivers.html">🚖 Drivers</a>
+<a href="accounts.html">💷 Finance</a>
+<a href="calendar.html">📅 Calendar</a>
+<a href="reports.html">📊 Reports</a>
+<a href="email-templates.html">📧 Email Templates</a>
+<a href="settings.html">⚙️ Settings</a>
+<hr style="margin:25px 0;border-color:#374151;">
+<a href="login.html">🚪 Logout</a>
+</aside>
+
+<main class="main">
+<div class="topbar">
+<h2>Driver Management</h2>
+<button>+ Add Driver</button>
+</div>
+
+<div class="stats">
+<div class="card blue"><h3>Total Drivers</h3><div class="stat">6</div></div>
+<div class="card green"><h3>Online</h3><div class="stat">4</div></div>
+<div class="card orange"><h3>On a Job</h3><div class="stat">2</div></div>
+<div class="card red"><h3>Offline</h3><div class="stat">2</div></div>
+</div>
+
+<div class="card">
+<h3>Search Drivers</h3>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px;margin-top:20px;">
+<input placeholder="Driver name">
+<input placeholder="Phone number">
+<select><option>All Status</option><option>Online</option><option>On Job</option><option>Offline</option></select>
+<select><option>All Vehicles</option></select>
+</div>
+</div>
+
+<div class="card" style="margin-top:25px;">
+<h3>Driver List</h3>
+<table>
+<thead><tr>
+<th>Driver</th><th>Status</th><th>Vehicle</th><th>Today's Jobs</th><th>Phone</th><th>Licence</th><th>Action</th>
+</tr></thead>
+<tbody>
+<tr><td>Nick</td><td><span style="color:green;">Online</span></td><td>Tesla Model 3</td><td>7</td><td>07xxx xxx111</td><td>Valid</td><td><button>View</button></td></tr>
+<tr><td>Francis</td><td><span style="color:orange;">On Job</span></td><td>Toyota Corolla</td><td>5</td><td>07xxx xxx222</td><td>Valid</td><td><button>View</button></td></tr>
+<tr><td>Stan</td><td><span style="color:red;">Offline</span></td><td>Ford Galaxy</td><td>0</td><td>07xxx xxx333</td><td>Expires Soon</td><td><button>View</button></td></tr>
+</tbody>
+</table>
+
+<div style="display:flex;justify-content:center;gap:10px;margin-top:25px;">
+<button>Previous</button><button>1</button><button>2</button><button>Next</button>
+</div>
+</div>
+</main>
+</div>
+</body>
+</html>

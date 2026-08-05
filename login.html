@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transport Admin Login</title>
+<link rel="stylesheet" href="css/admin.css">
+<style>
+body{
+margin:0;
+font-family:Arial,sans-serif;
+background:linear-gradient(135deg,#1f2937,#111827);
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+}
+.login-card{
+width:420px;
+background:#fff;
+border-radius:16px;
+padding:40px;
+box-shadow:0 20px 40px rgba(0,0,0,.25);
+}
+.login-card h1{margin:0;color:#1f2937}
+.login-card p{color:#6b7280;margin-bottom:25px}
+.login-card input{
+width:100%;
+padding:14px;
+margin:10px 0;
+border:1px solid #d1d5db;
+border-radius:10px;
+box-sizing:border-box;
+}
+.login-card button{
+width:100%;
+padding:15px;
+margin-top:15px;
+background:#2563eb;
+color:#fff;
+border:none;
+border-radius:10px;
+font-weight:bold;
+cursor:pointer;
+}
+.options{
+display:flex;
+justify-content:space-between;
+align-items:center;
+font-size:.9rem;
+margin-top:10px;
+}
+.logo{
+width:70px;height:70px;border-radius:50%;
+background:#2563eb;color:#fff;
+display:flex;align-items:center;justify-content:center;
+font-size:28px;font-weight:bold;margin-bottom:15px;
+}
+</style>
+</head>
+<body>
+<div class="login-card">
+<div class="logo">T</div>
+<h1>Transport Admin</h1>
+<p>Sign in to manage bookings, drivers and dispatch.</p>
+
+<input type="email" placeholder="Email Address">
+<input type="password" placeholder="Password">
+
+<div class="options">
+<label><input type="checkbox" style="width:auto;"> Remember me</label>
+<a href="#">Forgot password?</a>
+</div>
+
+<button>Login</button>
+
+<p style="text-align:center;margin-top:25px;">
+Version 1.0 • Secure Admin Portal
+</p>
+</div>
+</body>
+</html>

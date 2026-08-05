@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bookings</title>
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+
+<aside class="sidebar">
+<h2>Transport Admin</h2>
+
+<a href="dashboard.html">🏠 Dashboard</a>
+<a class="active" href="bookings.html">📖 Bookings</a>
+<a href="customers.html">👥 Customers</a>
+<a href="drivers.html">🚖 Drivers</a>
+<a href="accounts.html">💷 Finance</a>
+<a href="calendar.html">📅 Calendar</a>
+<a href="reports.html">📊 Reports</a>
+<a href="email-templates.html">📧 Email Templates</a>
+<a href="settings.html">⚙️ Settings</a>
+<hr style="margin:25px 0;border-color:#374151;">
+<a href="login.html">🚪 Logout</a>
+</aside>
+
+<main class="main">
+
+<div class="topbar">
+<h2>Bookings</h2>
+<button>+ New Booking</button>
+</div>
+
+<div class="stats">
+<div class="card blue"><h3>Today's Bookings</h3><div class="stat">24</div></div>
+<div class="card green"><h3>Completed</h3><div class="stat">18</div></div>
+<div class="card orange"><h3>Waiting</h3><div class="stat">4</div></div>
+<div class="card red"><h3>Cancelled</h3><div class="stat">2</div></div>
+</div>
+
+<div class="card">
+<h3>Search & Filters</h3>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:15px;margin-top:20px;">
+<input placeholder="Search customer">
+<input placeholder="Booking ID">
+<input type="date">
+<select>
+<option>All Drivers</option>
+<option>Nick</option>
+<option>Francis</option>
+<option>Christopher</option>
+</select>
+<select>
+<option>All Status</option>
+<option>Waiting</option>
+<option>Assigned</option>
+<option>Completed</option>
+<option>Cancelled</option>
+</select>
+</div>
+
+</div>
+
+<div class="card" style="margin-top:25px;">
+
+<h3>Bookings</h3>
+
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Time</th>
+<th>Customer</th>
+<th>Journey</th>
+<th>Driver</th>
+<th>Price</th>
+<th>Payment</th>
+<th>Status</th>
+<th>Action</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>1001</td>
+<td>08:30</td>
+<td>John Smith</td>
+<td>Cardiff Airport</td>
+<td>Nick</td>
+<td>£120</td>
+<td>Paid</td>
+<td><span style="color:green;">Completed</span></td>
+<td><button>Edit</button></td>
+</tr>
+
+<tr>
+<td>1002</td>
+<td>10:15</td>
+<td>Sarah Jones</td>
+<td>Bristol Airport</td>
+<td>Francis</td>
+<td>£180</td>
+<td>Deposit</td>
+<td><span style="color:orange;">Assigned</span></td>
+<td><button>Edit</button></td>
+</tr>
+
+<tr>
+<td>1003</td>
+<td>13:45</td>
+<td>David Evans</td>
+<td>Heathrow</td>
+<td>-</td>
+<td>£260</td>
+<td>Pending</td>
+<td><span style="color:red;">Waiting</span></td>
+<td><button>Edit</button></td>
+</tr>
+
+</tbody>
+</table>
+
+</div>
+
+</main>
+
+</div>
+
+</body>
+</html>
