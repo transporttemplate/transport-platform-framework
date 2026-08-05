@@ -149,23 +149,48 @@ input,select,textarea{
     margin-top:6px;
     margin-bottom:18px;
 }
-
 @media(max-width:900px){
 
-.admin-layout{
-    grid-template-columns:1fr;
-}
-
-.sidebar{
-    display:none;
-}
-
-.grid-2{
-    grid-template-columns:1fr;
-}
-
-.stats{
-    grid-template-columns:1fr;
-}
-
-}
+    .admin-layout{
+        display:block;
+    }
+    
+    .sidebar{
+        position:fixed;
+        top:0;
+        left:-280px;
+        width:260px;
+        height:100%;
+        z-index:1000;
+        transition:left .3s ease;
+    }
+    
+    .sidebar.open{
+        left:0;
+    }
+    
+    .menu-toggle{
+        display:flex;
+        align-items:center;
+        justify-content:center;
+    }
+    
+    .main{
+        padding:20px;
+    }
+    
+    .grid-2{
+        grid-template-columns:1fr;
+    }
+    
+    .stats{
+        grid-template-columns:1fr;
+    }
+    
+    table{
+        display:block;
+        overflow-x:auto;
+        white-space:nowrap;
+    }
+    
+    }
