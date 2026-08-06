@@ -1,206 +1,136 @@
-/*
-===========================================
-TRANSPORT PLATFORM SETTINGS
-Version: 1.0
-===========================================
-*/
+const db = getSupabase();
 
-window.SETTINGS = {
+function camelToSnake(str) {
+    return str.replace(/[A-Z]/g, letter => "_" + letter.toLowerCase());
+}
 
-        /*
-        ===========================================
-        COMPANY
-        ===========================================
-        */
-    
-        company: {
-            name: "Executive Travel",
-            tradingName: "Executive Travel",
-            website: "https://executivetravel.co.uk",
-            address: "Vale of Glamorgan",
-            companyType: "airport-transfer"
-        },
-    
-        /*
-        ===========================================
-        BRANDING
-        ===========================================
-        */
-    
-        branding: {
-            logo: "assets/logos/logo.png",
-            heroImage: "assets/images/hero.jpg",
-            favicon: "assets/icons/favicon.png",
-    
-            primaryColour: "#d4af37",
-            secondaryColour: "#111111",
-            accentColour: "#ffffff"
-        },
-    
-        /*
-        ===========================================
-        CONTACT
-        ===========================================
-        */
-    
-        contact: {
-            phone: "07791 650156",
-            email: "exectravel1@hotmail.com",
-            whatsapp: "",
-            emergencyPhone: ""
-        },
-    
-        /*
-        ===========================================
-        BUSINESS
-        ===========================================
-        */
-    
-        business: {
-            localWork: false,
-            airportTransfers: true,
-            executiveTravel: true,
-            corporateTravel: true,
-            schoolRuns: false,
-            courierWork: false
-        },
-    
-        /*
-        ===========================================
-        PRICING
-        ===========================================
-        */
-    
-        pricing: {
-            returnDiscount: 10,
-            seasonalIncrease: 0,
-            meetAndGreet: 0,
-            childSeat: 0,
-            boosterSeat: 0,
-            waitingChargePerMinute: 0
-        },
-    
-        /*
-        ===========================================
-        BOOKING
-        ===========================================
-        */
-    
-        booking: {
-            nextBookingNumber: 1000,
-            prefix: "ET",
-            currency: "GBP",
-            currencySymbol: "£"
-        },
-    
-        /*
-        ===========================================
-        AIRPORTS
-        ===========================================
-        */
-    
-        airports: [
-    
-            {
-                id: 1,
-                name: "Cardiff Airport",
-                passengers14: 120,
-                passengers57: 170
-            },
-    
-            {
-                id: 2,
-                name: "Bristol Airport",
-                passengers14: 180,
-                passengers57: 240
-            },
-    
-            {
-                id: 3,
-                name: "Heathrow Airport",
-                passengers14: 260,
-                passengers57: 340
-            },
-    
-            {
-                id: 4,
-                name: "Gatwick Airport",
-                passengers14: 310,
-                passengers57: 390
-            }
-    
-        ],
-    
-        /*
-        ===========================================
-        GOOGLE CALENDAR
-        ===========================================
-        */
-    
-        calendar: {
-            enabled: false,
-            calendarId: "",
-            apiKey: ""
-        },
-    
-        /*
-        ===========================================
-        EMAIL
-        ===========================================
-        */
-    
-        email: {
-            bookings: "exectravel1@hotmail.com",
-            accounts: "",
-            support: ""
-        },
-    
-        /*
-        ===========================================
-        SMS
-        ===========================================
-        */
-    
-        sms: {
-            enabled: false,
-            provider: "",
-            senderId: ""
-        },
-    
-        /*
-        ===========================================
-        DRIVER SETTINGS
-        ===========================================
-        */
-    
-        drivers: {
-            nextDriverNumber: 1,
-            prefix: "DRV",
-            defaultPassword: "ChangeMe123"
-        },
-    
-        /*
-        ===========================================
-        INVOICES
-        ===========================================
-        */
-    
-        invoices: {
-            prefix: "INV",
-            nextInvoiceNumber: 1000
-        },
-    
-        /*
-        ===========================================
-        AVAILABILITY
-        ===========================================
-        */
-    
-        availability: {
-            closed: false,
-            message: "We are currently closed.",
-            closedFrom: "",
-            closedTo: ""
-        }
-    
-    };
+function snakeToCamel(str) {
+    return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    loadSettings();
+
+    const saveButton = document.getElementById("saveSettings");
+
+    if (saveButton) {
+        saveButton.addEventListener("click", saveSettings);
+    }
+
+});
+
+async function loadSettings() {
+
+    try {
+
+        const { data, error } = await db
+            .from("settings")
+            .select("*")
+            .limit(1)
+            .single();
+
+        if (error) {
+
+            console.log("No settings found. Defaults will be used.");
+            return;
+
+        }
+
+        if (!data) return;
+
+        populateForm(data);
+
+    } catch (err) {
+
+        console.error(err);
+
+    }
+
+}
+
+function populateForm(data) {
+
+    Object.keys(data).forEach((dbKey) => {
+
+        const htmlId = snakeToCamel(dbKey);
+
+        const element = document.getElementById(htmlId) ||
+                        document.getElementById(dbKey);
+
+        if (!element) return;
+
+        if (element.type === "checkbox") {
+
+            element.checked = !!data[dbKey];
+
+        } else {
+
+            element.value = data[dbKey] ?? "";
+
+        }
+
+    });
+
+}
+
+async function saveSettings() {
+
+    try {
+
+        const settings = {};
+
+        document.querySelectorAll("input, select, textarea").forEach((element) => {
+
+            if (!element.id) return;
+
+            const dbKey = camelToSnake(element.id);
+
+            if (element.type === "checkbox") {
+
+                settings[dbKey] = element.checked;
+
+            } else {
+
+                settings[dbKey] = element.value;
+
+            }
+
+        });
+
+        const { data: existing } = await db
+            .from("settings")
+            .select("id")
+            .limit(1)
+            .single();
+
+        if (existing) {
+
+            const { error } = await db
+                .from("settings")
+                .update(settings)
+                .eq("id", existing.id);
+
+            if (error) throw error;
+
+        } else {
+
+            const { error } = await db
+                .from("settings")
+                .insert(settings);
+
+            if (error) throw error;
+
+        }
+
+        alert("Settings saved successfully.");
+
+    } catch (err) {
+
+        console.error(err);
+
+        alert("Unable to save settings.");
+
+    }
+
+}
