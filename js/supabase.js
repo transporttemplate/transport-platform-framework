@@ -35,26 +35,10 @@ function getSupabase() {
     return supabaseClient;
 }
 
-// Test connection
-async function testConnection() {
-
-    const db = getSupabase();
-
-    if (!db) return;
-
-    const { error } = await db
-        .from("companies")
-        .select("*")
-        .limit(1);
-
-    if (error) {
-        console.error("❌ Connection Failed:", error.message);
-    } else {
-        console.log("✅ Database Connected");
-    }
-}
-
 document.addEventListener("DOMContentLoaded", async () => {
     initSupabase();
-    await testConnection();
+   
 });
+
+window.initSupabase = initSupabase;
+window.getSupabase = getSupabase;
