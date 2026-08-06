@@ -11,8 +11,36 @@ function generateBookingReference() {
 
     return `BK${year}${month}${day}-${random}`;
 }
+async function loadAirports() {
 
+    const airportSelect = document.getElementById("airportSelect");
+
+    if (!airportSelect) return;
+
+    const { data, error } = await db
+        .from("airports")
+        .select("*")
+        .order("name");
+
+    if (error) {
+        console.error(error);
+        return;
+    }
+
+    airportSelect.innerHTML = '<option value="">Select Airport</option>';
+
+    data.forEach((airport) => {
+        airportSelect.innerHTML += `
+            <option value="${airport.name}">
+                ${airport.name} (£${airport.fixed_price})
+            </option>
+        `;
+    });
+
+}
 document.addEventListener("DOMContentLoaded", () => {
+
+    loadAirports();
 
     const form = document.getElementById("bookingForm");
 
