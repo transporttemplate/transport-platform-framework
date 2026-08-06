@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Dashboard</title>
 
 <link rel="stylesheet" href="css/admin.css">
 
 </head>
+
 <body>
 
-<!-- Mobile Overlay -->
 <div class="overlay" id="overlay"></div>
 
 <div class="admin-layout">
@@ -42,12 +44,8 @@
 
 <div class="topbar-left">
 
-<button
-class="menu-toggle"
-id="menuToggle">
-
+<button class="menu-toggle" id="menuToggle">
 ☰
-
 </button>
 
 <h2>Dashboard</h2>
@@ -118,10 +116,12 @@ id="menuToggle">
 <thead>
 
 <tr>
+
 <th>Time</th>
 <th>Customer</th>
 <th>Journey</th>
 <th>Status</th>
+
 </tr>
 
 </thead>
@@ -129,24 +129,11 @@ id="menuToggle">
 <tbody id="upcomingBookings">
 
 <tr>
-<td>08:30</td>
-<td>Example</td>
-<td>Cardiff Airport</td>
-<td>Pending</td>
-</tr>
 
-<tr>
-<td>10:15</td>
-<td>Example</td>
-<td>Bristol Airport</td>
-<td>Assigned</td>
-</tr>
+<td colspan="4" style="text-align:center;">
+Loading...
+</td>
 
-<tr>
-<td>13:45</td>
-<td>Example</td>
-<td>Heathrow Airport</td>
-<td>Confirmed</td>
 </tr>
 
 </tbody>
@@ -181,7 +168,7 @@ id="menuToggle">
 
 <h3>Recent Activity</h3>
 
-<ul id="recentActivity">
+<ul>
 
 <li>✅ Booking Created</li>
 <li>🚖 Driver Assigned</li>
