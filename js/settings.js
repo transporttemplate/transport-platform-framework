@@ -21,7 +21,7 @@ const fieldMap = {
     holidayFrom: "holidayfrom",
     holidayTo: "holidayto",
     websiteNotice: "websitenotice",
-    acceptAdvanceBookings: "acceptadvancebookings",
+    acceptAdvanceBookings: "accept_advance_bookings",
 
     emergencyPhone: "emergencyphone",
     officeEmail: "officeemail",
