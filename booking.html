@@ -1,148 +1,291 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Book Your Transfer</title>
+
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/booking.css">
+
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="js/supabase.js"></script>
 <script defer src="js/settings.js"></script>
 <script defer src="js/booking.js"></script>
+
 </head>
+
 <body>
 
 <header>
+
 <div class="container">
+
 <div class="logo-area">
+
 <img id="companyLogo" src="assets/logos/logo.png" height="55" alt="Logo">
+
 <div>
+
 <h1 id="companyName">Company Name</h1>
 <small id="companyPhone">Phone Number</small>
+
 </div>
+
 </div>
+
 <nav>
+
 <a href="index.html">Home</a>
 <a href="airports.html">Airports</a>
 <a href="booking.html">Booking</a>
 <a href="contact.html">Contact</a>
+
 </nav>
+
 </div>
+
 </header>
 
 <section class="hero">
+
 <div class="container">
+
 <h2>Book Your Transfer</h2>
+
 <p>Select how you would like your journey priced.</p>
+
 </div>
+
 </section>
 
 <section>
+
 <div class="container airport-grid">
 
 <div class="airport-card">
-<h3>✈️ Airport Fixed Price</h3>
+
+<h3>✈ Airport Fixed Price</h3>
+
 <p>For journeys from your company's fixed-price service areas.</p>
-<button class="book-btn" id="fixedBtn">Airport Fixed Price</button>
+
+<button class="book-btn" id="fixedBtn" type="button">
+
+Airport Fixed Price
+
+</button>
+
 </div>
 
 <div class="airport-card">
+
 <h3>📍 Distance Price Calculator</h3>
+
 <p>Travelling from outside the service area? Calculate your fare instantly.</p>
-<button class="book-btn" id="calcBtn">Distance Calculator</button>
+
+<button class="book-btn" id="calcBtn" type="button">
+
+Distance Calculator
+
+</button>
+
 </div>
 
 </div>
+
 </section>
 
 <section>
+
 <div class="container">
+
 <div class="booking-card">
 
 <h2>Booking Form</h2>
 
-<form>
+<form id="bookingForm">
 
 <label>Journey Type</label>
-<select>
-<option>Pickup from Address</option>
-<option>Pickup from Airport</option>
+
+<select id="journeyType">
+
+<option value="address">Pickup from Address</option>
+<option value="airport">Pickup from Airport</option>
+
 </select>
 
 <label>Pickup Address</label>
-<input type="text" placeholder="Enter pickup address">
+
+<input
+id="pickupAddress"
+type="text"
+placeholder="Enter pickup address">
 
 <label>Drop-off Address</label>
-<input type="text" placeholder="Enter destination">
+
+<input
+id="dropoffAddress"
+type="text"
+placeholder="Enter destination">
 
 <label>Airport</label>
+
 <select id="airportSelect">
-<option>Select Airport</option>
+
+<option value="">Select Airport</option>
+
 </select>
 
 <label>Flight Number</label>
-<input type="text" placeholder="Flight Number">
+
+<input
+id="flightNumber"
+type="text"
+placeholder="Flight Number">
 
 <label>Date</label>
-<input type="date">
+
+<input
+id="journeyDate"
+type="date">
 
 <label>Time</label>
-<input type="time">
+
+<input
+id="journeyTime"
+type="time">
 
 <label>Full Name</label>
-<input type="text">
+
+<input
+id="customerName"
+type="text">
 
 <label>Email Address</label>
-<input type="email">
+
+<input
+id="customerEmail"
+type="email">
 
 <label>Mobile Number</label>
-<input type="tel">
+
+<input
+id="customerPhone"
+type="tel">
 
 <label>Passengers</label>
-<input type="number" min="1" value="1">
+
+<input
+id="passengers"
+type="number"
+min="1"
+value="1">
 
 <label>Suitcases</label>
-<input type="number" min="0" value="0">
+
+<input
+id="suitcases"
+type="number"
+min="0"
+value="0">
 
 <label>Hand Luggage</label>
-<input type="number" min="0" value="0">
+
+<input
+id="handLuggage"
+type="number"
+min="0"
+value="0">
 
 <label>Notes</label>
-<textarea rows="5"></textarea>
+
+<textarea
+id="notes"
+rows="5"></textarea>
 
 <label>Payment Method</label>
-<select>
-<option>Pay Now</option>
-<option>Pay in Car</option>
+
+<select id="paymentMethod">
+
+<option value="Pay Now">Pay Now</option>
+<option value="Pay in Car">Pay in Car</option>
+
 </select>
 
-<div class="price-box">
+<div
+class="price-box"
+id="bookingSummary">
+
 <h3>Booking Summary</h3>
-<p>Journey details and total price will appear here.</p>
+
+<p>
+
+Journey details and total price will appear here.
+
+</p>
+
 </div>
 
-<button class="book-btn" type="submit">Confirm Booking</button>
+<button
+class="book-btn"
+type="submit">
+
+Confirm Booking
+
+</button>
 
 </form>
 
 <hr>
 
-<p><strong>Booking Information</strong></p>
+<p>
+
+<strong>Booking Information</strong>
+
+</p>
+
 <ul>
+
 <li>Airport collections may require full payment in advance.</li>
+
 <li>We may contact you to request a deposit before confirming your booking.</li>
+
 <li>Prices are based on the details provided at the time of booking.</li>
+
 <li>Changes after confirmation may affect the final fare.</li>
+
 </ul>
 
 </div>
+
 </div>
+
 </section>
 
 <footer>
+
 <div class="container">
-<p>&copy; 2026 <span id="footerCompany">Company Name</span>. All rights reserved.</p>
+
+<p>
+
+&copy; 2026
+
+<span id="footerCompany">
+
+Company Name
+
+</span>
+
+All rights reserved.
+
+</p>
+
 </div>
+
 </footer>
 
 </body>
+
 </html>
