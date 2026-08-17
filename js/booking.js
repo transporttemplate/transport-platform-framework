@@ -227,3 +227,55 @@ async function saveBooking(e) {
 }
 
 }
+function initGoogleAutocomplete() {
+
+        const pickupInput = document.getElementById("pickupAddress");
+        const dropoffInput = document.getElementById("dropoffAddress");
+    
+        if (!window.google || !google.maps || !google.maps.places) {
+            console.error("Google Maps Places API has not loaded.");
+            return;
+        }
+    
+        const options = {
+            componentRestrictions: { country: "gb" },
+            fields: ["formatted_address", "geometry", "name"]
+        };
+    
+        if (pickupInput) {
+            const pickupAutocomplete =
+                new google.maps.places.Autocomplete(pickupInput, options);
+    
+            pickupAutocomplete.addListener("place_changed", () => {
+    
+                const place = pickupAutocomplete.getPlace();
+    
+                if (place.formatted_address) {
+                    pickupInput.value = place.formatted_address;
+                }
+    
+            });
+        }
+    
+        if (dropoffInput) {
+            const dropoffAutocomplete =
+                new google.maps.places.Autocomplete(dropoffInput, options);
+    
+            dropoffAutocomplete.addListener("place_changed", () => {
+    
+                const place = dropoffAutocomplete.getPlace();
+    
+                if (place.formatted_address) {
+                    dropoffInput.value = place.formatted_address;
+                }
+    
+            });
+        }
+    
+    }
+    
+    window.addEventListener("load", () => {
+    
+        setTimeout(initGoogleAutocomplete, 500);
+    
+    });
