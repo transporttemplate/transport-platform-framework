@@ -227,55 +227,85 @@ async function saveBooking(e) {
 }
 
 }
-function initGoogleAutocomplete() {
-
-        const pickupInput = document.getElementById("pickupAddress");
-        const dropoffInput = document.getElementById("dropoffAddress");
+async function initGoogleAutocomplete() {
+        try {
+            const { PlaceAutocompleteElement } =
+                await google.maps.importLibrary("places");
     
-        if (!window.google || !google.maps || !google.maps.places) {
-            console.error("Google Maps Places API has not loaded.");
-            return;
+            const pickupInput = document.getElementById("pickupAddress");
+            const dropoffInput = document.getElementById("dropoffAddress");
+    
+            if (pickupInput) {
+                const pickupAutocomplete = new PlaceAutocompleteElement({
+                    includedRegionCodes: ["gb"]
+                });
+    
+                pickupAutocomplete.placeholder = "Enter pickup address";
+                pickupAutocomplete.id = "pickupAutocomplete";
+    
+                pickupInput.style.display = "none";
+                pickupInput.parentNode.insertBefore(
+                    pickupAutocomplete,
+                    pickupInput.nextSibling
+                );
+    
+                pickupAutocomplete.addEventListener("gmp-select", async (event) => {
+                    const place = event.placePrediction.toPlace();
+    
+                    await place.fetchFields({
+                        fields: ["formattedAddress", "location"]
+                    });
+    
+                    pickupInput.value = place.formattedAddress || "";
+    
+                    pickupInput.dataset.lat = place.location?.lat() ?? "";
+                    pickupInput.dataset.lng = place.location?.lng() ?? "";
+    
+                    pickupInput.dispatchEvent(new Event("change", {
+                        bubbles: true
+                    }));
+                });
+            }
+    
+            if (dropoffInput) {
+                const dropoffAutocomplete = new PlaceAutocompleteElement({
+                    includedRegionCodes: ["gb"]
+                });
+    
+                dropoffAutocomplete.placeholder = "Enter destination";
+                dropoffAutocomplete.id = "dropoffAutocomplete";
+    
+                dropoffInput.style.display = "none";
+                dropoffInput.parentNode.insertBefore(
+                    dropoffAutocomplete,
+                    dropoffInput.nextSibling
+                );
+    
+                dropoffAutocomplete.addEventListener("gmp-select", async (event) => {
+                    const place = event.placePrediction.toPlace();
+    
+                    await place.fetchFields({
+                        fields: ["formattedAddress", "location"]
+                    });
+    
+                    dropoffInput.value = place.formattedAddress || "";
+    
+                    dropoffInput.dataset.lat = place.location?.lat() ?? "";
+                    dropoffInput.dataset.lng = place.location?.lng() ?? "";
+    
+                    dropoffInput.dispatchEvent(new Event("change", {
+                        bubbles: true
+                    }));
+                });
+            }
+    
+            console.log("Google Places autocomplete loaded");
+    
+        } catch (error) {
+            console.error("Google autocomplete error:", error);
         }
-    
-        const options = {
-            componentRestrictions: { country: "gb" },
-            fields: ["formatted_address", "geometry", "name"]
-        };
-    
-        if (pickupInput) {
-            const pickupAutocomplete =
-                new google.maps.places.Autocomplete(pickupInput, options);
-    
-            pickupAutocomplete.addListener("place_changed", () => {
-    
-                const place = pickupAutocomplete.getPlace();
-    
-                if (place.formatted_address) {
-                    pickupInput.value = place.formatted_address;
-                }
-    
-            });
-        }
-    
-        if (dropoffInput) {
-            const dropoffAutocomplete =
-                new google.maps.places.Autocomplete(dropoffInput, options);
-    
-            dropoffAutocomplete.addListener("place_changed", () => {
-    
-                const place = dropoffAutocomplete.getPlace();
-    
-                if (place.formatted_address) {
-                    dropoffInput.value = place.formatted_address;
-                }
-    
-            });
-        }
-    
     }
     
     window.addEventListener("load", () => {
-    
-        setTimeout(initGoogleAutocomplete, 500);
-    
+        initGoogleAutocomplete();
     });
