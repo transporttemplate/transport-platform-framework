@@ -1,4 +1,4 @@
-const db = getSupabase();
+const bookingdb = getSupabase();
 
 function generateBookingReference() {
     const now = new Date();
@@ -17,7 +17,7 @@ async function loadAirports() {
 
     if (!airportSelect) return;
 
-    const { data, error } = await db
+    const { data, error } = await bookingdb
         .from("airports")
         .select("*")
         .order("name");
@@ -112,7 +112,7 @@ async function saveBooking(e) {
     try {
 
         let customerId = null;
-        const { data: existingCustomer } = await db
+        const { data: existingCustomer } = await bookingdb
         .from("customers")
         .select("id")
         .eq("phone", booking.phone)
@@ -124,7 +124,7 @@ async function saveBooking(e) {
 
     } else {
 
-        const { data: newCustomer, error: customerError } = await db
+        const { data: newCustomer, error: customerError } = await bookingdb
 
             .from("customers")
 
@@ -148,7 +148,7 @@ async function saveBooking(e) {
 
     }
 
-    const { error } = await db
+    const { error } = await bookingdb
 
         .from("bookings")
 
