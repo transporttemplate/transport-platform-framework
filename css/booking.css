@@ -1,1 +1,326 @@
-/* placeholder */
+.booking-page {
+    padding: 20px 0 60px
+}
+
+.booking-hero {
+    text-align: center;
+    padding: 32px 0 15px
+}
+
+.booking-shell {
+    max-width: 940px;
+    margin: auto
+}
+
+.booking-progress {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 18px;
+    overflow: auto
+}
+
+.progress-step {
+    border: 0;
+    background: transparent;
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    color: #777
+}
+
+.progress-step span {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: #ddd;
+    font-weight: 800
+}
+
+.progress-step.active span,
+.progress-step.done span {
+    background: #334155;
+    color: white
+}
+
+.progress-line {
+    height: 2px;
+    width: 40px;
+    background: #ddd
+}
+
+.booking-step {
+    display: none;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .08)
+}
+
+.booking-step.active {
+    display: block
+}
+
+.step-heading {
+    margin-bottom: 18px
+}
+
+.step-heading h2 {
+    margin: 3px 0
+}
+
+.step-heading p {
+    color: #667085
+}
+
+.eyebrow {
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: 800
+}
+
+.journey-choice-grid,
+.vehicle-grid,
+.field-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px
+}
+
+.journey-choice,
+.vehicle-card {
+    border: 2px solid #d7dce2;
+    background: white;
+    border-radius: 12px;
+    padding: 15px;
+    text-align: left;
+    cursor: pointer
+}
+
+.journey-choice.active,
+.vehicle-card.active {
+    border-color: #334155;
+    box-shadow: 0 0 0 3px rgba(51, 65, 85, .08)
+}
+
+.journey-choice {
+    display: grid;
+    grid-template-columns: 42px 1fr
+}
+
+.journey-choice small {
+    grid-column: 2;
+    color: #667085
+}
+
+.choice-icon {
+    font-size: 26px
+}
+
+.field {
+    min-width: 0
+}
+
+.field.full {
+    grid-column: 1/-1
+}
+
+.field label {
+    display: block;
+    font-weight: 700;
+    margin: 8px 0 6px
+}
+
+.field input,
+.field select,
+.field textarea,
+gmp-place-autocomplete {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 49px;
+    border: 1px solid #ccd3db;
+    border-radius: 9px;
+    background: #fff;
+    font-size: 16px
+}
+
+.field input,
+.field select,
+.field textarea {
+    padding: 11px
+}
+
+.field-hint {
+    display: block;
+    color: #667085;
+    margin-top: 5px
+}
+
+.hidden {
+    display: none !important
+}
+
+.return-card {
+    display: flex;
+    gap: 10px;
+    margin: 15px 0;
+    padding: 13px;
+    border: 1px solid #ddd;
+    border-radius: 10px
+}
+
+.return-card span {
+    display: grid
+}
+
+.route-card {
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 18px
+}
+
+.route-map {
+    height: 280px;
+    background: #e5e7eb
+}
+
+.route-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr)
+}
+
+.route-stats div {
+    text-align: center;
+    padding: 12px
+}
+
+.route-stats small {
+    display: block;
+    color: #667085
+}
+
+.vehicle-card {
+    display: grid;
+    grid-template-columns: 70px 1fr auto;
+    align-items: center;
+    gap: 10px
+}
+
+.vehicle-card.disabled {
+    opacity: .4;
+    pointer-events: none
+}
+
+.vehicle-art {
+    height: 55px;
+    border-radius: 9px;
+    background: #334155;
+    color: white;
+    display: grid;
+    place-items: center;
+    font-weight: 900
+}
+
+.vehicle-copy {
+    display: grid
+}
+
+.vehicle-copy span {
+    color: #667085
+}
+
+.vehicle-price {
+    font-size: 21px;
+    font-weight: 900
+}
+
+.notice-box {
+    margin-top: 14px;
+    padding: 12px;
+    background: #f7f8fa;
+    border: 1px solid #ddd;
+    border-radius: 9px
+}
+
+.step-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 20px
+}
+
+.primary-btn,
+.secondary-btn {
+    border-radius: 9px;
+    padding: 12px 18px;
+    font-weight: 800;
+    font-size: 15px;
+    cursor: pointer
+}
+
+.primary-btn {
+    background: #334155;
+    color: white;
+    border: 0
+}
+
+.secondary-btn {
+    background: white;
+    border: 1px solid #ccd3db
+}
+
+.review-card {
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    overflow: hidden
+}
+
+.review-row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 10px;
+    padding: 11px;
+    border-bottom: 1px solid #eee
+}
+
+.review-row span {
+    color: #667085
+}
+
+.final-price-card {
+    background: #1f2937;
+    color: white;
+    padding: 18px;
+    border-radius: 12px;
+    margin-top: 14px
+}
+
+.final-price-card strong {
+    display: block;
+    font-size: 34px;
+    margin: 5px 0
+}
+
+@media(min-width:700px) {
+
+    .journey-choice-grid,
+    .vehicle-grid {
+        grid-template-columns: 1fr 1fr
+    }
+
+    .field-grid {
+        grid-template-columns: 1fr 1fr
+    }
+
+    .field-grid.three {
+        grid-template-columns: repeat(3, 1fr)
+    }
+
+    .booking-step {
+        padding: 28px
+    }
+}
