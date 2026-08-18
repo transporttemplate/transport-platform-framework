@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Integrations</title>
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+<div class="overlay" id="overlay"></div>
+<div class="admin-layout">
+
+<aside class="sidebar" id="sidebar">
+<h2>Transport Admin</h2>
+<a href="dashboard.html">🏠 Dashboard</a>
+<a href="bookings.html">📖 Bookings</a>
+<a href="customers.html">👥 Customers</a>
+<a href="drivers.html">🚖 Drivers</a>
+<a href="availability.html">🟢 Availability</a>
+<a href="accounts.html">💷 Finance</a>
+<a href="calendar.html">📅 Calendar</a>
+<a href="reports.html">📊 Reports</a>
+<a href="email-templates.html">📧 Email Templates</a>
+<a class="active" href="settings.html">⚙️ Settings</a>
+<hr style="margin:25px 0;border-color:#374151;">
+<a href="login.html">🚪 Logout</a>
+</aside>
+
+<main class="main">
+<div class="topbar">
+<div class="topbar-left">
+<button class="menu-toggle" id="menuToggle" type="button">☰</button>
+<div><h2>Integrations</h2><small>Google and platform integrations</small></div>
+</div>
+<button id="saveSettings" type="button">💾 Save Changes</button>
+</div>
+<div style="margin-bottom:20px;"><a href="settings.html">← Back to Settings</a></div>
+
+<div class="card"><h3>🔌 API Keys & Integrations</h3>
+<p>These fields are kept compatible with your existing settings table for now.</p>
+<label>Google Maps API Key</label><input id="googleMapsApi" type="text">
+<label>Google Places API</label><input id="googlePlacesApi" type="text">
+<label>Google Routes API</label><input id="googleRoutesApi" type="text">
+<label>Google Calendar ID</label><input id="googleCalendarId" type="text">
+<label>Supabase URL</label><input id="supabaseUrl" type="text">
+<label>Supabase Anon Key</label><input id="supabaseAnonKey" type="text">
+</div>
+
+</main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/settings.js"></script>
+
+</body>
+</html>

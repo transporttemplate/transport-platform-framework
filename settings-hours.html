@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hours & Status</title>
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+<div class="overlay" id="overlay"></div>
+<div class="admin-layout">
+
+<aside class="sidebar" id="sidebar">
+<h2>Transport Admin</h2>
+<a href="dashboard.html">🏠 Dashboard</a>
+<a href="bookings.html">📖 Bookings</a>
+<a href="customers.html">👥 Customers</a>
+<a href="drivers.html">🚖 Drivers</a>
+<a href="availability.html">🟢 Availability</a>
+<a href="accounts.html">💷 Finance</a>
+<a href="calendar.html">📅 Calendar</a>
+<a href="reports.html">📊 Reports</a>
+<a href="email-templates.html">📧 Email Templates</a>
+<a class="active" href="settings.html">⚙️ Settings</a>
+<hr style="margin:25px 0;border-color:#374151;">
+<a href="login.html">🚪 Logout</a>
+</aside>
+
+<main class="main">
+<div class="topbar">
+<div class="topbar-left">
+<button class="menu-toggle" id="menuToggle" type="button">☰</button>
+<div><h2>Hours & Status</h2><small>Opening hours, closures and booking availability</small></div>
+</div>
+<button id="saveSettings" type="button">💾 Save Changes</button>
+</div>
+<div style="margin-bottom:20px;"><a href="settings.html">← Back to Settings</a></div>
+
+<div class="card"><h3>🟢 Business Status</h3><div class="grid-2"><div>
+<label>Business Status</label><select id="businessStatus"><option value="open">🟢 Open for Bookings</option><option value="closed">🔴 Closed</option><option value="holiday">🌴 Holiday Mode</option><option value="emergency">⚠️ Emergency Closure</option></select>
+<label>Holiday From</label><input id="holidayFrom" type="date"><label>Holiday To</label><input id="holidayTo" type="date">
+<label>Website Notice</label><textarea id="websiteNotice" rows="4"></textarea>
+<label><input id="acceptAdvanceBookings" type="checkbox" style="width:auto;"> Accept advance bookings while closed</label>
+</div><div>
+<label>Emergency Contact Number</label><input id="emergencyPhone" type="tel">
+<label>Office Email</label><input id="officeEmail" type="email">
+<label>Out of Hours Message</label><textarea id="closedMessage" rows="4"></textarea>
+<label>Maximum Advance Booking (Days)</label><input id="maxAdvanceDays" type="number" value="365">
+<label>Minimum Notice (Minutes)</label><input id="minimumNotice" type="number" value="30">
+</div></div></div>
+<div class="card" style="margin-top:25px;"><h3>🕒 Weekly Opening Hours</h3>
+<table class="settings-table"><thead><tr><th>Day</th><th>Open</th><th>Close</th><th>Accept Bookings</th></tr></thead><tbody><tr><td>Monday</td><td><input id="monOpen" type="time" value="06:00"></td><td><input id="monClose" type="time" value="22:00"></td><td><input id="monEnabled" type="checkbox" checked></td></tr><tr><td>Tuesday</td><td><input id="tueOpen" type="time" value="06:00"></td><td><input id="tueClose" type="time" value="22:00"></td><td><input id="tueEnabled" type="checkbox" checked></td></tr><tr><td>Wednesday</td><td><input id="wedOpen" type="time" value="06:00"></td><td><input id="wedClose" type="time" value="22:00"></td><td><input id="wedEnabled" type="checkbox" checked></td></tr><tr><td>Thursday</td><td><input id="thuOpen" type="time" value="06:00"></td><td><input id="thuClose" type="time" value="22:00"></td><td><input id="thuEnabled" type="checkbox" checked></td></tr><tr><td>Friday</td><td><input id="friOpen" type="time" value="06:00"></td><td><input id="friClose" type="time" value="23:59"></td><td><input id="friEnabled" type="checkbox" checked></td></tr><tr><td>Saturday</td><td><input id="satOpen" type="time" value="07:00"></td><td><input id="satClose" type="time" value="02:00"></td><td><input id="satEnabled" type="checkbox" checked></td></tr><tr><td>Sunday</td><td><input id="sunOpen" type="time" value="08:00"></td><td><input id="sunClose" type="time" value="20:00"></td><td><input id="sunEnabled" type="checkbox" checked></td></tr></tbody></table></div>
+
+</main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/settings.js"></script>
+
+</body>
+</html>

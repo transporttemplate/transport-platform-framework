@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Booking Rules</title>
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+<div class="overlay" id="overlay"></div>
+<div class="admin-layout">
+
+<aside class="sidebar" id="sidebar">
+<h2>Transport Admin</h2>
+<a href="dashboard.html">🏠 Dashboard</a>
+<a href="bookings.html">📖 Bookings</a>
+<a href="customers.html">👥 Customers</a>
+<a href="drivers.html">🚖 Drivers</a>
+<a href="availability.html">🟢 Availability</a>
+<a href="accounts.html">💷 Finance</a>
+<a href="calendar.html">📅 Calendar</a>
+<a href="reports.html">📊 Reports</a>
+<a href="email-templates.html">📧 Email Templates</a>
+<a class="active" href="settings.html">⚙️ Settings</a>
+<hr style="margin:25px 0;border-color:#374151;">
+<a href="login.html">🚪 Logout</a>
+</aside>
+
+<main class="main">
+<div class="topbar">
+<div class="topbar-left">
+<button class="menu-toggle" id="menuToggle" type="button">☰</button>
+<div><h2>Booking Rules</h2><small>Control how bookings are accepted and managed</small></div>
+</div>
+<button id="saveSettings" type="button">💾 Save Changes</button>
+</div>
+<div style="margin-bottom:20px;"><a href="settings.html">← Back to Settings</a></div>
+
+<div class="card"><h3>📋 Booking Rules</h3>
+<div class="grid-2"><div><label>Deposit Percent (%)</label><input id="depositPercent" type="number"></div></div>
+<table class="settings-table"><thead><tr><th>Setting</th><th>Enabled</th></tr></thead><tbody><tr><td>Require Deposit</td><td><input id="requireDeposit" type="checkbox"></td></tr><tr><td>Require Deposit for Airport Jobs</td><td><input id="airportDepositRequired" type="checkbox"></td></tr><tr><td>Auto Confirm Bookings</td><td><input id="autoConfirm" type="checkbox"></td></tr><tr><td>Auto Assign Driver</td><td><input id="autoAssign" type="checkbox"></td></tr><tr><td>Allow Cash Payments</td><td><input id="allowCash" type="checkbox"></td></tr><tr><td>Allow Card Payments</td><td><input id="allowCard" type="checkbox"></td></tr><tr><td>Allow Account Customers</td><td><input id="allowAccounts" type="checkbox"></td></tr><tr><td>Enable Airport Fixed Pricing</td><td><input id="airportPricing" type="checkbox"></td></tr><tr><td>Enable Distance Calculator</td><td><input id="distanceCalculator" type="checkbox"></td></tr><tr><td>Allow Return Bookings</td><td><input id="returnBookings" type="checkbox"></td></tr><tr><td>Allow Multiple Stops</td><td><input id="multipleStops" type="checkbox"></td></tr><tr><td>Driver Can Reject Jobs</td><td><input id="driverReject" type="checkbox"></td></tr><tr><td>Customer Can Cancel Booking</td><td><input id="customerCancel" type="checkbox"></td></tr><tr><td>Enable Promo Codes</td><td><input id="promoCodes" type="checkbox"></td></tr><tr><td>Google Reviews After Journey</td><td><input id="googleReviews" type="checkbox"></td></tr><tr><td>Email Notifications</td><td><input id="emailNotifications" type="checkbox"></td></tr><tr><td>SMS Notifications</td><td><input id="smsNotifications" type="checkbox"></td></tr><tr><td>Accept Bookings While Closed</td><td><input id="bookWhileClosed" type="checkbox"></td></tr><tr><td>Automatically Email Receipts</td><td><input id="emailReceipts" type="checkbox"></td></tr><tr><td>Automatically Send Driver Job Sheet</td><td><input id="driverJobsheet" type="checkbox"></td></tr></tbody></table></div>
+
+</main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/settings.js"></script>
+
+</body>
+</html>

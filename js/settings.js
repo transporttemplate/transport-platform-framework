@@ -129,10 +129,29 @@ const fieldMap = {
     currencySymbol: "currencysymbol"
 };
 
+
+// ========================================
+// PAGE START
+// ========================================
+
 document.addEventListener("DOMContentLoaded", () => {
+
+    // Load any settings fields that exist on this page
     loadSettings();
-    document.getElementById("saveSettings").addEventListener("click", saveSettings);
+
+    // Only connect the Save button if this page has one
+    const saveButton = document.getElementById("saveSettings");
+
+    if (saveButton) {
+        saveButton.addEventListener("click", saveSettings);
+    }
+
 });
+
+
+// ========================================
+// LOAD SETTINGS FROM SUPABASE
+// ========================================
 
 async function loadSettings() {
 
@@ -143,7 +162,7 @@ async function loadSettings() {
         .maybeSingle();
 
     if (error) {
-        console.error(error);
+        console.error("Error loading settings:", error);
         return;
     }
 
@@ -153,17 +172,35 @@ async function loadSettings() {
 
         const el = document.getElementById(htmlId);
 
+        // Important for separate settings pages:
+        // ignore fields that aren't on the current page.
         if (!el) return;
 
         if (el.type === "checkbox") {
+
             el.checked = !!data[dbColumn];
+
+        } else if (el.type === "file") {
+
+            // File inputs cannot be populated automatically.
+            // Logo upload will be handled separately later.
+
+            return;
+
         } else {
+
             el.value = data[dbColumn] ?? "";
+
         }
 
     });
 
 }
+
+
+// ========================================
+// SAVE SETTINGS TO SUPABASE
+// ========================================
 
 async function saveSettings() {
 
@@ -173,21 +210,39 @@ async function saveSettings() {
 
         const el = document.getElementById(htmlId);
 
+        // Ignore fields that aren't on the current settings page
         if (!el) return;
 
+        // File uploads need separate handling.
+        if (el.type === "file") return;
+
         if (el.type === "checkbox") {
+
             settings[dbColumn] = el.checked;
+
         } else if (el.type === "date") {
+
             settings[dbColumn] = el.value || null;
+
         } else if (el.type === "time") {
+
             settings[dbColumn] = el.value || null;
+
         } else if (el.type === "number") {
-            settings[dbColumn] = el.value === "" ? null : Number(el.value);
+
+            settings[dbColumn] =
+                el.value === "" ? null : Number(el.value);
+
         } else {
+
             settings[dbColumn] = el.value;
+
         }
 
     });
+
+
+    // Find the existing settings row
 
     const { data: existing, error: existingError } = await db
         .from("settings")
@@ -195,13 +250,26 @@ async function saveSettings() {
         .limit(1)
         .maybeSingle();
 
+
     if (existingError) {
-        console.error(existingError);
+
+        console.error(
+            "Error finding settings:",
+            existingError
+        );
+
         alert(existingError.message);
+
         return;
     }
 
+
     let result;
+
+
+    // ========================================
+    // UPDATE EXISTING SETTINGS
+    // ========================================
 
     if (existing) {
 
@@ -210,7 +278,14 @@ async function saveSettings() {
             .update(settings)
             .eq("id", existing.id);
 
-    } else {
+    }
+
+
+    // ========================================
+    // CREATE SETTINGS IF NONE EXIST
+    // ========================================
+
+    else {
 
         result = await db
             .from("settings")
@@ -218,11 +293,27 @@ async function saveSettings() {
 
     }
 
+
+    // ========================================
+    // ERROR
+    // ========================================
+
     if (result.error) {
-        console.error(result.error);
+
+        console.error(
+            "Error saving settings:",
+            result.error
+        );
+
         alert(result.error.message);
+
         return;
     }
+
+
+    // ========================================
+    // SUCCESS
+    // ========================================
 
     alert("Settings saved successfully.");
 

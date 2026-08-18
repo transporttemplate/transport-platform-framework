@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Airports & Areas</title>
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<div class="overlay" id="overlay"></div>
+
+<div class="admin-layout">
+
+<aside class="sidebar" id="sidebar">
+    <h2>Transport Admin</h2>
+
+    <a href="dashboard.html">🏠 Dashboard</a>
+    <a href="bookings.html">📖 Bookings</a>
+    <a href="customers.html">👥 Customers</a>
+    <a href="drivers.html">🚖 Drivers</a>
+    <a href="availability.html">🟢 Availability</a>
+    <a href="accounts.html">💷 Finance</a>
+    <a href="calendar.html">📅 Calendar</a>
+    <a href="reports.html">📊 Reports</a>
+    <a href="email-templates.html">📧 Email Templates</a>
+    <a class="active" href="settings.html">⚙️ Settings</a>
+
+    <hr style="margin:25px 0;border-color:#374151;">
+
+    <a href="login.html">🚪 Logout</a>
+</aside>
+
+<main class="main">
+
+    <div class="topbar">
+        <div class="topbar-left">
+            <button class="menu-toggle" id="menuToggle" type="button">☰</button>
+
+            <div>
+                <h2>Airports & Areas</h2>
+                <small>Manage fixed airport fares and qualifying service areas</small>
+            </div>
+        </div>
+    </div>
+
+    <div style="margin-bottom:20px;">
+        <a href="settings.html">← Back to Settings</a>
+    </div>
+
+    <div class="card">
+        <h3>✈️ Airport Fixed Prices</h3>
+
+        <p>
+            Set separate one-way and return prices for 1–4 and 5–7 passengers.
+            These prices can later be used directly by the public booking form.
+        </p>
+
+        <div style="overflow-x:auto;">
+            <table class="settings-table">
+                <thead>
+                    <tr>
+                        <th>Active</th>
+                        <th>Airport</th>
+                        <th>Code</th>
+                        <th>1–4 One Way</th>
+                        <th>1–4 Return</th>
+                        <th>5–7 One Way</th>
+                        <th>5–7 Return</th>
+                        <th>Deposit %</th>
+                        <th>Sort</th>
+                        <th>Delete</th>
+                    </tr>
+                </thead>
+
+                <tbody id="airportTable"></tbody>
+            </table>
+        </div>
+
+        <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;">
+            <button id="addAirport" type="button">➕ Add Airport</button>
+            <button id="saveAirports" type="button">💾 Save Airport Prices</button>
+        </div>
+    </div>
+
+    <div class="card" style="margin-top:25px;">
+        <h3>📍 Fixed Price Service Areas</h3>
+
+        <p>
+            These areas determine where fixed airport prices apply.
+            We can extend this later with Google boundary or postcode logic.
+        </p>
+
+        <div style="overflow-x:auto;">
+            <table class="settings-table">
+                <thead>
+                    <tr>
+                        <th>Active</th>
+                        <th>Area Name</th>
+                        <th>Postcode Prefix</th>
+                        <th>Radius (Miles)</th>
+                        <th>Sort</th>
+                        <th>Delete</th>
+                    </tr>
+                </thead>
+
+                <tbody id="serviceAreaTable"></tbody>
+            </table>
+        </div>
+
+        <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;">
+            <button id="addArea" type="button">➕ Add Area</button>
+            <button id="saveAreas" type="button">💾 Save Areas</button>
+        </div>
+    </div>
+
+</main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/settings-airports.js"></script>
+
+</body>
+</html>

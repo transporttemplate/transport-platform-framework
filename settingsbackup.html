@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Platform Settings</title>
+
+<link rel="stylesheet" href="css/admin.css">
+
+</head>
+
+<body>
+
+<!-- Mobile Overlay -->
+
+<div class="overlay" id="overlay"></div>
+
+<div class="admin-layout">
+
+<!-- Sidebar -->
+
+<aside class="sidebar" id="sidebar">
+
+<h2>Transport Admin</h2>
+
+<a href="dashboard.html">🏠 Dashboard</a>
+
+<a href="bookings.html">📖 Bookings</a>
+
+<a href="customers.html">👥 Customers</a>
+
+<a href="drivers.html">🚖 Drivers</a>
+
+<a href="availability.html">🟢 Availability</a>
+
+<a href="accounts.html">💷 Finance</a>
+
+<a href="calendar.html">📅 Calendar</a>
+
+<a href="reports.html">📊 Reports</a>
+
+<a href="email-templates.html">📧 Email Templates</a>
+
+<a class="active" href="settings.html">⚙️ Settings</a>
+
+<hr style="margin:25px 0;border-color:#374151;">
+
+<a href="login.html">🚪 Logout</a>
+
+</aside>
+
+<!-- Main Content -->
+
+<main class="main">
+
+<div class="topbar">
+
+<div class="topbar-left">
+
+<button
+class="menu-toggle"
+id="menuToggle">
+
+☰
+
+</button>
+
+<h2>
+
+Platform Settings
+
+</h2>
+
+</div>
+
+<div>
+
+<button id="saveSettings">
+
+💾 Save Changes
+
+</button>
+
+</div>
+
+</div>
+<!-- Company Information -->
+
+<div class="card">
+
+    <h3>🏢 Company Information</h3>
+    
+    <div class="grid-2">
+    
+    <div>
+    
+    <label>Company Name</label>
+    <input id="companyName" type="text" placeholder="Executive Travel">
+    
+    <label>Trading Name</label>
+    <input id="tradingName" type="text" placeholder="Trading Name">
+    
+    <label>Phone Number</label>
+    <input id="companyPhone" type="tel" placeholder="01446 000000">
+    
+    <label>Email Address</label>
+    <input id="companyEmail" type="email" placeholder="bookings@example.co.uk">
+    
+    <label>Website</label>
+    <input id="companyWebsite" type="text" placeholder="https://www.example.co.uk">
+    
+    <label>Business Address</label>
+    <textarea id="companyAddress" rows="3"></textarea>
+    
+    </div>
+    
+    <div>
+    
+    <label>Company Logo</label>
+    
+    <input
+    id="companyLogo"
+    type="file"
+    accept="image/*">
+    
+    <label>Operator Licence Number</label>
+    <input id="operatorLicence" type="text">
+    
+    <label>Company Registration Number</label>
+    <input id="companyRegistration" type="text">
+    
+    <label>VAT Number</label>
+    <input id="vatNumber" type="text">
+    
+    <label>Currency</label>
+    
+    <select id="currency">
+    
+    <option value="GBP">GBP (£)</option>
+    <option value="EUR">EUR (€)</option>
+    <option value="USD">USD ($)</option>
+    
+    </select>
+    
+    <label>Time Zone</label>
+    
+    <select id="timeZone">
+    
+    <option>Europe/London</option>
+    <option>Europe/Dublin</option>
+    <option>Europe/Paris</option>
+    
+    </select>
+    
+    </div>
+    
+    </div>
+    
+    </div>
+    <!-- Business Status & Hours -->
+
+<div class="card" style="margin-top:25px;">
+
+    <h3>🟢 Business Status & Business Hours</h3>
+    
+    <div class="grid-2">
+    
+    <div>
+    
+    <label>Business Status</label>
+    
+    <select id="businessStatus">
+    
+    <option value="open">🟢 Open for Bookings</option>
+    
+    <option value="closed">🔴 Closed</option>
+    
+    <option value="holiday">🌴 Holiday Mode</option>
+    
+    <option value="emergency">⚠️ Emergency Closure</option>
+    
+    </select>
+    
+    <label style="margin-top:20px;">Holiday From</label>
+    
+    <input
+    id="holidayFrom"
+    type="date">
+    
+    <label>Holiday To</label>
+    
+    <input
+    id="holidayTo"
+    type="date">
+    
+    <label>Website Notice</label>
+    
+    <textarea
+    id="websiteNotice"
+    rows="4"
+    placeholder="This notice appears on the public website..."></textarea>
+    
+    <label style="margin-top:20px;">
+    
+    <input
+    id="acceptAdvanceBookings"
+    type="checkbox"
+    style="width:auto;margin-right:10px;">
+    
+    Accept advance bookings while closed
+    
+    </label>
+    
+    </div>
+    
+    <div>
+    
+    <label>Emergency Contact Number</label>
+    
+    <input
+    id="emergencyPhone"
+    type="tel">
+    
+    <label>Office Email</label>
+    
+    <input
+    id="officeEmail"
+    type="email">
+    
+    <label>Out of Hours Message</label>
+    
+    <textarea
+    id="closedMessage"
+    rows="4"
+    placeholder="Sorry, we are currently closed..."></textarea>
+    
+    <label>Maximum Advance Booking (Days)</label>
+    
+    <input
+    id="maxAdvanceDays"
+    type="number"
+    value="365">
+    
+    <label>Minimum Notice (Minutes)</label>
+    
+    <input
+    id="minimumNotice"
+    type="number"
+    value="30">
+    
+    </div>
+    
+    </div>
+    
+    <hr style="margin:30px 0;">
+    
+    <h3>🕒 Weekly Opening Hours</h3>
+    
+    <table class="settings-table">
+    
+    <thead>
+    
+    <tr>
+    
+    <th>Day</th>
+    
+    <th>Open</th>
+    
+    <th>Close</th>
+    
+    <th>Accept Bookings</th>
+    
+    </tr>
+    
+    </thead>
+    
+    <tbody>
+    
+    <tr>
+    <td>Monday</td>
+    <td><input id="monOpen" type="time" value="06:00"></td>
+    <td><input id="monClose" type="time" value="22:00"></td>
+    <td><input id="monEnabled" type="checkbox" checked></td>
+    </tr>
+    
+    <tr>
+    <td>Tuesday</td>
+    <td><input id="tueOpen" type="time" value="06:00"></td>
+    <td><input id="tueClose" type="time" value="22:00"></td>
+    <td><input id="tueEnabled" type="checkbox" checked></td>
+    </tr>
+    
+    <tr>
+    <td>Wednesday</td>
+    <td><input id="wedOpen" type="time" value="06:00"></td>
+    <td><input id="wedClose" type="time" value="22:00"></td>
+    <td><input id="wedEnabled" type="checkbox" checked></td>
+    </tr>
+    
+    <tr>
+    <td>Thursday</td>
+    <td><input id="thuOpen" type="time" value="06:00"></td>
+    <td><input id="thuClose" type="time" value="22:00"></td>
+    <td><input id="thuEnabled" type="checkbox" checked></td>
+    </tr>
+    
+    <tr>
+    <td>Friday</td>
+    <td><input id="friOpen" type="time" value="06:00"></td>
+    <td><input id="friClose" type="time" value="23:59"></td>
+    <td><input id="friEnabled" type="checkbox" checked></td>
+    </tr>
+    
+    <tr>
+    <td>Saturday</td>
+    <td><input id="satOpen" type="time" value="07:00"></td>
+    <td><input id="satClose" type="time" value="02:00"></td>
+    <td><input id="satEnabled" type="checkbox" checked></td>
+    </tr>
+    
+    <tr>
+    <td>Sunday</td>
+    <td><input id="sunOpen" type="time" value="08:00"></td>
+    <td><input id="sunClose" type="time" value="20:00"></td>
+    <td><input id="sunEnabled" type="checkbox" checked></td>
+    </tr>
+    
+    </tbody>
+    
+    </table>
+    
+    </div>
+<!-- Pricing Engine -->
+
+<div class="card" style="margin-top:25px;">
+
+    <h3>💷 Pricing Engine</h3>
+    
+    <div class="grid-2">
+    
+    <div>
+    
+    <label>Minimum Fare (£)</label>
+    <input id="minimumFare" type="number" step="0.01" value="10.00">
+    
+    <label>First Mile (£)</label>
+    <input id="firstMile" type="number" step="0.01" value="4.50">
+    
+    <label>2 - 10 Miles (£ per mile)</label>
+    <input id="mileBand1" type="number" step="0.01" value="2.50">
+    
+    <label>10 - 30 Miles (£ per mile)</label>
+    <input id="mileBand2" type="number" step="0.01" value="2.20">
+    
+    <label>30 - 80 Miles (£ per mile)</label>
+    <input id="mileBand3" type="number" step="0.01" value="1.90">
+    
+    <label>80 - 150 Miles (£ per mile)</label>
+    <input id="mileBand4" type="number" step="0.01" value="1.75">
+    
+    <label>150 - 500 Miles (£ per mile)</label>
+    <input id="mileBand5" type="number" step="0.01" value="1.60">
+    
+    <label>500 - 1000 Miles (£ per mile)</label>
+    <input id="mileBand6" type="number" step="0.01" value="1.40">
+    
+    </div>
+    
+    <div>
+    
+    <label>Waiting Time (£ per minute)</label>
+    <input id="waitingTime" type="number" step="0.01" value="0.40">
+    
+    <label>Driver Commission (%)</label>
+    <input id="driverCommission" type="number" value="15">
+    
+    <label>Return Journey Discount (%)</label>
+    <input id="returnDiscount" type="number" value="10">
+    
+    <label>Cancellation Charge (%)</label>
+    <input id="cancellationCharge" type="number" value="65">
+    
+    <label>Airport Deposit (%)</label>
+    <input id="airportDeposit" type="number" value="25">
+    
+    <label>Bank Holiday Surcharge (%)</label>
+    <input id="bankHoliday" type="number" value="25">
+    
+    <label>Christmas / New Year Surcharge (%)</label>
+    <input id="christmas" type="number" value="75">
+    
+    <label>Booking Fee (£)</label>
+    <input id="bookingFee" type="number" step="0.01" value="0.00">
+    
+    </div>
+    
+    </div>
+    
+    <hr style="margin:30px 0;">
+    
+    <h3>🧮 Fare Calculator Preview</h3>
+    
+    <div class="grid-3">
+    
+    <div class="card">
+    
+    <h4>10 Mile Journey</h4>
+    
+    <h2 id="example10Miles">
+    £0.00
+    </h2>
+    
+    </div>
+    
+    <div class="card">
+    
+    <h4>48 Mile Journey</h4>
+    
+    <h2 id="example48Miles">
+    £0.00
+    </h2>
+    
+    </div>
+    
+    <div class="card">
+    
+    <h4>120 Mile Journey</h4>
+    
+    <h2 id="example120Miles">
+    £0.00
+    </h2>
+    
+    </div>
+    
+    </div>
+    
+    <p style="margin-top:20px;color:#666;">
+    
+    These example fares will update automatically as pricing changes.
+    
+    This same pricing engine will be used by:
+    
+    • Website Booking Form
+    
+    • Distance Calculator
+    
+    • Admin Bookings
+    
+    • Driver Portal
+    
+    • Quotes
+    
+    • Invoices
+    
+    </p>
+    
+    </div>
+    <!-- Airport Management -->
+
+<div class="card" style="margin-top:25px;">
+
+    <h3>✈️ Airport Fixed Prices</h3>
+    
+    <p>
+    Manage every airport your company serves.
+    The booking system will automatically use these prices.
+    </p>
+    
+    <table class="settings-table">
+    
+    <thead>
+    
+    <tr>
+    
+    <th>Active</th>
+    
+    <th>Airport</th>
+    
+    <th>Code</th>
+    
+    <th>1-4 Passengers</th>
+    
+    <th>5-8 Passengers</th>
+    
+    <th>Return Discount %</th>
+    
+    <th>Deposit %</th>
+    
+    <th>Actions</th>
+    
+    </tr>
+    
+    </thead>
+    
+    <tbody id="airportTable">
+    
+    <tr>
+    
+    <td><input type="checkbox" checked></td>
+    
+    <td><input type="text" value="Cardiff Airport"></td>
+    
+    <td><input type="text" value="CWL"></td>
+    
+    <td><input type="number" value="140"></td>
+    
+    <td><input type="number" value="170"></td>
+    
+    <td><input type="number" value="10"></td>
+    
+    <td><input type="number" value="25"></td>
+    
+    <td>
+    
+    <button>Edit</button>
+    
+    <button>Delete</button>
+    
+    </td>
+    
+    </tr>
+    
+    <tr>
+    
+    <td><input type="checkbox" checked></td>
+    
+    <td><input type="text" value="Bristol Airport"></td>
+    
+    <td><input type="text" value="BRS"></td>
+    
+    <td><input type="number" value="200"></td>
+    
+    <td><input type="number" value="230"></td>
+    
+    <td><input type="number" value="10"></td>
+    
+    <td><input type="number" value="25"></td>
+    
+    <td>
+    
+    <button>Edit</button>
+    
+    <button>Delete</button>
+    
+    </td>
+    
+    </tr>
+    
+    <tr>
+    
+    <td><input type="checkbox" checked></td>
+    
+    <td><input type="text" value="Heathrow Airport"></td>
+    
+    <td><input type="text" value="LHR"></td>
+    
+    <td><input type="number" value="300"></td>
+    
+    <td><input type="number" value="340"></td>
+    
+    <td><input type="number" value="10"></td>
+    
+    <td><input type="number" value="25"></td>
+    
+    <td>
+    
+    <button>Edit</button>
+    
+    <button>Delete</button>
+    
+    </td>
+    
+    </tr>
+    
+    </tbody>
+    
+    </table>
+    
+    <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;">
+    
+    <button id="addAirport">
+    
+    ➕ Add Airport
+    
+    </button>
+    
+    <button id="saveAirports">
+    
+    💾 Save Airport Prices
+    
+    </button>
+    
+    </div>
+    
+    </div>
+    <!-- Fixed Price Areas -->
+
+<div class="card" style="margin-top:25px;">
+
+    <h3>📍 Fixed Price Areas</h3>
+    
+    <p>
+    
+    Only journeys starting or ending inside these areas will qualify for
+    Airport Fixed Prices.
+    
+    All other journeys will automatically use the Google Distance Calculator.
+    
+    </p>
+    
+    <table class="settings-table">
+    
+    <thead>
+    
+    <tr>
+    
+    <th>Active</th>
+    
+    <th>Area Name</th>
+    
+    <th>County</th>
+    
+    <th>Postcode Prefix</th>
+    
+    <th>Radius (Miles)</th>
+    
+    <th>Actions</th>
+    
+    </tr>
+    
+    </thead>
+    
+    <tbody id="serviceAreaTable">
+    
+    <tr>
+    
+    <td><input type="checkbox" checked></td>
+    
+    <td><input type="text" value="Cardiff"></td>
+    
+    <td><input type="text" value="South Glamorgan"></td>
+    
+    <td><input type="text" value="CF"></td>
+    
+    <td><input type="number" value="10"></td>
+    
+    <td>
+    
+    <button>Edit</button>
+    
+    <button>Delete</button>
+    
+    </td>
+    
+    </tr>
+    
+    <tr>
+    
+    <td><input type="checkbox" checked></td>
+    
+    <td><input type="text" value="Barry"></td>
+    
+    <td><input type="text" value="Vale of Glamorgan"></td>
+    
+    <td><input type="text" value="CF62"></td>
+    
+    <td><input type="number" value="8"></td>
+    
+    <td>
+    
+    <button>Edit</button>
+    
+    <button>Delete</button>
+    
+    </td>
+    
+    </tr>
+    
+    </tbody>
+    
+    </table>
+    
+    <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;">
+    
+    <button id="addArea">
+    
+    ➕ Add Area
+    
+    </button>
+    
+    <button id="saveAreas">
+    
+    💾 Save Areas
+    
+    </button>
+    
+    </div>
+    
+    <hr style="margin:30px 0;">
+    
+    <h3>🗺️ Google Maps Behaviour</h3>
+    
+    <label>
+    
+    <input
+    type="checkbox"
+    id="useGoogleBoundary"
+    checked
+    style="width:auto;">
+    
+    Use Google Maps to determine whether the pickup address is inside a fixed-price area.
+    
+    </label>
+    
+    <label>
+    
+    <input
+    type="checkbox"
+    id="allowAirportOutsideArea"
+    style="width:auto;">
+    
+    Allow Airport Fixed Prices outside service areas.
+    
+    </label>
+    
+    <label>
+    
+    <input
+    type="checkbox"
+    id="forceDistanceCalculator"
+    style="width:auto;">
+    
+    Always use Distance Calculator regardless of area.
+    
+    </label>
+    
+    <label>
+    
+    <input
+    type="checkbox"
+    id="showAreaWarning"
+    checked
+    style="width:auto;">
+    
+    Display a message if the address is outside the company's service area.
+    
+    </label>
+    
+    <div class="card" style="margin-top:20px;background:#f8fafc;">
+    
+    <strong>Example</strong>
+    
+    <p style="margin-top:10px;">
+    
+    Customer enters:
+    
+    <b>10 Queen Street, Cardiff</b>
+    
+    ✅ Inside Service Area
+    
+    → Airport Fixed Prices displayed
+    
+    </p>
+    
+    <p>
+    
+    Customer enters:
+    
+    <b>Swansea Marina</b>
+    
+    ❌ Outside Service Area
+    
+    → Distance Calculator automatically opens
+    
+    </p>
+    
+    </div>
+    
+    </div>
+    <!-- Booking Rules -->
+
+<div class="card" style="margin-top:25px;">
+
+    <h3>📋 Booking Rules & System Behaviour</h3>
+    
+    <p>
+    Control how bookings are accepted, dispatched and managed.
+    </p>
+    
+    <table class="settings-table">
+    
+    <thead>
+    
+    <tr>
+    
+    <th>Setting</th>
+    
+    <th>Status</th>
+    
+    <th>Value</th>
+    
+    </tr>
+    
+    </thead>
+    
+    <tbody>
+    
+    <tr>
+    <td>Require Deposit</td>
+    <td><label class="switch"><input id="requireDeposit" type="checkbox"><span class="slider"></span></label></td>
+    <td><input id="depositPercent" type="number" value="25"> %</td>
+    </tr>
+    
+    <tr>
+    <td>Require Deposit for Airport Jobs</td>
+    <td><label class="switch"><input id="airportDepositRequired" type="checkbox" checked><span class="slider"></span></label></td>
+    <td>Enabled</td>
+    </tr>
+    
+    <tr>
+    <td>Auto Confirm Bookings</td>
+    <td><label class="switch"><input id="autoConfirm" type="checkbox"><span class="slider"></span></label></td>
+    <td>Enabled / Disabled</td>
+    </tr>
+    
+    <tr>
+    <td>Auto Assign Driver</td>
+    <td><label class="switch"><input id="autoAssign" type="checkbox"><span class="slider"></span></label></td>
+    <td>Enabled / Disabled</td>
+    </tr>
+    
+    <tr>
+    <td>Allow Cash Payments</td>
+    <td><label class="switch"><input id="allowCash" type="checkbox" checked><span class="slider"></span></label></td>
+    <td>Enabled</td>
+    </tr>
+    
+    <tr>
+    <td>Allow Card Payments</td>
+    <td><label class="switch"><input id="allowCard" type="checkbox" checked><span class="slider"></span></label></td>
+    <td>Enabled</td>
+    </tr>
+    
+    <tr>
+    <td>Allow Account Customers</td>
+    <td><label class="switch"><input id="allowAccounts" type="checkbox" checked><span class="slider"></span></label></td>
+    <td>Enabled</td>
+    </tr>
+    
+    <tr>
+    <td>Enable Airport Fixed Pricing</td>
+    <td><label class="switch"><input id="airportPricing" type="checkbox" checked><span class="slider"></span></label></td>
+    <td>Enabled</td>
+    </tr>
+    
+    <tr>
+    <td>Enable Distance Calculator</td>
+    <td><label class="switch"><input id="distanceCalculator" type="checkbox" checked><span class="slider"></span></label></td>
+    <td>Enabled</td>
+    </tr>
+    
+    <tr>
+    <td>Allow Return Bookings</td>
+    <td><label class="switch"><input id="returnBookings" type="checkbox" checked><span class="slider"></span></label></td>
+    <td>Enabled</td>
+    </tr>
+    
+    <tr>
+    <td>Allow Multiple Stops</td>
+    <td><label class="switch"><input id="multipleStops" type="checkbox"><span class="slider"></span></label></td>
+    <td>Enabled / Disabled</td>
+    </tr>
+    
+    <tr>
+    <td>Driver Can Reject Jobs</td>
+    <td><label class="switch"><input id="driverReject" type="checkbox" checked><span class="slider"></span></label></td>
+    <td>Enabled</td>
+    </tr>
+    
+    <tr>
+    <td>Customer Can Cancel Booking</td>
+    <td><label class="switch"><input id="customerCancel" type="checkbox" checked><span class="slider"></span></label></td>
+    <td>Enabled</td>
+    </tr>
+    
+    <tr>
+    <td>Enable Promo Codes</td>
+    <td><label class="switch"><input id="promoCodes" type="checkbox"><span class="slider"></span></label></td>
+    <td>Enabled / Disabled</td>
+    </tr>
+    
+    <tr>
+    <td>Google Reviews After Journey</td>
+    <td><label class="switch"><input id="googleReviews" type="checkbox" checked><span class="slider"></span></label></td>
+    <td>Enabled</td>
+    </tr>
+    
+    <tr>
+    <td>Email Notifications</td>
+    <td><label class="switch"><input id="emailNotifications" type="checkbox" checked><span class="slider"></span></label></td>
+    <td>Enabled</td>
+    </tr>
+    
+    <tr>
+    <td>SMS Notifications</td>
+    <td><label class="switch"><input id="smsNotifications" type="checkbox"><span class="slider"></span></label></td>
+    <td>Enabled / Disabled</td>
+    </tr>
+    
+    <tr>
+    <td>Accept Bookings While Closed</td>
+    <td><label class="switch"><input id="bookWhileClosed" type="checkbox"><span class="slider"></span></label></td>
+    <td>Enabled / Disabled</td>
+    </tr>
+    
+    <tr>
+    <td>Automatically Email Receipts</td>
+    <td><label class="switch"><input id="emailReceipts" type="checkbox" checked><span class="slider"></span></label></td>
+    <td>Enabled</td>
+    </tr>
+    
+    <tr>
+    <td>Automatically Send Driver Job Sheet</td>
+    <td><label class="switch"><input id="driverJobsheet" type="checkbox" checked><span class="slider"></span></label></td>
+    <td>Enabled</td>
+    </tr>
+    
+    </tbody>
+    
+    </table>
+    
+    </div>
+    <!-- Payments -->
+
+<div class="card" style="margin-top:25px;">
+
+    <h3>💳 Payment Settings</h3>
+    
+    <div class="grid-2">
+    
+    <div>
+    
+    <label>Stripe Publishable Key</label>
+    <input id="stripePublishableKey" type="text">
+    
+    <label>Stripe Secret Key</label>
+    <input id="stripeSecretKey" type="password">
+    
+    <label>Default Payment Method</label>
+    
+    <select id="defaultPaymentMethod">
+    
+    <option>Pay in Car</option>
+    <option>Pay Online</option>
+    <option>Account Customer</option>
+    
+    </select>
+    
+    <label>Payment Due Within (Days)</label>
+    <input id="paymentTerms" type="number" value="30">
+    
+    </div>
+    
+    <div>
+    
+    <label class="switch">
+    <input id="enableStripe" type="checkbox" checked>
+    <span class="slider"></span>
+    </label> Enable Stripe
+    
+    <br><br>
+    
+    <label class="switch">
+    <input id="enableCash" type="checkbox" checked>
+    <span class="slider"></span>
+    </label> Enable Cash
+    
+    <br><br>
+    
+    <label class="switch">
+    <input id="enableAccounts" type="checkbox" checked>
+    <span class="slider"></span>
+    </label> Enable Account Customers
+    
+    <br><br>
+    
+    <label class="switch">
+    <input id="requirePaymentBeforeTravel" type="checkbox">
+    <span class="slider"></span>
+    </label> Require Payment Before Travel
+    
+    </div>
+    
+    </div>
+    
+    </div>
+    
+    <!-- Email Templates -->
+    
+    <div class="card" style="margin-top:25px;">
+    
+    <h3>📧 Email Templates</h3>
+    
+    <label>Booking Confirmation</label>
+    
+    <textarea id="bookingConfirmationEmail" rows="5"></textarea>
+    
+    <label>Driver Assigned</label>
+    
+    <textarea id="driverAssignedEmail" rows="5"></textarea>
+    
+    <label>Booking Cancelled</label>
+    
+    <textarea id="bookingCancelledEmail" rows="5"></textarea>
+    
+    <label>Receipt Email</label>
+    
+    <textarea id="receiptEmail" rows="5"></textarea>
+    
+    </div>
+    
+    <!-- API Keys -->
+    
+    <div class="card" style="margin-top:25px;">
+    
+    <h3>🔑 API Keys & Integrations</h3>
+    
+    <label>Google Maps API Key</label>
+    <input id="googleMapsApi">
+    
+    <label>Google Places API</label>
+    <input id="googlePlacesApi">
+    
+    <label>Google Routes API</label>
+    <input id="googleRoutesApi">
+    
+    <label>Google Calendar ID</label>
+    <input id="googleCalendarId">
+    
+    <label>Supabase URL</label>
+    <input id="supabaseUrl">
+    
+    <label>Supabase Anon Key</label>
+    <input id="supabaseAnonKey">
+    
+    </div>
+    
+    <!-- System -->
+    
+    <div class="card" style="margin-top:25px;">
+    
+    <h3>⚙️ System Settings</h3>
+    
+    <div class="grid-2">
+    
+    <div>
+    
+    <label>Booking Prefix</label>
+    <input id="bookingPrefix" value="BK">
+    
+    <label>Invoice Prefix</label>
+    <input id="invoicePrefix" value="INV">
+    
+    <label>Quote Prefix</label>
+    <input id="quotePrefix" value="QT">
+    
+    <label>Date Format</label>
+    
+    <select id="dateFormat">
+    
+    <option>DD/MM/YYYY</option>
+    
+    <option>MM/DD/YYYY</option>
+    
+    <option>YYYY-MM-DD</option>
+    
+    </select>
+    
+    </div>
+    
+    <div>
+    
+    <label>Time Format</label>
+    
+    <select id="timeFormat">
+    
+    <option>24 Hour</option>
+    
+    <option>12 Hour</option>
+    
+    </select>
+    
+    <label>Default Language</label>
+    
+    <select id="language">
+    
+    <option>English</option>
+    
+    </select>
+    
+    <label>Default Currency Symbol</label>
+    
+    <input id="currencySymbol" value="£">
+    
+    </div>
+    
+    </div>
+    
+    </div>
+    
+    </main>
+    
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="js/supabase.js"></script>
+    
+    <script src="js/auth.js"></script>
+    
+    <script src="js/admin.js"></script>
+    
+    <script src="js/settings.js"></script>
+    
+    </body>
+    
+    </html>

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Company Settings</title>
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+<div class="overlay" id="overlay"></div>
+<div class="admin-layout">
+
+<aside class="sidebar" id="sidebar">
+<h2>Transport Admin</h2>
+<a href="dashboard.html">🏠 Dashboard</a>
+<a href="bookings.html">📖 Bookings</a>
+<a href="customers.html">👥 Customers</a>
+<a href="drivers.html">🚖 Drivers</a>
+<a href="availability.html">🟢 Availability</a>
+<a href="accounts.html">💷 Finance</a>
+<a href="calendar.html">📅 Calendar</a>
+<a href="reports.html">📊 Reports</a>
+<a href="email-templates.html">📧 Email Templates</a>
+<a class="active" href="settings.html">⚙️ Settings</a>
+<hr style="margin:25px 0;border-color:#374151;">
+<a href="login.html">🚪 Logout</a>
+</aside>
+
+<main class="main">
+<div class="topbar">
+<div class="topbar-left">
+<button class="menu-toggle" id="menuToggle" type="button">☰</button>
+<div><h2>Company Settings</h2><small>Company details and business information</small></div>
+</div>
+<button id="saveSettings" type="button">💾 Save Changes</button>
+</div>
+<div style="margin-bottom:20px;"><a href="settings.html">← Back to Settings</a></div>
+
+<div class="card"><h3>🏢 Company Information</h3><div class="grid-2">
+<div>
+<label>Company Name</label><input id="companyName" type="text">
+<label>Trading Name</label><input id="tradingName" type="text">
+<label>Phone Number</label><input id="companyPhone" type="tel">
+<label>Email Address</label><input id="companyEmail" type="email">
+<label>Website</label><input id="companyWebsite" type="text">
+<label>Business Address</label><textarea id="companyAddress" rows="4"></textarea>
+</div><div>
+<label>Company Logo</label><input id="companyLogo" type="file" accept="image/*"><small>Logo upload will be connected separately.</small>
+<label>Operator Licence Number</label><input id="operatorLicence" type="text">
+<label>Company Registration Number</label><input id="companyRegistration" type="text">
+<label>VAT Number</label><input id="vatNumber" type="text">
+<label>Currency</label><select id="currency"><option value="GBP">GBP (£)</option><option value="EUR">EUR (€)</option><option value="USD">USD ($)</option></select>
+<label>Time Zone</label><select id="timeZone"><option value="Europe/London">Europe/London</option><option value="Europe/Dublin">Europe/Dublin</option><option value="Europe/Paris">Europe/Paris</option></select>
+</div></div></div>
+
+</main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/settings.js"></script>
+
+</body>
+</html>

@@ -3,16 +3,35 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bookings</title>
+<title>Bookings & Dispatch</title>
 <link rel="stylesheet" href="css/admin.css">
+<style>
+.dispatch-shell{display:grid;grid-template-columns:360px 1fr;gap:14px}
+.dispatch-panel,.dispatch-map,.dispatch-board{background:#fff;border:1px solid #d8dde6;border-radius:10px}
+.dispatch-panel{padding:14px}
+.dispatch-map{min-height:330px;position:relative;overflow:hidden;background:linear-gradient(135deg,#e9f0eb,#dfe9f2)}
+.map-placeholder{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#586575;padding:30px}
+.dispatch-tabs{display:flex;gap:5px;flex-wrap:wrap;margin:14px 0}
+.dispatch-tabs button{background:#e7ebf0;color:#273241;border:0;border-radius:6px;padding:9px 12px}
+.dispatch-tabs button.active{background:#334155;color:white}
+.job-form{display:grid;gap:8px}
+.job-form input,.job-form select,.job-form textarea{width:100%;box-sizing:border-box;padding:10px;border:1px solid #ccd3dd;border-radius:6px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dispatch-board{margin-top:14px;overflow:auto}
+.dispatch-board table{min-width:1050px;width:100%}
+.status-pill{padding:4px 8px;border-radius:999px;background:#edf1f5;white-space:nowrap}
+.source-pill{font-size:12px;padding:3px 7px;border-radius:999px;background:#eef2ff}
+.dispatch-toolbar{display:flex;gap:8px;align-items:end;flex-wrap:wrap;padding:12px;background:#f6f7f9;border-bottom:1px solid #ddd}
+.dispatch-toolbar label{font-size:12px;font-weight:600;display:grid;gap:4px}
+.dispatch-toolbar input,.dispatch-toolbar select{padding:8px;border:1px solid #ccd3dd;border-radius:5px}
+.empty-row{text-align:center;padding:30px!important;color:#667085}
+@media(max-width:1000px){.dispatch-shell{grid-template-columns:1fr}.dispatch-map{min-height:250px}}
+</style>
 </head>
 <body>
-
 <div class="admin-layout">
-
 <aside class="sidebar">
 <h2>Transport Admin</h2>
-
 <a href="dashboard.html">🏠 Dashboard</a>
 <a class="active" href="bookings.html">📖 Bookings</a>
 <a href="customers.html">👥 Customers</a>
@@ -28,113 +47,102 @@
 </aside>
 
 <main class="main">
-
 <div class="topbar">
-<h2>Bookings</h2>
-<button>+ New Booking</button>
+<div><h2>Bookings & Dispatch</h2><small>Public and admin bookings in one dispatch screen</small></div>
+<button id="focusNewBooking">+ New Booking</button>
 </div>
 
-<div class="stats">
-<div class="card blue"><h3>Today's Bookings</h3><div class="stat">24</div></div>
-<div class="card green"><h3>Completed</h3><div class="stat">18</div></div>
-<div class="card orange"><h3>Waiting</h3><div class="stat">4</div></div>
-<div class="card red"><h3>Cancelled</h3><div class="stat">2</div></div>
+<div class="dispatch-tabs">
+<button class="active" data-status="dispatch">Dispatch <span id="countDispatch">0</span></button>
+<button data-status="prebooked">Pre-booked <span id="countPrebooked">0</span></button>
+<button data-status="booked">Booked <span id="countBooked">0</span></button>
+<button data-status="completed">Completed <span id="countCompleted">0</span></button>
+<button data-status="cancelled">Cancelled <span id="countCancelled">0</span></button>
+<button data-status="all">All <span id="countAll">0</span></button>
 </div>
 
-<div class="card">
-<h3>Search & Filters</h3>
-
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:15px;margin-top:20px;">
-<input placeholder="Search customer">
-<input placeholder="Booking ID">
-<input type="date">
-<select>
-<option>All Drivers</option>
-<option>Nick</option>
-<option>Francis</option>
-<option>Christopher</option>
+<div class="dispatch-shell">
+<section class="dispatch-panel" id="newBookingPanel">
+<h3>New Admin Booking</h3>
+<form id="adminBookingForm" class="job-form">
+<div class="two-col">
+<input id="customerName" required placeholder="Customer name">
+<input id="customerPhone" placeholder="Phone">
+</div>
+<input id="customerEmail" type="email" placeholder="Email">
+<input id="pickupAddress" required placeholder="Pickup address">
+<input id="dropoffAddress" required placeholder="Destination">
+<div class="two-col">
+<input id="journeyDate" type="date" required>
+<input id="journeyTime" type="time" required>
+</div>
+<div class="two-col">
+<input id="passengers" type="number" min="1" value="1" placeholder="Passengers">
+<input id="jobPrice" type="number" min="0" step="0.01" placeholder="Price £">
+</div>
+<div class="two-col">
+<select id="paymentMethod">
+<option value="cash">Pay in car / Cash</option>
+<option value="card">Card</option>
+<option value="account">Account</option>
 </select>
-<select>
-<option>All Status</option>
-<option>Waiting</option>
-<option>Assigned</option>
-<option>Completed</option>
-<option>Cancelled</option>
+<select id="bookingStatus">
+<option value="waiting">Waiting</option>
+<option value="booked">Booked</option>
+<option value="assigned">Assigned</option>
 </select>
 </div>
+<textarea id="notes" rows="2" placeholder="Notes"></textarea>
+<button type="submit">Save Job</button>
+<div id="bookingMessage"></div>
+</form>
+</section>
 
+<section class="dispatch-map">
+<div class="map-placeholder">
+<div>
+<h3>Driver Map</h3>
+<p>This area is ready for the Google Maps driver-location stage.</p>
+<p id="driverMapInfo">No live driver positions connected yet.</p>
+</div>
+</div>
+</section>
 </div>
 
-<div class="card" style="margin-top:25px;">
-
-<h3>Bookings</h3>
-
+<section class="dispatch-board">
+<div class="dispatch-toolbar">
+<label>From<input id="dateFrom" type="date"></label>
+<label>To<input id="dateTo" type="date"></label>
+<label>Search<input id="searchBookings" placeholder="Name, ref, address"></label>
+<label>Status
+<select id="statusFilter">
+<option value="">All statuses</option>
+<option value="waiting">Waiting</option>
+<option value="booked">Booked</option>
+<option value="assigned">Assigned</option>
+<option value="on_way">On Way</option>
+<option value="passenger_onboard">Passenger Onboard</option>
+<option value="completed">Completed</option>
+<option value="cancelled">Cancelled</option>
+</select>
+</label>
+<button id="refreshBookings">Refresh</button>
+</div>
 <table>
-<thead>
-<tr>
-<th>ID</th>
-<th>Time</th>
-<th>Customer</th>
-<th>Journey</th>
-<th>Driver</th>
-<th>Price</th>
-<th>Payment</th>
-<th>Status</th>
-<th>Action</th>
-</tr>
-</thead>
-
-<tbody>
-<tr>
-<td>1001</td>
-<td>08:30</td>
-<td>John Smith</td>
-<td>Cardiff Airport</td>
-<td>Nick</td>
-<td>£120</td>
-<td>Paid</td>
-<td><span style="color:green;">Completed</span></td>
-<td><button>Edit</button></td>
-</tr>
-
-<tr>
-<td>1002</td>
-<td>10:15</td>
-<td>Sarah Jones</td>
-<td>Bristol Airport</td>
-<td>Francis</td>
-<td>£180</td>
-<td>Deposit</td>
-<td><span style="color:orange;">Assigned</span></td>
-<td><button>Edit</button></td>
-</tr>
-
-<tr>
-<td>1003</td>
-<td>13:45</td>
-<td>David Evans</td>
-<td>Heathrow</td>
-<td>-</td>
-<td>£260</td>
-<td>Pending</td>
-<td><span style="color:red;">Waiting</span></td>
-<td><button>Edit</button></td>
-</tr>
-
-</tbody>
+<thead><tr>
+<th>Date</th><th>Time</th><th>Ref</th><th>Customer</th><th>Pickup</th><th>Destination</th>
+<th>Driver</th><th>Price</th><th>Payment</th><th>Source</th><th>Status</th><th>Action</th>
+</tr></thead>
+<tbody id="bookingsBody"><tr><td colspan="12" class="empty-row">Loading bookings…</td></tr></tbody>
 </table>
-
-</div>
+</section>
 </main>
-</div>
-</main>
-
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/admin.js"></script>
-
+<script src="js/bookings.js"></script>
 </body>
 </html>

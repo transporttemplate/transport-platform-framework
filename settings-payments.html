@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payment Settings</title>
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+<div class="overlay" id="overlay"></div>
+<div class="admin-layout">
+
+<aside class="sidebar" id="sidebar">
+<h2>Transport Admin</h2>
+<a href="dashboard.html">🏠 Dashboard</a>
+<a href="bookings.html">📖 Bookings</a>
+<a href="customers.html">👥 Customers</a>
+<a href="drivers.html">🚖 Drivers</a>
+<a href="availability.html">🟢 Availability</a>
+<a href="accounts.html">💷 Finance</a>
+<a href="calendar.html">📅 Calendar</a>
+<a href="reports.html">📊 Reports</a>
+<a href="email-templates.html">📧 Email Templates</a>
+<a class="active" href="settings.html">⚙️ Settings</a>
+<hr style="margin:25px 0;border-color:#374151;">
+<a href="login.html">🚪 Logout</a>
+</aside>
+
+<main class="main">
+<div class="topbar">
+<div class="topbar-left">
+<button class="menu-toggle" id="menuToggle" type="button">☰</button>
+<div><h2>Payment Settings</h2><small>Payment methods and account terms</small></div>
+</div>
+<button id="saveSettings" type="button">💾 Save Changes</button>
+</div>
+<div style="margin-bottom:20px;"><a href="settings.html">← Back to Settings</a></div>
+
+<div class="card"><h3>💳 Payment Settings</h3><div class="grid-2"><div>
+<label>Stripe Publishable Key</label><input id="stripePublishableKey" type="text">
+<label>Default Payment Method</label><select id="defaultPaymentMethod"><option>Pay in Car</option><option>Pay Online</option><option>Account Customer</option></select>
+<label>Payment Due Within (Days)</label><input id="paymentTerms" type="number">
+</div><div>
+<label><input id="enableStripe" type="checkbox" style="width:auto;"> Enable Stripe</label>
+<label><input id="enableCash" type="checkbox" style="width:auto;"> Enable Cash</label>
+<label><input id="enableAccounts" type="checkbox" style="width:auto;"> Enable Account Customers</label>
+<label><input id="requirePaymentBeforeTravel" type="checkbox" style="width:auto;"> Require Payment Before Travel</label>
+</div></div>
+<p><strong>Security:</strong> Stripe secret keys are intentionally not included on this browser page. They should be handled securely server-side.</p></div>
+
+</main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/settings.js"></script>
+
+</body>
+</html>
