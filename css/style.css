@@ -7,7 +7,7 @@
   --primary:#37d4d4;
   --secondary:#111111;
   --accent:#d71a1a;
-  --background:#175f35;
+  --background:#0b0b0b;
   --card:#1a1a1a;
   --text:#ffffff;
   --muted:#bdbdbd;
@@ -85,8 +85,21 @@ nav a:hover{
 
 /* Hero */
 
-.hero{
-  padding:70px 0;
+.hero {
+  padding: 90px 0;
+
+  background:
+      linear-gradient(
+          rgba(0, 0, 0, 0.48),
+          rgba(0, 0, 0, 0.48)
+      ),
+      url("../assets/home-hero.jpg");
+
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  color: white;
 }
 
 .hero-content{
