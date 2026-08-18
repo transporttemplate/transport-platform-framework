@@ -121,3 +121,19 @@
     .field-grid.three{grid-template-columns:repeat(3,1fr)}
     .booking-step{padding:28px}
 }
+
+/* MOBILE GOOGLE ADDRESS DROPDOWN */
+@media (max-width: 600px) {
+        .pac-container {
+            max-height: 45vh !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            z-index: 99999 !important;
+        }
+    
+        .pac-item {
+            min-height: 52px !important;
+            padding: 8px 10px !important;
+            font-size: 15px !important;
+        }
+    }
