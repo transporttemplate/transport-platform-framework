@@ -138,10 +138,57 @@ function updateVehicleCards(){
  document.getElementById("vehiclePriceNote").textContent=(!currentPrices.car&&!currentPrices.mpv)?"A price has not been configured for this journey. Please contact us.":"Select a vehicle to continue.";
 }
 function selectPrice(){currentPrices.selected=document.getElementById("vehicleType").value==="mpv"?currentPrices.mpv:currentPrices.car;document.getElementById("finalPrice").textContent=money(currentPrices.selected);}
+
 function buildSummary(){
- const rows=[["Journey",document.getElementById("journeyMode").value==="airport"?`Airport Transfer — ${document.getElementById("airportSelect").value}`:"Standard Journey"],["Route",`${savedPickup()} → ${savedDropoff()}`],["Date & time",`${document.getElementById("journeyDate").value} ${document.getElementById("journeyTime").value}`],["Passengers",document.getElementById("passengers").value],["Vehicle",document.getElementById("vehicleType").value==="mpv"?"MPV":"Car"],["Distance",Number.isFinite(currentRoute.miles)?`${currentRoute.miles.toFixed(1)} miles`:"—"],["Payment",document.getElementById("paymentMethod").value]];
- document.getElementById("bookingSummary").innerHTML=rows.map(r=>`<div class="review-row"><span>${esc(r[0])}</span><strong>${esc(r[1])}</strong></div>`).join("");selectPrice();
+ const mode=document.getElementById("journeyMode").value;
+ const direction=document.getElementById("airportDirection").value;
+ const airport=document.getElementById("airportSelect").value;
+ const passengers=document.getElementById("passengers").value;
+ const suitcases=document.getElementById("suitcases").value;
+ const handLuggage=document.getElementById("handLuggage").value;
+ const flightNumber=document.getElementById("flightNumber").value.trim();
+ const vehicle=document.getElementById("vehicleType").value==="mpv"?"MPV":"Car";
+ const returnJourney=document.getElementById("returnJourney").checked;
+
+ let journeyDescription="Standard Journey";
+ if(mode==="airport"){
+  journeyDescription=direction==="from_airport"
+   ?`Airport Pickup — ${airport}`
+   :`Airport Transfer — ${airport}`;
+ }
+
+ let returnDescription="No";
+ if(returnJourney){
+  returnDescription=`${formatDate(document.getElementById("returnDate").value)} at ${document.getElementById("returnTime").value}`;
+ }
+
+ const rows=[
+  ["Journey",journeyDescription],
+  ["Route",`${savedPickup()} → ${savedDropoff()}`],
+  ["Date & time",`${formatDate(document.getElementById("journeyDate").value)} at ${document.getElementById("journeyTime").value}`],
+  ["Return",returnDescription],
+  ["Passengers",`${passengers} passenger${Number(passengers)===1?"":"s"}`],
+  ["Luggage",`${suitcases} suitcase${Number(suitcases)===1?"":"s"}, ${handLuggage} hand luggage`],
+  ["Vehicle",vehicle],
+  ["Distance",Number.isFinite(currentRoute.miles)?`${currentRoute.miles.toFixed(1)} miles`:"—"],
+  ["Journey time",Number.isFinite(currentRoute.minutes)?formatDuration(currentRoute.minutes):"—"],
+  ["Payment",document.getElementById("paymentMethod").value]
+ ];
+
+ if(mode==="airport"&&flightNumber){
+  rows.splice(4,0,["Flight number",flightNumber]);
+ }
+
+ document.getElementById("bookingSummary").innerHTML=rows.map(([label,value])=>`
+  <div class="review-row">
+   <span>${esc(label)}</span>
+   <strong>${esc(value)}</strong>
+  </div>
+ `).join("");
+
+ selectPrice();
 }
+
 async function saveBooking(e){
  e.preventDefault();if(!validateStep(4)||!Number.isFinite(currentPrices.selected)){alert("Please complete the booking.");return;}
  const company=bookingCompany,phone=document.getElementById("customerPhone").value.trim(),ref=generateBookingReference();
@@ -157,6 +204,15 @@ function savedPickup(){if(document.getElementById("journeyMode").value==="airpor
 function savedDropoff(){if(document.getElementById("journeyMode").value==="airport"&&document.getElementById("airportDirection").value==="to_airport")return document.getElementById("airportSelect").value;return document.getElementById("dropoffAddress").value.trim();}
 function resetPrice(){currentRoute={miles:null,minutes:null};currentPrices={car:null,mpv:null,selected:null,method:null};["routeDistance","routeDuration"].forEach(id=>document.getElementById(id).textContent="—");document.getElementById("carPrice").textContent="£—";document.getElementById("mpvPrice").textContent="£—";}
 function generateBookingReference(){const d=new Date(),y=String(d.getFullYear()).slice(-2),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");return`BK${y}${m}${day}-${Math.floor(1000+Math.random()*9000)}`;}
-function positive(v){v=Number(v);return Number.isFinite(v)&&v>0?round(v):null;}function n(v){v=Number(v);return Number.isFinite(v)?v:0;}function round(v){return Math.round(Number(v)*100)/100;}function money(v){return Number.isFinite(v)?`£${Number(v).toFixed(2)}`:"Contact us";}
+function positive(v){v=Number(v);return Number.isFinite(v)&&v>0?round(v):null;}
+function n(v){v=Number(v);return Number.isFinite(v)?v:0;}
+function round(v){return Math.round(Number(v)*100)/100;}
+function money(v){return Number.isFinite(v)?`£${Number(v).toFixed(2)}`:"Contact us";}
 function formatDuration(m){const h=Math.floor(m/60),x=Math.round(m%60);return h?`${h} hr${x?` ${x} min`:""}`:`${x} min`;}
+function formatDate(value){
+ if(!value)return "—";
+ const parts=value.split("-");
+ if(parts.length!==3)return value;
+ return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
 function esc(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");}

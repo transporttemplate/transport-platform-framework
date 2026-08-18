@@ -48,22 +48,22 @@
 
 <div id="airportJourneyFields">
 <div class="field-grid">
-<div class="field full"><label>Airport journey</label><select id="airportDirection"><option value="to_airport">Going to airport</option><option value="from_airport">Pickup from airport</option></select></div>
-<div class="field full"><label>Airport</label><select id="airportSelect"><option value="">Select Airport</option></select><small id="airportPriceHint" class="field-hint"></small></div>
+<div class="field full"><label for="airportDirection">Airport journey</label><select id="airportDirection"><option value="to_airport">Going to airport</option><option value="from_airport">Pickup from airport</option></select></div>
+<div class="field full"><label for="airportSelect">Airport</label><select id="airportSelect"><option value="">Select Airport</option></select><small id="airportPriceHint" class="field-hint"></small></div>
 </div>
 </div>
 
 <div class="field-grid">
-<div class="field" id="pickupWrap"><label>Pickup address</label><input id="pickupAddress" type="text" placeholder="Enter pickup address"></div>
-<div class="field" id="dropoffWrap"><label>Destination</label><input id="dropoffAddress" type="text" placeholder="Enter destination"></div>
-<div class="field"><label>Date</label><input id="journeyDate" type="date"></div>
-<div class="field"><label>Time</label><input id="journeyTime" type="time" step="300"><small class="field-hint">24-hour time</small></div>
+<div class="field" id="pickupWrap"><label for="pickupAddress">Pickup address</label><input id="pickupAddress" type="text" placeholder="Enter pickup address"></div>
+<div class="field" id="dropoffWrap"><label for="dropoffAddress">Destination</label><input id="dropoffAddress" type="text" placeholder="Enter destination"></div>
+<div class="field"><label for="journeyDate">Date</label><input id="journeyDate" type="date"></div>
+<div class="field"><label for="journeyTime">Time</label><input id="journeyTime" type="time" step="300"><small class="field-hint">24-hour time</small></div>
 </div>
 
 <label class="return-card"><input id="returnJourney" type="checkbox"><span><strong>Book a return journey</strong><small>Add return date and time</small></span></label>
 <div id="returnFields" class="field-grid hidden">
-<div class="field"><label>Return date</label><input id="returnDate" type="date"></div>
-<div class="field"><label>Return time</label><input id="returnTime" type="time" step="300"></div>
+<div class="field"><label for="returnDate">Return date</label><input id="returnDate" type="date"></div>
+<div class="field"><label for="returnTime">Return time</label><input id="returnTime" type="time" step="300"></div>
 </div>
 
 <div class="route-card">
@@ -80,11 +80,11 @@
 <section class="booking-step" data-step="2">
 <div class="step-heading"><p class="eyebrow">Step 2 of 5</p><h2>Passengers & luggage</h2><p>This helps us offer the correct vehicle and fare.</p></div>
 <div class="field-grid three">
-<div class="field"><label>Passengers</label><input id="passengers" type="number" min="1" max="7" value="1"></div>
-<div class="field"><label>Suitcases</label><input id="suitcases" type="number" min="0" value="0"></div>
-<div class="field"><label>Hand luggage</label><input id="handLuggage" type="number" min="0" value="0"></div>
+<div class="field"><label for="passengers">Passengers</label><input id="passengers" type="number" min="1" max="7" value="1" placeholder="Passengers"></div>
+<div class="field"><label for="suitcases">Suitcases</label><input id="suitcases" type="number" min="0" value="0" placeholder="Suitcases"></div>
+<div class="field"><label for="handLuggage">Hand luggage</label><input id="handLuggage" type="number" min="0" value="0" placeholder="Hand luggage"></div>
 </div>
-<div id="flightField" class="field"><label>Flight number</label><input id="flightNumber" type="text" placeholder="e.g. BA123"></div>
+<div id="flightField" class="field"><label for="flightNumber">Flight number</label><input id="flightNumber" type="text" placeholder="e.g. BA123"></div>
 <div class="step-actions"><button type="button" class="secondary-btn" data-back="1">Back</button><button type="button" class="primary-btn" data-next="3">See vehicles & price</button></div>
 </section>
 
@@ -102,11 +102,11 @@
 <section class="booking-step" data-step="4">
 <div class="step-heading"><p class="eyebrow">Step 4 of 5</p><h2>Your details</h2><p>We use these details to confirm your booking.</p></div>
 <div class="field-grid">
-<div class="field"><label>Full name</label><input id="customerName" type="text"></div>
-<div class="field"><label>Mobile number</label><input id="customerPhone" type="tel"></div>
-<div class="field full"><label>Email address</label><input id="customerEmail" type="email"></div>
-<div class="field full"><label>Notes</label><textarea id="notes" rows="4"></textarea></div>
-<div class="field full"><label>Payment method</label><select id="paymentMethod"><option value="Pay Now">Pay Now</option><option value="Pay in Car">Pay in Car</option></select></div>
+<div class="field"><label for="customerName">Full name</label><input id="customerName" type="text" placeholder="Enter your full name"></div>
+<div class="field"><label for="customerPhone">Mobile number</label><input id="customerPhone" type="tel" placeholder="Enter your mobile number"></div>
+<div class="field full"><label for="customerEmail">Email address</label><input id="customerEmail" type="email" placeholder="Enter your email address"></div>
+<div class="field full"><label for="notes">Notes</label><textarea id="notes" rows="4" placeholder="Flight details, child seats, pickup instructions or anything else we should know"></textarea></div>
+<div class="field full"><label for="paymentMethod">Payment method</label><select id="paymentMethod"><option value="Pay Now">Pay Now</option><option value="Pay in Car">Pay in Car</option></select></div>
 </div>
 <div class="step-actions"><button type="button" class="secondary-btn" data-back="3">Back</button><button type="button" class="primary-btn" data-next="5">Review booking</button></div>
 </section>
