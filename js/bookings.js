@@ -312,8 +312,8 @@ function renderBookings() {
                 <td>${escapeHtml(driverText)}</td>
 
                 <td>${money(
-                    booking.job_price ??
-                    booking.price
+                    booking.price ||
+                    booking.job_price
                 )}</td>
 
                 <td>${escapeHtml(

@@ -17,10 +17,20 @@ async function loadAirports() {
 
     if (!airportSelect) return;
 
-    const { data, error } = await bookingdb
-        .from("airports")
-        .select("*")
-        .order("name");
+    const company = await loadCompanyConfig();
+
+if (!company) {
+    console.error("Unable to identify company");
+    return;
+}
+
+const { data, error } = await bookingdb
+    .from("airports")
+    .select("*")
+    .eq("company_id", company.id)
+    .eq("active", true)
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
 
     if (error) {
         console.error(error);
@@ -32,7 +42,7 @@ async function loadAirports() {
     data.forEach((airport) => {
         airportSelect.innerHTML += `
             <option value="${airport.name}">
-                ${airport.name} (£${airport.fixed_price})
+                ${airport.name} (from £${airport.price_1_4_oneway || 0})
             </option>
         `;
     });
@@ -54,7 +64,16 @@ async function saveBooking(e) {
 
     e.preventDefault();
 
+    const company = await loadCompanyConfig();
+
+if (!company) {
+    alert("Unable to identify company. Please try again.");
+    return;
+}
+
     const booking = {
+
+        company_id: company.id,
 
         booking_reference: generateBookingReference(),
 
@@ -110,11 +129,58 @@ async function saveBooking(e) {
     }
 
     try {
+        if (booking.airport) {
+
+                const { data: airportPrice, error: airportError } = await bookingdb
+                    .from("airports")
+                    .select(`
+                        price_1_4_oneway,
+                        price_1_4_return,
+                        price_5_7_oneway,
+                        price_5_7_return
+                    `)
+                    .eq("company_id", company.id)
+                    .eq("name", booking.airport)
+                    .eq("active", true)
+                    .single();
+            
+                if (airportError) {
+                    console.error("Airport price error:", airportError);
+                    alert("Unable to calculate airport price.");
+                    return;
+                }
+            
+                const isReturn =
+                    booking.journey_type.toLowerCase().includes("return");
+            
+                if (booking.passengers >= 1 && booking.passengers <= 4) {
+            
+                    booking.price = Number(
+                        isReturn
+                            ? airportPrice.price_1_4_return
+                            : airportPrice.price_1_4_oneway
+                    );
+            
+                } else if (booking.passengers >= 5 && booking.passengers <= 7) {
+            
+                    booking.price = Number(
+                        isReturn
+                            ? airportPrice.price_5_7_return
+                            : airportPrice.price_5_7_oneway
+                    );
+            
+                } else {
+            
+                    alert("Please contact us for bookings of more than 7 passengers.");
+                    return;
+                }
+            }
 
         let customerId = null;
         const { data: existingCustomer } = await bookingdb
         .from("customers")
         .select("id")
+        .eq("company_id" , company.id)
         .eq("phone", booking.phone)
         .limit(1);
 
@@ -129,6 +195,8 @@ async function saveBooking(e) {
             .from("customers")
 
             .insert({
+
+                company_id: company.id,
 
                 full_name: booking.customer_name,
 
@@ -148,11 +216,19 @@ async function saveBooking(e) {
 
     }
 
+    console.log("PRICE TEST:", {
+        airport: booking.airport,
+        passengers: booking.passengers,
+        journeyType: booking.journey_type,
+        finalPrice: booking.price
+    });
+
     const { error } = await bookingdb
 
         .from("bookings")
 
         .insert({
+            company_id: company.id,
 
             booking_reference: booking.booking_reference,
 
