@@ -5,9 +5,109 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Drivers</title>
 <link rel="stylesheet" href="css/admin.css">
+
+<style>
+.driver-modal-backdrop{
+    position:fixed;
+    inset:0;
+    background:rgba(15,23,42,.55);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:9999;
+    padding:20px;
+}
+.driver-modal-backdrop.open{display:flex;}
+.driver-modal{
+    width:min(760px,100%);
+    max-height:90vh;
+    overflow:auto;
+    background:white;
+    border-radius:16px;
+    box-shadow:0 24px 60px rgba(0,0,0,.25);
+    padding:24px;
+}
+.driver-modal-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:20px;
+    margin-bottom:18px;
+}
+.driver-modal-header button{
+    background:#e5e7eb;
+    color:#111827;
+}
+.driver-form-grid{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:14px;
+}
+.driver-form-grid .full{
+    grid-column:1 / -1;
+}
+.driver-form-grid label{
+    display:block;
+    font-size:13px;
+    font-weight:600;
+    margin-bottom:6px;
+    color:#374151;
+}
+.driver-form-grid input,
+.driver-form-grid select{
+    width:100%;
+    padding:11px 12px;
+    border:1px solid #d1d5db;
+    border-radius:10px;
+    background:white;
+}
+.driver-form-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:20px;
+}
+.driver-view-grid{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:12px;
+}
+.driver-view-item{
+    background:#f8fafc;
+    border:1px solid #e5e7eb;
+    border-radius:10px;
+    padding:12px;
+}
+.driver-view-item small{
+    display:block;
+    color:#6b7280;
+    margin-bottom:4px;
+}
+.status-dot{
+    display:inline-block;
+    width:9px;
+    height:9px;
+    border-radius:999px;
+    margin-right:6px;
+    vertical-align:middle;
+}
+.status-online{background:#16a34a;}
+.status-onjob{background:#f59e0b;}
+.status-offline{background:#ef4444;}
+.table-wrap{overflow-x:auto;}
+.muted{color:#6b7280;}
+@media(max-width:700px){
+    .driver-form-grid,
+    .driver-view-grid{
+        grid-template-columns:1fr;
+    }
+}
+</style>
 </head>
+
 <body>
 <div class="admin-layout">
+
 <aside class="sidebar">
 <h2>Transport Admin</h2>
 <a href="dashboard.html">🏠 Dashboard</a>
@@ -25,53 +125,175 @@
 </aside>
 
 <main class="main">
+
 <div class="topbar">
 <h2>Driver Management</h2>
-<button>+ Add Driver</button>
+<button id="addDriverButton" type="button">+ Add Driver</button>
 </div>
 
 <div class="stats">
-<div class="card blue"><h3>Total Drivers</h3><div class="stat">6</div></div>
-<div class="card green"><h3>Online</h3><div class="stat">4</div></div>
-<div class="card orange"><h3>On a Job</h3><div class="stat">2</div></div>
-<div class="card red"><h3>Offline</h3><div class="stat">2</div></div>
+<div class="card blue"><h3>Total Drivers</h3><div class="stat" id="statTotalDrivers">0</div></div>
+<div class="card green"><h3>Online</h3><div class="stat" id="statOnlineDrivers">0</div></div>
+<div class="card orange"><h3>On a Job</h3><div class="stat" id="statOnJobDrivers">0</div></div>
+<div class="card red"><h3>Offline</h3><div class="stat" id="statOfflineDrivers">0</div></div>
 </div>
 
 <div class="card">
 <h3>Search Drivers</h3>
+
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px;margin-top:20px;">
-<input placeholder="Driver name">
-<input placeholder="Phone number">
-<select><option>All Status</option><option>Online</option><option>On Job</option><option>Offline</option></select>
-<select><option>All Vehicles</option></select>
+<input id="driverNameSearch" placeholder="Driver name">
+<input id="driverPhoneSearch" placeholder="Phone number">
+
+<select id="driverStatusFilter">
+    <option value="">All Status</option>
+    <option value="online">Online</option>
+    <option value="on job">On Job</option>
+    <option value="offline">Offline</option>
+</select>
+
+<select id="driverVehicleFilter">
+    <option value="">All Vehicles</option>
+</select>
 </div>
 </div>
 
 <div class="card" style="margin-top:25px;">
 <h3>Driver List</h3>
+
+<div class="table-wrap">
 <table>
-<thead><tr>
-<th>Driver</th><th>Status</th><th>Vehicle</th><th>Today's Jobs</th><th>Phone</th><th>Licence</th><th>Action</th>
-</tr></thead>
-<tbody>
-<tr><td>Nick</td><td><span style="color:green;">Online</span></td><td>Tesla Model 3</td><td>7</td><td>07xxx xxx111</td><td>Valid</td><td><button>View</button></td></tr>
-<tr><td>Francis</td><td><span style="color:orange;">On Job</span></td><td>Toyota Corolla</td><td>5</td><td>07xxx xxx222</td><td>Valid</td><td><button>View</button></td></tr>
-<tr><td>Stan</td><td><span style="color:red;">Offline</span></td><td>Ford Galaxy</td><td>0</td><td>07xxx xxx333</td><td>Expires Soon</td><td><button>View</button></td></tr>
+<thead>
+<tr>
+<th>Driver</th>
+<th>Driver #</th>
+<th>Status</th>
+<th>Vehicle</th>
+<th>Today's Jobs</th>
+<th>Phone</th>
+<th>Licence</th>
+<th>Action</th>
+</tr>
+</thead>
+
+<tbody id="driversTableBody">
+<tr>
+<td colspan="8" class="muted">Loading drivers...</td>
+</tr>
 </tbody>
 </table>
+</div>
+</div>
 
-<div style="display:flex;justify-content:center;gap:10px;margin-top:25px;">
-<button>Previous</button><button>1</button><button>2</button><button>Next</button>
-</div>
-</div>
 </main>
+</div>
 
+<!-- ADD / EDIT DRIVER MODAL -->
+<div id="driverModalBackdrop" class="driver-modal-backdrop">
+    <div class="driver-modal">
+        <div class="driver-modal-header">
+            <div>
+                <h2 id="driverModalTitle">Add Driver</h2>
+                <p class="muted">Create the driver login and admin details.</p>
+            </div>
+            <button id="closeDriverModalButton" type="button">✕</button>
+        </div>
+
+        <form id="driverForm">
+            <input id="driverId" type="hidden">
+
+            <div class="driver-form-grid">
+                <div>
+                    <label for="driverFullName">Full Name</label>
+                    <input id="driverFullName" type="text" required>
+                </div>
+
+                <div>
+                    <label for="driverNumberInput">Driver Number</label>
+                    <input id="driverNumberInput" type="text" required>
+                </div>
+
+                <div>
+                    <label for="driverPinInput">PIN</label>
+                    <input id="driverPinInput" type="text" inputmode="numeric" maxlength="12" required>
+                </div>
+
+                <div>
+                    <label for="driverPhoneInput">Phone</label>
+                    <input id="driverPhoneInput" type="tel">
+                </div>
+
+                <div>
+                    <label for="driverEmailInput">Email</label>
+                    <input id="driverEmailInput" type="email">
+                </div>
+
+                <div>
+                    <label for="driverVehicleInput">Vehicle</label>
+                    <input id="driverVehicleInput" type="text" placeholder="Tesla Model 3">
+                </div>
+
+                <div>
+                    <label for="driverLicenceInput">Licence Number</label>
+                    <input id="driverLicenceInput" type="text">
+                </div>
+
+                <div>
+                    <label for="driverLicenceExpiryInput">Licence Expiry</label>
+                    <input id="driverLicenceExpiryInput" type="date">
+                </div>
+
+                <div>
+                    <label for="driverStatusInput">Status</label>
+                    <select id="driverStatusInput">
+                        <option value="available">Available</option>
+                        <option value="on job">On Job</option>
+                        <option value="offline">Offline</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="driverOnlineInput">Online</label>
+                    <select id="driverOnlineInput">
+                        <option value="false">No</option>
+                        <option value="true">Yes</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="driver-form-actions">
+                <button id="cancelDriverButton" type="button">Cancel</button>
+                <button type="submit">Save Driver</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- VIEW DRIVER MODAL -->
+<div id="viewDriverBackdrop" class="driver-modal-backdrop">
+    <div class="driver-modal">
+        <div class="driver-modal-header">
+            <div>
+                <h2>Driver Details</h2>
+                <p class="muted">Full driver record.</p>
+            </div>
+            <button id="closeViewDriverButton" type="button">✕</button>
+        </div>
+
+        <div id="driverViewContent" class="driver-view-grid"></div>
+
+        <div class="driver-form-actions">
+            <button id="editDriverButton" type="button">Edit Driver</button>
+            <button id="closeViewDriverBottomButton" type="button">Close</button>
+        </div>
+    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/admin.js"></script>
+<script src="js/drivers.js"></script>
 
 </body>
 </html>
