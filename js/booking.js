@@ -35,14 +35,16 @@ document.addEventListener("DOMContentLoaded",async()=>{
         return;
     }
 
-    setDateMinimums();
     bindSteps();
     bindControls();
-
+    
     await Promise.all([
         loadAirports(),
         loadPricingSettings()
     ]);
+    
+    setDateMinimums();
+
 
     document
         .getElementById("bookingForm")
@@ -114,6 +116,8 @@ async function loadPricingSettings(){
     }
 
     pricingSettings=data||{};
+    
+    applyBookingRules();
 
     console.log(
         "Loaded booking pricing settings:",
@@ -121,6 +125,75 @@ async function loadPricingSettings(){
     );
 }
 
+function applyBookingRules(){
+
+    const airportEnabled =
+        pricingSettings.airportpricing === true;
+
+    const distanceEnabled =
+        pricingSettings.distancecalculator === true;
+
+    const airportButton =
+        document.querySelector('.journey-choice[data-mode="airport"]');
+
+    const distanceButton =
+        document.querySelector('.journey-choice[data-mode="distance"]');
+
+    const modeInput =
+        document.getElementById("journeyMode");
+
+    // Show / hide booking types
+    if(airportButton){
+        airportButton.classList.toggle(
+            "hidden",
+            !airportEnabled
+        );
+    }
+
+    if(distanceButton){
+        distanceButton.classList.toggle(
+            "hidden",
+            !distanceEnabled
+        );
+    }
+
+    // Airport only
+    if(airportEnabled && !distanceEnabled){
+
+        modeInput.value="airport";
+
+        document
+            .querySelectorAll(".journey-choice")
+            .forEach(x=>x.classList.remove("active"));
+
+        airportButton?.classList.add("active");
+    }
+
+    // Distance only
+    if(!airportEnabled && distanceEnabled){
+
+        modeInput.value="distance";
+
+        document
+            .querySelectorAll(".journey-choice")
+            .forEach(x=>x.classList.remove("active"));
+
+        distanceButton?.classList.add("active");
+    }
+
+    // Both enabled
+    if(airportEnabled && distanceEnabled){
+
+        if(
+            modeInput.value!=="airport" &&
+            modeInput.value!=="distance"
+        ){
+            modeInput.value="airport";
+        }
+    }
+
+    updateMode();
+}
 
 function bindSteps(){
 
@@ -497,28 +570,50 @@ function validateStep(step){
 
 function setDateMinimums(){
 
-    const today=
-        new Date()
-            .toISOString()
-            .slice(0,10);
+    const journeyDate =
+        document.getElementById("journeyDate");
 
-    document.getElementById("journeyDate").min=today;
-    document.getElementById("returnDate").min=today;
+    const returnDate =
+        document.getElementById("returnDate");
 
+    const now = new Date();
 
-    document
-        .getElementById("journeyDate")
-        .addEventListener(
-            "change",
-            event=>{
+    const minimumNoticeMinutes =
+        Number(pricingSettings.minimumnotice || 0);
 
-                document
-                    .getElementById("returnDate")
-                    .min=
-                    event.target.value ||
-                    today;
-            }
+    const maxAdvanceDays =
+        Number(pricingSettings.maxadvancedays || 365);
+
+    const earliest =
+        new Date(
+            now.getTime() +
+            minimumNoticeMinutes * 60 * 1000
         );
+
+    const latest =
+        new Date(
+            now.getTime() +
+            maxAdvanceDays * 24 * 60 * 60 * 1000
+        );
+
+    const earliestDate =
+        earliest.toISOString().slice(0,10);
+
+    const latestDate =
+        latest.toISOString().slice(0,10);
+
+    journeyDate.min = earliestDate;
+    journeyDate.max = latestDate;
+
+    returnDate.min = earliestDate;
+    returnDate.max = latestDate;
+
+    journeyDate.addEventListener("change",event=>{
+
+        returnDate.min =
+            event.target.value || earliestDate;
+
+    });
 }
 
 
