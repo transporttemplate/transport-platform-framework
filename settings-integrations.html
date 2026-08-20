@@ -5,9 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Integrations</title>
 <link rel="stylesheet" href="css/admin.css">
+
+<style>
+.integration-note{
+    margin-top:14px;
+    padding:12px 14px;
+    border-radius:8px;
+    background:#eff6ff;
+    border:1px solid #dbeafe;
+    color:#475569;
+    font-size:13px;
+}
+</style>
 </head>
+
 <body>
+
 <div class="overlay" id="overlay"></div>
+
 <div class="admin-layout">
 
 <aside class="sidebar" id="sidebar">
@@ -27,23 +42,59 @@
 </aside>
 
 <main class="main">
+
 <div class="topbar">
 <div class="topbar-left">
 <button class="menu-toggle" id="menuToggle" type="button">☰</button>
-<div><h2>Integrations</h2><small>Google and platform integrations</small></div>
+<div>
+<h2>Integrations</h2>
+<small>Google and platform integrations</small>
 </div>
+</div>
+
 <button id="saveSettings" type="button">💾 Save Changes</button>
 </div>
-<div style="margin-bottom:20px;"><a href="settings.html">← Back to Settings</a></div>
 
-<div class="card"><h3>🔌 API Keys & Integrations</h3>
-<p>These fields are kept compatible with your existing settings table for now.</p>
-<label>Google Maps API Key</label><input id="googleMapsApi" type="text">
-<label>Google Places API</label><input id="googlePlacesApi" type="text">
-<label>Google Routes API</label><input id="googleRoutesApi" type="text">
-<label>Google Calendar ID</label><input id="googleCalendarId" type="text">
-<label>Supabase URL</label><input id="supabaseUrl" type="text">
-<label>Supabase Anon Key</label><input id="supabaseAnonKey" type="text">
+<div style="margin-bottom:20px;">
+<a href="settings.html">← Back to Settings</a>
+</div>
+
+<div class="card">
+
+<h3>🔌 API Keys & Integrations</h3>
+
+<p>
+These settings belong to the company currently logged into the admin dashboard.
+</p>
+
+<label>Google Maps API Key</label>
+<input id="googleMapsApi" type="text">
+
+<label>Google Places API</label>
+<input id="googlePlacesApi" type="text">
+
+<label>Google Routes API</label>
+<input id="googleRoutesApi" type="text">
+
+<label>Google Calendar ID</label>
+<input
+    id="googleCalendarId"
+    type="text"
+    placeholder="e.g. your-calendar-id@group.calendar.google.com"
+>
+
+<div class="integration-note">
+<strong>Google Calendar connection:</strong>
+saving the Calendar ID tells the platform which calendar to use.
+The secure Google sign-in / OAuth connection will be added in the next stage so bookings can be created and updated automatically in Google Calendar.
+</div>
+
+<label>Supabase URL</label>
+<input id="supabaseUrl" type="text">
+
+<label>Supabase Anon Key</label>
+<input id="supabaseAnonKey" type="text">
+
 </div>
 
 </main>

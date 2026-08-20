@@ -3,9 +3,234 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Calendar</title>
+<title>Booking Calendar</title>
 <link rel="stylesheet" href="css/admin.css">
+
+<style>
+.calendar-toolbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-bottom:16px;
+}
+.calendar-toolbar-left,
+.calendar-toolbar-right{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+}
+.calendar-toolbar h2{
+    margin:0;
+    min-width:190px;
+    text-align:center;
+}
+.calendar-toolbar button{
+    border:0;
+    border-radius:7px;
+    padding:9px 12px;
+    background:#e5e9ef;
+    color:#243142;
+    cursor:pointer;
+}
+.calendar-toolbar button.primary{
+    background:#334155;
+    color:#fff;
+}
+
+.calendar-wrap{
+    overflow:auto;
+}
+.calendar-table{
+    width:100%;
+    min-width:900px;
+    border-collapse:collapse;
+    table-layout:fixed;
+}
+.calendar-table th{
+    background:#f8fafc;
+    padding:10px;
+    border:1px solid #e5e7eb;
+    font-size:13px;
+}
+.calendar-table td{
+    vertical-align:top;
+    height:145px;
+    border:1px solid #e5e7eb;
+    padding:8px;
+    background:#fff;
+}
+.calendar-day-number{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:7px;
+    font-weight:700;
+}
+.calendar-day-number span:last-child{
+    font-size:11px;
+    color:#64748b;
+}
+.calendar-day.other-month{
+    background:#f8fafc;
+    color:#94a3b8;
+}
+.calendar-day.today{
+    outline:2px solid #2563eb;
+    outline-offset:-2px;
+}
+.calendar-job{
+    width:100%;
+    border:0;
+    border-radius:7px;
+    background:#eef2ff;
+    color:#243142;
+    text-align:left;
+    padding:7px 8px;
+    margin:3px 0;
+    cursor:pointer;
+    font-size:11px;
+    line-height:1.35;
+}
+.calendar-job.unassigned{
+    background:#fee2e2;
+}
+.calendar-job.completed{
+    background:#dcfce7;
+}
+.calendar-job.cancelled{
+    background:#f1f5f9;
+    color:#64748b;
+}
+.calendar-more{
+    font-size:11px;
+    color:#64748b;
+    margin-top:5px;
+}
+
+.schedule-table{
+    width:100%;
+}
+.schedule-table td,
+.schedule-table th{
+    padding:10px;
+}
+.schedule-row-button{
+    border:0;
+    background:transparent;
+    color:#2563eb;
+    cursor:pointer;
+    padding:0;
+    text-align:left;
+}
+
+.calendar-modal-backdrop{
+    position:fixed;
+    inset:0;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    background:rgba(15,23,42,.6);
+    z-index:99990;
+}
+.calendar-modal-backdrop.open{
+    display:flex;
+}
+.calendar-modal{
+    width:min(850px,100%);
+    max-height:90vh;
+    overflow:auto;
+    background:#fff;
+    border-radius:16px;
+    box-shadow:0 24px 60px rgba(0,0,0,.28);
+}
+.calendar-modal-header{
+    position:sticky;
+    top:0;
+    z-index:2;
+    display:flex;
+    justify-content:space-between;
+    gap:20px;
+    align-items:flex-start;
+    padding:20px 22px;
+    background:#fff;
+    border-bottom:1px solid #e5e7eb;
+}
+.calendar-modal-header h2{
+    margin:0 0 4px;
+}
+.calendar-modal-header p{
+    margin:0;
+    color:#64748b;
+    font-size:13px;
+}
+.calendar-modal-close{
+    border:0;
+    border-radius:9px;
+    background:#e5e7eb;
+    width:38px;
+    height:38px;
+    font-size:20px;
+}
+.calendar-modal-body{
+    padding:20px 22px 24px;
+}
+.detail-grid{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px;
+}
+.detail-item{
+    border:1px solid #e5e7eb;
+    background:#f8fafc;
+    border-radius:10px;
+    padding:11px 12px;
+}
+.detail-item.wide{
+    grid-column:1/-1;
+}
+.detail-item small{
+    display:block;
+    color:#64748b;
+    margin-bottom:5px;
+    font-size:11px;
+}
+.detail-item strong{
+    display:block;
+    color:#111827;
+    overflow-wrap:anywhere;
+}
+.google-calendar-banner{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-top:16px;
+    padding:14px 16px;
+    border:1px solid #dbeafe;
+    background:#eff6ff;
+    border-radius:10px;
+}
+.google-calendar-banner p{
+    margin:0;
+    color:#475569;
+    font-size:13px;
+}
+.google-calendar-banner a{
+    white-space:nowrap;
+}
+
+@media(max-width:700px){
+    .detail-grid{grid-template-columns:1fr}
+    .detail-item.wide{grid-column:auto}
+}
+</style>
 </head>
+
 <body>
 
 <div class="admin-layout">
@@ -29,25 +254,36 @@
 <main class="main">
 
 <div class="topbar">
+<div>
 <h2>Booking Calendar</h2>
-<button>+ New Booking</button>
+<small>Live bookings from Supabase</small>
+</div>
+<button id="newBookingButton" type="button">+ New Booking</button>
 </div>
 
 <div class="stats">
-<div class="card blue"><h3>Today's Jobs</h3><div class="stat">18</div></div>
-<div class="card green"><h3>Drivers Working</h3><div class="stat">6</div></div>
-<div class="card orange"><h3>Airport Runs</h3><div class="stat">9</div></div>
-<div class="card red"><h3>Unassigned</h3><div class="stat">2</div></div>
+<div class="card blue"><h3>Today's Jobs</h3><div class="stat" id="todayJobs">0</div></div>
+<div class="card green"><h3>Drivers Working</h3><div class="stat" id="driversWorking">0</div></div>
+<div class="card orange"><h3>Airport Runs</h3><div class="stat" id="airportRuns">0</div></div>
+<div class="card red"><h3>Unassigned</h3><div class="stat" id="unassignedJobs">0</div></div>
 </div>
 
 <div class="card">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-<button>◀ Previous</button>
-<h2>August 2026</h2>
-<button>Next ▶</button>
+<div class="calendar-toolbar">
+<div class="calendar-toolbar-left">
+<button id="previousMonth" type="button">◀ Previous</button>
+<button id="todayButton" class="primary" type="button">Today</button>
 </div>
 
-<table>
+<h2 id="calendarMonthTitle">Month</h2>
+
+<div class="calendar-toolbar-right">
+<button id="nextMonth" type="button">Next ▶</button>
+</div>
+</div>
+
+<div class="calendar-wrap">
+<table class="calendar-table">
 <thead>
 <tr>
 <th>Monday</th>
@@ -59,56 +295,152 @@
 <th>Sunday</th>
 </tr>
 </thead>
-<tbody>
-<tr>
-<td><strong>3</strong><br><small>🚖 Nick<br>✈ Cardiff</small></td>
-<td><strong>4</strong><br><small>🚖 Francis<br>✈ Bristol</small></td>
-<td><strong>5</strong><br><small>🚖 Stan</small></td>
-<td><strong>6</strong><br><small>🚖 Chris</small></td>
-<td><strong>7</strong><br><small>✈ Heathrow</small></td>
-<td><strong>8</strong><br><small>🚖 6 Jobs</small></td>
-<td><strong>9</strong><br><small>🚖 4 Jobs</small></td>
-</tr>
-<tr>
-<td style="height:120px;"></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
-</tbody>
+<tbody id="calendarBody"></tbody>
 </table>
 </div>
 
+<div class="google-calendar-banner">
+<div>
+<strong>Google Calendar</strong>
+<p id="googleCalendarStatus">Checking integration settings…</p>
+</div>
+<a href="settings-integrations.html">Open Integration Settings →</a>
+</div>
+</div>
+
 <div class="grid-2" style="margin-top:25px;">
+
 <div class="card">
 <h3>Today's Schedule</h3>
-<table>
-<tr><th>Time</th><th>Driver</th><th>Journey</th></tr>
-<tr><td>08:30</td><td>Nick</td><td>Cardiff Airport</td></tr>
-<tr><td>10:15</td><td>Francis</td><td>Bristol Airport</td></tr>
-<tr><td>14:00</td><td>Stan</td><td>Heathrow</td></tr>
+
+<div style="overflow:auto;">
+<table class="schedule-table">
+<thead>
+<tr>
+<th>Time</th>
+<th>Driver</th>
+<th>Journey</th>
+<th></th>
+</tr>
+</thead>
+<tbody id="todayScheduleBody">
+<tr><td colspan="4">Loading…</td></tr>
+</tbody>
 </table>
+</div>
 </div>
 
 <div class="card">
 <h3>Upcoming</h3>
-<p>🟢 Driver Available</p><br>
-<p>🟠 Airport Pickup</p><br>
-<p>🔵 Corporate Booking</p><br>
-<p>🔴 Needs Assigning</p>
+<div id="upcomingJobs">Loading…</div>
 </div>
-</div>
-</main>
 
+</div>
+
+</main>
+</div>
+
+<div id="calendarBookingBackdrop" class="calendar-modal-backdrop">
+<div class="calendar-modal">
+
+<div class="calendar-modal-header">
+<div>
+<h2 id="calendarBookingTitle">Booking Details</h2>
+<p id="calendarBookingSubtitle">Full job details</p>
+</div>
+<button id="closeCalendarBooking" class="calendar-modal-close" type="button">×</button>
+</div>
+
+<div class="calendar-modal-body">
+
+<div class="detail-grid">
+
+<div class="detail-item">
+<small>Reference</small>
+<strong id="detailReference">-</strong>
+</div>
+
+<div class="detail-item">
+<small>Status</small>
+<strong id="detailStatus">-</strong>
+</div>
+
+<div class="detail-item">
+<small>Date</small>
+<strong id="detailDate">-</strong>
+</div>
+
+<div class="detail-item">
+<small>Time</small>
+<strong id="detailTime">-</strong>
+</div>
+
+<div class="detail-item">
+<small>Driver</small>
+<strong id="detailDriver">-</strong>
+</div>
+
+<div class="detail-item">
+<small>Passenger</small>
+<strong id="detailPassenger">-</strong>
+</div>
+
+<div class="detail-item">
+<small>Phone</small>
+<strong id="detailPhone">-</strong>
+</div>
+
+<div class="detail-item">
+<small>Passengers</small>
+<strong id="detailPassengers">-</strong>
+</div>
+
+<div class="detail-item wide">
+<small>Pickup</small>
+<strong id="detailPickup">-</strong>
+</div>
+
+<div class="detail-item wide">
+<small>Destination</small>
+<strong id="detailDestination">-</strong>
+</div>
+
+<div class="detail-item">
+<small>Flight Number</small>
+<strong id="detailFlight">-</strong>
+</div>
+
+<div class="detail-item">
+<small>Price</small>
+<strong id="detailPrice">-</strong>
+</div>
+
+<div class="detail-item">
+<small>Payment</small>
+<strong id="detailPayment">-</strong>
+</div>
+
+<div class="detail-item">
+<small>Source</small>
+<strong id="detailSource">-</strong>
+</div>
+
+<div class="detail-item wide">
+<small>Notes</small>
+<strong id="detailNotes">-</strong>
+</div>
+
+</div>
+
+</div>
+</div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/admin.js"></script>
+<script src="js/calendar.js"></script>
 
 </body>
 </html>
