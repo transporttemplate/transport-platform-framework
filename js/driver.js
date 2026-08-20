@@ -1,4 +1,3 @@
-
 const driverdb = getSupabase();
 
 let currentCompany = null;
@@ -15,18 +14,9 @@ document.addEventListener("DOMContentLoaded", () => {
 function bindDriverUI() {
     document.getElementById("driverLoginButton")?.addEventListener("click", driverLogin);
     document.getElementById("driverLogoutButton")?.addEventListener("click", driverLogout);
-
     document.getElementById("menuButton")?.addEventListener("click", openSideMenu);
     document.getElementById("closeMenuButton")?.addEventListener("click", closeSideMenu);
     document.getElementById("menuOverlay")?.addEventListener("click", closeSideMenu);
-
-    document.querySelectorAll("[data-view]").forEach(button => {
-        button.addEventListener("click", () => {
-            showDriverView(button.dataset.view);
-            closeSideMenu();
-        });
-    });
-
     document.getElementById("availabilityButton")?.addEventListener("click", toggleAvailability);
     document.getElementById("acceptJobButton")?.addEventListener("click", acceptCurrentJob);
     document.getElementById("declineJobButton")?.addEventListener("click", declineCurrentJob);
@@ -34,12 +24,17 @@ function bindDriverUI() {
     document.getElementById("pobButton")?.addEventListener("click", setPOB);
     document.getElementById("dropOffButton")?.addEventListener("click", completeCurrentJob);
     document.getElementById("viewCurrentJobButton")?.addEventListener("click", () => currentJob && openJobDetails(currentJob));
-
     document.getElementById("closeJobDetailsButton")?.addEventListener("click", closeJobDetails);
     document.getElementById("jobDetailsOverlay")?.addEventListener("click", closeJobDetails);
-
     document.getElementById("holidayForm")?.addEventListener("submit", saveDriverHoliday);
     document.getElementById("imBackButton")?.addEventListener("click", endDriverHoliday);
+
+    document.querySelectorAll("[data-view]").forEach(btn => {
+        btn.addEventListener("click", () => {
+            showDriverView(btn.dataset.view);
+            closeSideMenu();
+        });
+    });
 
     document.getElementById("driverPin")?.addEventListener("keydown", e => {
         if (e.key === "Enter") driverLogin();
@@ -48,13 +43,15 @@ function bindDriverUI() {
 
 async function driverLogin() {
     const companyCode = document.getElementById("companyId")?.value.trim();
-    const driverNumberInput = document.getElementById("driverNumber")?.value.trim();
+    const numberInput = document.getElementById("driverNumber")?.value.trim();
     const pinInput = document.getElementById("driverPin")?.value.trim();
 
-    if (!companyCode || !driverNumberInput || !pinInput) {
+    if (!companyCode || !numberInput || !pinInput) {
         setLoginMessage("Enter Company ID, Driver Number and PIN.", true);
         return;
     }
+
+    setLoginMessage("Checking details...", false);
 
     try {
         const { data: company, error: companyError } = await driverdb
@@ -64,10 +61,7 @@ async function driverLogin() {
             .maybeSingle();
 
         if (companyError) throw companyError;
-        if (!company) {
-            setLoginMessage("Company ID not recognised.", true);
-            return;
-        }
+        if (!company) return setLoginMessage("Company ID not recognised.", true);
 
         const { data: drivers, error: driverError } = await driverdb
             .from("drivers")
@@ -79,13 +73,10 @@ async function driverLogin() {
         const driver = (drivers || []).find(row => {
             const no = String(row.driver_number ?? row.driver_no ?? row.number ?? row.driver_ref ?? "").trim();
             const pin = String(row.pin ?? row.driver_pin ?? row.password ?? "").trim();
-            return no === driverNumberInput && pin === pinInput;
+            return no === numberInput && pin === pinInput;
         });
 
-        if (!driver) {
-            setLoginMessage("Driver Number or PIN is incorrect.", true);
-            return;
-        }
+        if (!driver) return setLoginMessage("Driver Number or PIN is incorrect.", true);
 
         currentCompany = company;
         currentDriver = driver;
@@ -96,8 +87,8 @@ async function driverLogin() {
         }));
 
         await enterDriverPortal();
-    } catch (err) {
-        console.error("Driver login error:", err);
+    } catch (error) {
+        console.error("Driver login:", error);
         setLoginMessage("Unable to log in.", true);
     }
 }
@@ -110,16 +101,14 @@ async function restoreDriverSession() {
         const session = JSON.parse(raw);
 
         const { data: company } = await driverdb
-            .from("companies")
-            .select("*")
+            .from("companies").select("*")
             .eq("company_code", session.companyCode)
             .maybeSingle();
 
         if (!company) return;
 
         const { data: driver } = await driverdb
-            .from("drivers")
-            .select("*")
+            .from("drivers").select("*")
             .eq("id", session.driverId)
             .eq("company_id", company.id)
             .maybeSingle();
@@ -129,8 +118,8 @@ async function restoreDriverSession() {
         currentCompany = company;
         currentDriver = driver;
         await enterDriverPortal();
-    } catch (err) {
-        console.error(err);
+    } catch (error) {
+        console.error(error);
         localStorage.removeItem("driverPortalSession");
     }
 }
@@ -138,7 +127,7 @@ async function restoreDriverSession() {
 async function enterDriverPortal() {
     document.getElementById("driverLoginScreen")?.classList.add("hidden");
     document.getElementById("driverApp")?.classList.remove("hidden");
-
+    showDriverView("jobs");
     populateDriverHeader();
     await refreshDriverPortal();
 }
@@ -150,55 +139,45 @@ function driverLogout() {
     currentJob = null;
     driverBookings = [];
 
+    closeSideMenu();
+    closeJobDetails();
+
     document.getElementById("driverApp")?.classList.add("hidden");
     document.getElementById("driverLoginScreen")?.classList.remove("hidden");
+
     if (document.getElementById("driverPin")) document.getElementById("driverPin").value = "";
-    closeSideMenu();
 }
 
-function setLoginMessage(text, isError) {
-    const el = document.getElementById("driverLoginMessage");
-    if (!el) return;
-    el.textContent = text;
-    el.classList.toggle("error", !!isError);
+function driverName(driver) {
+    const firstLast = `${driver?.first_name ?? ""} ${driver?.last_name ?? ""}`.trim();
+    return driver?.full_name || driver?.name || driver?.driver_name || firstLast || "Driver";
+}
+
+function driverNumber(driver) {
+    return String(driver?.driver_number ?? driver?.driver_no ?? driver?.number ?? driver?.driver_ref ?? "-");
 }
 
 function populateDriverHeader() {
     const name = driverName(currentDriver);
     const number = driverNumber(currentDriver);
-    const companyName = currentCompany?.name ?? currentCompany?.company_name ?? currentCompany?.display_name ?? `Company ${currentCompany?.company_code ?? ""}`;
+    const companyName = currentCompany?.name || currentCompany?.company_name || currentCompany?.display_name || `Company ${currentCompany?.company_code ?? ""}`;
 
     setText("driverName", name);
     setText("menuDriverName", name);
     setText("menuDriverNumber", number);
     setText("driverCompanyName", companyName);
     setText("menuCompanyName", companyName);
-
     refreshAvailabilityUI();
 }
 
-function driverName(driver) {
-
-    const firstLast =
-        `${driver?.first_name ?? ""} ${driver?.last_name ?? ""}`.trim();
-
-    return (
-        driver?.full_name ||
-        driver?.name ||
-        driver?.driver_name ||
-        firstLast ||
-        "Driver"
-    );
-}
-
-
-
-function driverNumber(driver) {
-    return String(driver?.driver_number ?? driver?.driver_no ?? driver?.number ?? driver?.driver_ref ?? "-");
+function setLoginMessage(text, error) {
+    const el = document.getElementById("driverLoginMessage");
+    if (!el) return;
+    el.textContent = text;
+    el.classList.toggle("error", !!error);
 }
 
 async function refreshDriverPortal() {
-    if (!currentCompany || !currentDriver) return;
     await refreshHolidayStatus();
     await loadDriverBookings();
     renderCurrentJob();
@@ -219,15 +198,12 @@ function availabilityUpdate(value) {
 }
 
 async function toggleAvailability() {
-    if (!currentDriver) return;
-
     if (driverUnavailable) {
         alert("You are marked unavailable. Use I'm Back in Holidays / Off Days.");
         return;
     }
 
-    const next = !isDriverOnline(currentDriver);
-    const update = availabilityUpdate(next);
+    const update = availabilityUpdate(!isDriverOnline(currentDriver));
 
     const { error } = await driverdb
         .from("drivers")
@@ -237,8 +213,7 @@ async function toggleAvailability() {
 
     if (error) {
         console.error(error);
-        alert("Unable to update availability.");
-        return;
+        return alert("Unable to update availability.");
     }
 
     Object.assign(currentDriver, update);
@@ -273,7 +248,8 @@ async function loadDriverBookings() {
         .order("journey_time", { ascending: true });
 
     if (error) {
-        console.error("Driver bookings load:", error);
+        console.error("Driver bookings:", error);
+        driverBookings = [];
         return;
     }
 
@@ -283,15 +259,13 @@ async function loadDriverBookings() {
     driverBookings = (data || []).filter(job => {
         const assignedId = job.driver_id ?? job.assigned_driver_id ?? job.allocated_driver_id ?? null;
         const assignedNo = job.driver_number ?? job.assigned_driver_number ?? job.driver ?? null;
-
         return String(assignedId ?? "") === id || String(assignedNo ?? "") === no;
     });
 }
 
 function renderCurrentJob() {
-    const liveStatuses = ["assigned", "waiting", "pending", "accepted", "on way", "on_way", "pob", "picked up", "passenger onboard", "passengers onboard"];
-
-    currentJob = driverBookings.find(job => liveStatuses.includes(normaliseStatus(job.status))) || null;
+    const active = ["assigned","waiting","pending","accepted","on way","on_way","pob","picked up","passenger onboard","passengers onboard"];
+    currentJob = driverBookings.find(job => active.includes(normaliseStatus(job.status))) || null;
 
     const card = document.getElementById("currentJobCard");
     const empty = document.getElementById("noCurrentJob");
@@ -319,24 +293,17 @@ function renderCurrentJob() {
 
 function renderJobActions() {
     if (!currentJob) return;
-
     const status = normaliseStatus(currentJob.status);
     const offer = document.getElementById("jobOfferActions");
     const progress = document.getElementById("jobProgressActions");
-    const onWay = document.getElementById("onWayButton");
-    const pob = document.getElementById("pobButton");
-    const drop = document.getElementById("dropOffButton");
 
-    const isOffer = ["assigned", "waiting", "pending"].includes(status);
-
+    const isOffer = ["assigned","waiting","pending"].includes(status);
     offer?.classList.toggle("hidden", !isOffer);
     progress?.classList.toggle("hidden", isOffer);
 
-    if (isOffer) return;
-
-    onWay?.classList.toggle("hidden", status !== "accepted");
-    pob?.classList.toggle("hidden", !["on way", "on_way"].includes(status));
-    drop?.classList.toggle("hidden", !["pob", "picked up", "passenger onboard", "passengers onboard"].includes(status));
+    document.getElementById("onWayButton")?.classList.toggle("hidden", status !== "accepted");
+    document.getElementById("pobButton")?.classList.toggle("hidden", !["on way","on_way"].includes(status));
+    document.getElementById("dropOffButton")?.classList.toggle("hidden", !["pob","picked up","passenger onboard","passengers onboard"].includes(status));
 }
 
 function canWork() {
@@ -344,27 +311,21 @@ function canWork() {
         alert("You are marked unavailable.");
         return false;
     }
-
     if (!isDriverOnline(currentDriver)) {
         alert("Go Online before starting a job.");
         return false;
     }
-
     return true;
 }
 
 async function acceptCurrentJob() {
     if (!canWork()) return;
-    await updateCurrentJobStatus("Accepted");
-    renderJobActions();
+    if (await updateCurrentJobStatus("Accepted")) renderJobActions();
 }
 
 async function declineCurrentJob() {
-    if (!currentJob) return;
-    if (!confirm("Decline this job?")) return;
-
-    await updateCurrentJobStatus("Declined");
-    await refreshDriverPortal();
+    if (!currentJob || !confirm("Decline this job?")) return;
+    if (await updateCurrentJobStatus("Declined")) await refreshDriverPortal();
 }
 
 async function setOnWay() {
@@ -384,9 +345,7 @@ async function setPOB() {
 }
 
 async function completeCurrentJob() {
-    if (!canWork()) return;
-    if (!confirm("Mark passengers as dropped off and complete this job?")) return;
-
+    if (!canWork() || !confirm("Mark this job as dropped off and completed?")) return;
     if (await updateCurrentJobStatus("Completed")) {
         currentJob = null;
         await refreshDriverPortal();
@@ -409,14 +368,13 @@ async function updateCurrentJobStatus(status) {
     }
 
     currentJob.status = status;
+    setText("currentJobStatus", prettyStatus(status));
     return true;
 }
 
 function openNavigation(address) {
-    if (!address) return;
-
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
-    window.open(url, "_blank");
+    if (!address || address === "-") return alert("No address saved for this job.");
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`, "_blank");
 }
 
 function openJobDetails(job) {
@@ -425,7 +383,7 @@ function openJobDetails(job) {
     setText("detailTime", formatTime(job.journey_time));
     setText("detailPickup", pickup(job));
     setText("detailDestination", destination(job));
-    setText("detailPassenger", job.customer_name ?? "-");
+    setText("detailPassenger", job.customer_name ?? job.passenger_name ?? "-");
     setText("detailPhone", job.phone ?? job.customer_phone ?? "-");
     setText("detailPassengers", job.passengers ?? "-");
     setText("detailSuitcases", job.suitcases ?? "-");
@@ -437,7 +395,7 @@ function openJobDetails(job) {
 
     const phone = job.phone ?? job.customer_phone ?? "";
     const call = document.getElementById("callPassengerButton");
-    if (call) call.href = phone ? `tel:${String(phone).replace(/\s+/g, "")}` : "#";
+    if (call) call.href = phone ? `tel:${String(phone).replace(/\s+/g,"")}` : "#";
 
     document.getElementById("jobDetailsDrawer")?.classList.add("open");
     document.getElementById("jobDetailsOverlay")?.classList.add("open");
@@ -453,7 +411,7 @@ function renderUpcomingBookings() {
     if (!list) return;
 
     const jobs = driverBookings
-        .filter(job => !["completed", "cancelled", "declined"].includes(normaliseStatus(job.status)))
+        .filter(job => !["completed","cancelled","declined"].includes(normaliseStatus(job.status)))
         .sort(compareJobs);
 
     if (!jobs.length) {
@@ -462,12 +420,12 @@ function renderUpcomingBookings() {
     }
 
     list.innerHTML = jobs.map(job => `
-        <button type="button" class="upcoming-job-card" data-job-id="${escapeHtml(String(job.id))}">
+        <button class="upcoming-job-card" type="button" data-job-id="${escapeHtml(String(job.id))}">
             <div>
                 <strong>${escapeHtml(formatDate(job.journey_date))} • ${escapeHtml(formatTime(job.journey_time))}</strong>
                 <span>${escapeHtml(pickup(job))} → ${escapeHtml(destination(job))}</span>
             </div>
-            <span class="job-status">${escapeHtml(prettyStatus(job.status || "Waiting"))}</span>
+            <span>${escapeHtml(prettyStatus(job.status || "Waiting"))}</span>
         </button>
     `).join("");
 
@@ -481,16 +439,21 @@ function renderUpcomingBookings() {
 
 function renderEarnings() {
     const completed = driverBookings.filter(job => normaliseStatus(job.status) === "completed");
-    const todayKey = localDateKey(new Date());
-    const todayCompleted = completed.filter(job => job.journey_date === todayKey);
+    const today = localDateKey(new Date());
 
-    const todayTotal = todayCompleted.reduce((sum, job) => sum + jobPrice(job), 0);
-    const allTotal = completed.reduce((sum, job) => sum + jobPrice(job), 0);
+    const todayJobs = completed.filter(job => job.journey_date === today);
+    const todayTotal = todayJobs.reduce((sum, job) => sum + jobPrice(job), 0);
+
+    const weekStart = getWeekStart(new Date());
+    const weekTotal = completed.reduce((sum, job) => {
+        const d = job.journey_date ? new Date(`${job.journey_date}T00:00:00`) : null;
+        return d && d >= weekStart ? sum + jobPrice(job) : sum;
+    }, 0);
 
     setText("todayEarnings", money(todayTotal));
-    setText("todayJobs", driverBookings.filter(job => job.journey_date === todayKey).length);
+    setText("todayJobs", driverBookings.filter(job => job.journey_date === today).length);
     setText("earningsToday", money(todayTotal));
-    setText("earningsWeek", money(allTotal));
+    setText("earningsWeek", money(weekTotal));
 
     const list = document.getElementById("earningsList");
     if (!list) return;
@@ -500,7 +463,7 @@ function renderEarnings() {
         return;
     }
 
-    list.innerHTML = completed.map(job => `
+    list.innerHTML = completed.slice().reverse().map(job => `
         <div class="earning-row">
             <div>
                 <strong>${escapeHtml(formatDate(job.journey_date))} • ${escapeHtml(formatTime(job.journey_time))}</strong>
@@ -511,9 +474,9 @@ function renderEarnings() {
     `).join("");
 }
 
-/* Holiday table: driver_unavailability */
 async function refreshHolidayStatus() {
     driverUnavailable = false;
+    const list = document.getElementById("holidayList");
 
     try {
         const { data, error } = await driverdb
@@ -524,7 +487,7 @@ async function refreshHolidayStatus() {
             .order("from_datetime", { ascending: false });
 
         if (error) {
-            console.warn("driver_unavailability not set up yet:", error.message);
+            if (list) list.innerHTML = '<div class="empty-list">Holiday storage has not been set up yet.</div>';
             return;
         }
 
@@ -538,11 +501,9 @@ async function refreshHolidayStatus() {
         );
 
         renderHolidayList(rows);
-
-        document.getElementById("imBackButton")
-            ?.classList.toggle("hidden", !driverUnavailable);
-    } catch (err) {
-        console.error(err);
+        document.getElementById("imBackButton")?.classList.toggle("hidden", !driverUnavailable);
+    } catch (error) {
+        console.error(error);
     }
 }
 
@@ -559,8 +520,7 @@ async function saveDriverHoliday(event) {
     const to = new Date(`${toDate}T${toTime}`);
 
     if (!fromDate || !fromTime || !toDate || !toTime || to <= from) {
-        alert("Check the unavailable dates and times.");
-        return;
+        return alert("Check the From and To dates/times.");
     }
 
     const { error } = await driverdb
@@ -576,13 +536,11 @@ async function saveDriverHoliday(event) {
 
     if (error) {
         console.error(error);
-        alert("Unable to save holiday/off-day.");
-        return;
+        return alert("Unable to save holiday/off day.");
     }
 
     const update = availabilityUpdate(false);
-    await driverdb.from("drivers")
-        .update(update)
+    await driverdb.from("drivers").update(update)
         .eq("id", currentDriver.id)
         .eq("company_id", currentCompany.id);
 
@@ -593,8 +551,6 @@ async function saveDriverHoliday(event) {
 }
 
 async function endDriverHoliday() {
-    const now = new Date().toISOString();
-
     const { data, error } = await driverdb
         .from("driver_unavailability")
         .select("*")
@@ -602,15 +558,14 @@ async function endDriverHoliday() {
         .eq("driver_id", currentDriver.id)
         .eq("active", true);
 
-    if (error) {
-        alert("Unable to end unavailable period.");
-        return;
-    }
+    if (error) return alert("Unable to end unavailable period.");
+
+    const now = new Date().toISOString();
 
     for (const row of data || []) {
         await driverdb
             .from("driver_unavailability")
-            .update({ active: false, to_datetime: now })
+            .update({ active:false, to_datetime:now })
             .eq("id", row.id);
     }
 
@@ -639,6 +594,15 @@ function renderHolidayList(rows) {
     `).join("");
 }
 
+function showDriverView(name) {
+    document.querySelectorAll(".driver-view").forEach(view => view.classList.remove("active"));
+    document.getElementById(`view-${name}`)?.classList.add("active");
+    if (name === "earnings") renderEarnings();
+    if (name === "upcoming") renderUpcomingBookings();
+    if (name === "holidays") refreshHolidayStatus();
+    window.scrollTo({top:0, behavior:"instant"});
+}
+
 function openSideMenu() {
     document.getElementById("driverSideMenu")?.classList.add("open");
     document.getElementById("menuOverlay")?.classList.add("open");
@@ -647,15 +611,6 @@ function openSideMenu() {
 function closeSideMenu() {
     document.getElementById("driverSideMenu")?.classList.remove("open");
     document.getElementById("menuOverlay")?.classList.remove("open");
-}
-
-function showDriverView(name) {
-    document.querySelectorAll(".driver-view").forEach(view => view.classList.remove("active"));
-    document.getElementById(`view-${name}`)?.classList.add("active");
-
-    if (name === "earnings") renderEarnings();
-    if (name === "upcoming") renderUpcomingBookings();
-    if (name === "holidays") refreshHolidayStatus();
 }
 
 function pickup(job) {
@@ -669,7 +624,6 @@ function destination(job) {
 function jobPrice(job) {
     const p = Number(job?.price);
     const jp = Number(job?.job_price);
-
     if (Number.isFinite(p) && p > 0) return p;
     if (Number.isFinite(jp) && jp > 0) return jp;
     return 0;
@@ -686,23 +640,22 @@ function normaliseStatus(status) {
 
 function prettyStatus(status) {
     const v = normaliseStatus(status);
-    const map = {
-        "on_way": "On Way",
-        "on way": "On Way",
-        "pob": "POB",
-        "completed": "Completed",
-        "waiting": "Waiting",
-        "assigned": "Assigned",
-        "pending": "Pending",
-        "accepted": "Accepted",
-        "declined": "Declined",
-        "cancelled": "Cancelled"
-    };
-    return map[v] || status || "Waiting";
+    return {
+        "on_way":"On Way",
+        "on way":"On Way",
+        "pob":"POB",
+        "completed":"Completed",
+        "waiting":"Waiting",
+        "assigned":"Assigned",
+        "pending":"Pending",
+        "accepted":"Accepted",
+        "declined":"Declined",
+        "cancelled":"Cancelled"
+    }[v] || status || "Waiting";
 }
 
 function formatTime(value) {
-    return value ? String(value).slice(0, 5) : "-";
+    return value ? String(value).slice(0,5) : "-";
 }
 
 function formatDate(value) {
@@ -716,16 +669,12 @@ function formatDateTime(value) {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return value;
     return d.toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false
+        day:"2-digit",month:"2-digit",year:"numeric",
+        hour:"2-digit",minute:"2-digit",hour12:false
     });
 }
 
-function compareJobs(a, b) {
+function compareJobs(a,b) {
     return `${a.journey_date || ""}T${a.journey_time || "00:00"}`
         .localeCompare(`${b.journey_date || ""}T${b.journey_time || "00:00"}`);
 }
@@ -734,20 +683,29 @@ function localDateKey(date) {
     return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
 }
 
-function shortId(value) {
-    return String(value || "").slice(0, 8).toUpperCase();
+function getWeekStart(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    d.setHours(0,0,0,0);
+    return d;
 }
 
-function setText(id, value) {
+function shortId(value) {
+    return String(value || "").slice(0,8).toUpperCase();
+}
+
+function setText(id,value) {
     const el = document.getElementById(id);
     if (el) el.textContent = value ?? "-";
 }
 
 function escapeHtml(value) {
     return String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
 }

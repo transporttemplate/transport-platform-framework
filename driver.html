@@ -1,792 +1,263 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    >
-
-    <title>Driver Portal</title>
-
-    <link rel="stylesheet" href="css/driver.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Driver Portal</title>
+    <link rel="stylesheet" href="css/driver.css">
 </head>
-
 <body>
 
-    <!-- LOGIN SCREEN -->
-    <section id="driverLoginScreen" class="driver-login-screen">
-
-        <div class="driver-login-card">
-
-            <div class="driver-login-logo">
-                🚖
-            </div>
-
-            <h1>Driver Login</h1>
-
-            <p>Enter your company and driver details</p>
-
-            <label for="companyId">
-                Company ID
-            </label>
-
-            <input
-                id="companyId"
-                type="text"
-                placeholder="Company ID"
-                autocomplete="organization"
-            >
-
-            <label for="driverNumber">
-                Driver Number
-            </label>
-
-            <input
-                id="driverNumber"
-                type="text"
-                inputmode="numeric"
-                placeholder="Driver Number"
-                autocomplete="username"
-            >
-
-            <label for="driverPin">
-                PIN
-            </label>
-
-            <input
-                id="driverPin"
-                type="password"
-                inputmode="numeric"
-                placeholder="PIN"
-                maxlength="8"
-                autocomplete="current-password"
-            >
-
-            <button
-                id="driverLoginButton"
-                type="button"
-                class="primary-button"
-            >
-                Log In
-            </button>
-
-            <p
-                id="driverLoginMessage"
-                class="login-message"
-            ></p>
-
-        </div>
-
-    </section>
-
-
-    <!-- MAIN DRIVER APP -->
-    <div
-        id="driverApp"
-        class="driver-app hidden"
-    >
-
-        <!-- TOP BAR -->
-        <header class="driver-topbar">
-
-            <button
-                id="menuButton"
-                type="button"
-                class="menu-button"
-                aria-label="Open menu"
-            >
-                ☰
-            </button>
-
-            <div class="driver-topbar-info">
-
-                <strong id="driverName">
-                    Driver
-                </strong>
-
-                <span id="driverCompanyName">
-                    Company
-                </span>
-
-            </div>
-
-            <button
-                id="availabilityButton"
-                type="button"
-                class="availability-button offline"
-            >
-                Offline
-            </button>
-
-        </header>
-
-
-        <!-- SIDE MENU -->
-        <aside
-            id="driverSideMenu"
-            class="driver-side-menu"
-        >
-
-            <div class="side-menu-header">
-
-                <button
-                    id="closeMenuButton"
-                    type="button"
-                    class="close-menu-button"
-                >
-                    ✕
-                </button>
-
-                <h2 id="menuDriverName">
-                    Driver
-                </h2>
-
-                <p>
-                    Driver #
-                    <span id="menuDriverNumber">
-                        -
-                    </span>
-                </p>
-
-                <p id="menuCompanyName">
-                    Company
-                </p>
-
-            </div>
-
-
-            <nav class="driver-menu">
-
-                <button
-                    type="button"
-                    data-view="home"
-                >
-                    🚖 Jobs
-                </button>
-
-                <button
-                    type="button"
-                    data-view="earnings"
-                >
-                    💷 Earnings
-                </button>
-
-                <button
-                    type="button"
-                    data-view="holidays"
-                >
-                    🏖 Holidays / Off Days
-                </button>
-
-                <button
-                    type="button"
-                    data-view="upcoming"
-                >
-                    📅 Upcoming Bookings
-                </button>
-
-                <button
-                    id="driverLogoutButton"
-                    type="button"
-                    class="logout-button"
-                >
-                    Log Off
-                </button>
-
-            </nav>
-
-        </aside>
-
-
-        <div
-            id="menuOverlay"
-            class="menu-overlay"
-        ></div>
-
-
-        <!-- MAIN CONTENT -->
-        <main class="driver-main">
-
-
-            <!-- HOME / JOBS -->
-            <section
-                id="view-home"
-                class="driver-view active"
-            >
-
-                <div class="driver-status-card">
-
-                    <div>
-
-                        <span class="status-label">
-                            Availability
-                        </span>
-
-                        <strong id="availabilityText">
-                            Offline
-                        </strong>
-
-                    </div>
-
-                    <div
-                        id="availabilityDot"
-                        class="availability-dot offline"
-                    ></div>
-
-                </div>
-
-
-                <!-- CURRENT / OFFERED JOB -->
-                <section
-                    id="currentJobCard"
-                    class="job-card hidden"
-                >
-
-                    <div class="job-card-header">
-
-                        <div>
-
-                            <span class="job-label">
-                                Current Job
-                            </span>
-
-                            <strong id="currentJobReference">
-                                -
-                            </strong>
-
-                        </div>
-
-                        <span
-                            id="currentJobStatus"
-                            class="job-status"
-                        >
-                            Waiting
-                        </span>
-
-                    </div>
-
-
-                    <div class="job-route">
-
-                        <div class="route-point">
-
-                            <span class="route-icon pickup-icon">
-                                A
-                            </span>
-
-                            <div>
-
-                                <small>
-                                    Pickup
-                                </small>
-
-                                <strong id="currentPickup">
-                                    -
-                                </strong>
-
-                            </div>
-
-                        </div>
-
-
-                        <div class="route-line"></div>
-
-
-                        <div class="route-point">
-
-                            <span class="route-icon destination-icon">
-                                B
-                            </span>
-
-                            <div>
-
-                                <small>
-                                    Destination
-                                </small>
-
-                                <strong id="currentDestination">
-                                    -
-                                </strong>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="job-summary-grid">
-
-                        <div>
-                            <small>Time</small>
-                            <strong id="currentJobTime">-</strong>
-                        </div>
-
-                        <div>
-                            <small>Passengers</small>
-                            <strong id="currentPassengers">-</strong>
-                        </div>
-
-                        <div>
-                            <small>Fare</small>
-                            <strong id="currentFare">-</strong>
-                        </div>
-
-                        <div>
-                            <small>Payment</small>
-                            <strong id="currentPayment">-</strong>
-                        </div>
-
-                    </div>
-
-
-                    <button
-                        id="viewCurrentJobButton"
-                        type="button"
-                        class="secondary-button full-width"
-                    >
-                        View Job Details
-                    </button>
-
-
-                    <!-- JOB ACTIONS -->
-                    <div
-                        id="jobOfferActions"
-                        class="job-action-row"
-                    >
-
-                        <button
-                            id="declineJobButton"
-                            type="button"
-                            class="danger-button"
-                        >
-                            Decline
-                        </button>
-
-                        <button
-                            id="acceptJobButton"
-                            type="button"
-                            class="primary-button"
-                        >
-                            Accept
-                        </button>
-
-                    </div>
-
-
-                    <div
-                        id="jobProgressActions"
-                        class="job-progress-actions hidden"
-                    >
-
-                        <button
-                            id="onWayButton"
-                            type="button"
-                            class="primary-button full-width"
-                        >
-                            📍 On Way
-                        </button>
-
-                        <button
-                            id="pobButton"
-                            type="button"
-                            class="primary-button full-width hidden"
-                        >
-                            👥 POB
-                        </button>
-
-                        <button
-                            id="dropOffButton"
-                            type="button"
-                            class="success-button full-width hidden"
-                        >
-                            ✅ Dropped Off
-                        </button>
-
-                    </div>
-
-                </section>
-
-
-                <!-- NO JOB -->
-                <section
-                    id="noCurrentJob"
-                    class="empty-job-card"
-                >
-
-                    <div class="empty-job-icon">
-                        🚖
-                    </div>
-
-                    <h2>No Current Job</h2>
-
-                    <p>
-                        Go online to receive allocated jobs.
-                    </p>
-
-                </section>
-
-
-                <!-- QUICK INFO -->
-                <section class="driver-quick-stats">
-
-                    <div class="quick-stat-card">
-
-                        <span>
-                            Today's Earnings
-                        </span>
-
-                        <strong id="todayEarnings">
-                            £0.00
-                        </strong>
-
-                    </div>
-
-                    <div class="quick-stat-card">
-
-                        <span>
-                            Jobs Today
-                        </span>
-
-                        <strong id="todayJobs">
-                            0
-                        </strong>
-
-                    </div>
-
-                </section>
-
-            </section>
-
-
-            <!-- EARNINGS -->
-            <section
-                id="view-earnings"
-                class="driver-view"
-            >
-
-                <div class="section-header">
-
-                    <h2>
-                        Earnings
-                    </h2>
-
-                    <p>
-                        Completed jobs and earnings
-                    </p>
-
-                </div>
-
-
-                <div class="earnings-summary">
-
-                    <div class="earnings-card">
-
-                        <span>
-                            Today
-                        </span>
-
-                        <strong id="earningsToday">
-                            £0.00
-                        </strong>
-
-                    </div>
-
-                    <div class="earnings-card">
-
-                        <span>
-                            This Week
-                        </span>
-
-                        <strong id="earningsWeek">
-                            £0.00
-                        </strong>
-
-                    </div>
-
-                </div>
-
-
-                <div
-                    id="earningsList"
-                    class="driver-list"
-                >
-
-                    <div class="empty-list">
-                        No completed jobs yet.
-                    </div>
-
-                </div>
-
-            </section>
-
-
-            <!-- HOLIDAYS -->
-            <section
-                id="view-holidays"
-                class="driver-view"
-            >
-
-                <div class="section-header">
-
-                    <h2>
-                        Holidays / Off Days
-                    </h2>
-
-                    <p>
-                        Mark yourself unavailable
-                    </p>
-
-                </div>
-
-
-                <form
-                    id="holidayForm"
-                    class="driver-form"
-                >
-
-                    <label for="holidayFromDate">
-                        From Date
-                    </label>
-
-                    <input
-                        id="holidayFromDate"
-                        type="date"
-                        required
-                    >
-
-
-                    <label for="holidayFromTime">
-                        From Time
-                    </label>
-
-                    <input
-                        id="holidayFromTime"
-                        type="time"
-                        required
-                    >
-
-
-                    <label for="holidayToDate">
-                        To Date
-                    </label>
-
-                    <input
-                        id="holidayToDate"
-                        type="date"
-                        required
-                    >
-
-
-                    <label for="holidayToTime">
-                        To Time
-                    </label>
-
-                    <input
-                        id="holidayToTime"
-                        type="time"
-                        required
-                    >
-
-
-                    <label for="holidayReason">
-                        Reason
-                    </label>
-
-                    <textarea
-                        id="holidayReason"
-                        rows="3"
-                        placeholder="Holiday, appointment, unavailable..."
-                    ></textarea>
-
-
-                    <button
-                        type="submit"
-                        class="primary-button full-width"
-                    >
-                        Mark Unavailable
-                    </button>
-
-                </form>
-
-
-                <button
-                    id="imBackButton"
-                    type="button"
-                    class="success-button full-width hidden"
-                >
-                    I'm Back
-                </button>
-
-
-                <div
-                    id="holidayList"
-                    class="driver-list"
-                ></div>
-
-            </section>
-
-
-            <!-- UPCOMING BOOKINGS -->
-            <section
-                id="view-upcoming"
-                class="driver-view"
-            >
-
-                <div class="section-header">
-
-                    <h2>
-                        Upcoming Bookings
-                    </h2>
-
-                    <p>
-                        Jobs allocated to you
-                    </p>
-
-                </div>
-
-
-                <div
-                    id="upcomingBookingsList"
-                    class="driver-list"
-                >
-
-                    <div class="empty-list">
-                        No upcoming bookings.
-                    </div>
-
-                </div>
-
-            </section>
-
-
-        </main>
-
-
-        <!-- JOB DETAIL DRAWER -->
-        <section
-            id="jobDetailsDrawer"
-            class="job-details-drawer"
-        >
-
-            <div class="job-details-header">
-
-                <h2>
-                    Job Details
-                </h2>
-
-                <button
-                    id="closeJobDetailsButton"
-                    type="button"
-                >
-                    ✕
-                </button>
-
-            </div>
-
-
-            <div class="job-details-content">
-
-                <div class="detail-row">
-                    <span>Reference</span>
-                    <strong id="detailReference">-</strong>
-                </div>
-
-                <div class="detail-row">
-                    <span>Date</span>
-                    <strong id="detailDate">-</strong>
-                </div>
-
-                <div class="detail-row">
-                    <span>Time</span>
-                    <strong id="detailTime">-</strong>
-                </div>
-
-                <div class="detail-row">
-                    <span>Pickup</span>
-                    <strong id="detailPickup">-</strong>
-                </div>
-
-                <div class="detail-row">
-                    <span>Destination</span>
-                    <strong id="detailDestination">-</strong>
-                </div>
-
-                <div class="detail-row">
-                    <span>Passenger</span>
-                    <strong id="detailPassenger">-</strong>
-                </div>
-
-                <div class="detail-row">
-                    <span>Phone</span>
-                    <strong id="detailPhone">-</strong>
-                </div>
-
-                <div class="detail-row">
-                    <span>Passengers</span>
-                    <strong id="detailPassengers">-</strong>
-                </div>
-
-                <div class="detail-row">
-                    <span>Suitcases</span>
-                    <strong id="detailSuitcases">-</strong>
-                </div>
-
-                <div class="detail-row">
-                    <span>Hand Luggage</span>
-                    <strong id="detailHandLuggage">-</strong>
-                </div>
-
-                <div class="detail-row">
-                    <span>Flight Number</span>
-                    <strong id="detailFlightNumber">-</strong>
-                </div>
-
-                <div class="detail-row">
-                    <span>Fare</span>
-                    <strong id="detailFare">-</strong>
-                </div>
-
-                <div class="detail-row">
-                    <span>Payment</span>
-                    <strong id="detailPayment">-</strong>
-                </div>
-
-                <div class="detail-row">
-                    <span>Notes</span>
-                    <strong id="detailNotes">-</strong>
-                </div>
-
-
-                <a
-                    id="callPassengerButton"
-                    class="secondary-button full-width"
-                    href="#"
-                >
-                    ☎ Call Passenger
-                </a>
-
-            </div>
-
-        </section>
-
-
-        <div
-            id="jobDetailsOverlay"
-            class="job-details-overlay"
-        ></div>
-
-    </div>
-
-
-    <!-- SUPABASE -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-    <script src="js/supabase.js"></script>
-
-    <script src="js/driver.js"></script>
-
+<!-- LOGIN ONLY -->
+<section id="driverLoginScreen" class="driver-login-screen">
+    <div class="driver-login-card">
+        <div class="login-icon">🚕</div>
+        <h1>Driver Login</h1>
+        <p>Sign in with your company and driver details.</p>
+
+        <label for="companyId">Company ID</label>
+        <input id="companyId" type="text" inputmode="numeric" autocomplete="organization" placeholder="e.g. 0001">
+
+        <label for="driverNumber">Driver Number</label>
+        <input id="driverNumber" type="text" inputmode="numeric" autocomplete="username" placeholder="Driver number">
+
+        <label for="driverPin">PIN</label>
+        <input id="driverPin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="••••">
+
+        <button id="driverLoginButton" class="btn btn-primary btn-full" type="button">Log In</button>
+        <div id="driverLoginMessage" class="login-message"></div>
+    </div>
+</section>
+
+<!-- LOGGED-IN APP -->
+<div id="driverApp" class="driver-app hidden">
+
+    <header class="app-header">
+        <button id="menuButton" class="icon-button" type="button" aria-label="Open menu">☰</button>
+
+        <div class="header-copy">
+            <strong id="driverName">Driver</strong>
+            <span id="driverCompanyName">Company</span>
+        </div>
+
+        <button id="availabilityButton" class="availability-button offline" type="button">
+            Offline
+        </button>
+    </header>
+
+    <!-- SIDE MENU -->
+    <div id="menuOverlay" class="overlay"></div>
+
+    <aside id="driverSideMenu" class="side-menu">
+        <div class="side-menu-top">
+            <button id="closeMenuButton" class="close-button" type="button">×</button>
+            <div class="driver-avatar">🚕</div>
+            <h2 id="menuDriverName">Driver</h2>
+            <p>Driver #<span id="menuDriverNumber">-</span></p>
+            <p id="menuCompanyName">Company</p>
+        </div>
+
+        <nav class="side-nav">
+            <button type="button" data-view="jobs">🚕 <span>Jobs</span></button>
+            <button type="button" data-view="earnings">💷 <span>Earnings</span></button>
+            <button type="button" data-view="holidays">🏖️ <span>Holidays / Off Days</span></button>
+            <button type="button" data-view="upcoming">📅 <span>Upcoming Bookings</span></button>
+        </nav>
+
+        <button id="driverLogoutButton" class="logout-button" type="button">Log Off</button>
+    </aside>
+
+    <main class="app-main">
+
+        <!-- JOBS VIEW -->
+        <section id="view-jobs" class="driver-view active">
+            <div class="status-card">
+                <div>
+                    <span>Availability</span>
+                    <strong id="availabilityText">Offline</strong>
+                </div>
+                <span id="availabilityDot" class="status-dot offline"></span>
+            </div>
+
+            <section id="currentJobCard" class="current-job-card hidden">
+                <div class="job-top">
+                    <div>
+                        <span>Current Job</span>
+                        <strong id="currentJobReference">-</strong>
+                    </div>
+                    <span id="currentJobStatus" class="status-pill">Waiting</span>
+                </div>
+
+                <div class="route">
+                    <div class="route-row">
+                        <span class="route-badge pickup">A</span>
+                        <div>
+                            <small>Pickup</small>
+                            <strong id="currentPickup">-</strong>
+                        </div>
+                    </div>
+
+                    <div class="route-line"></div>
+
+                    <div class="route-row">
+                        <span class="route-badge dropoff">B</span>
+                        <div>
+                            <small>Destination</small>
+                            <strong id="currentDestination">-</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="job-grid">
+                    <div><small>Time</small><strong id="currentJobTime">-</strong></div>
+                    <div><small>Passengers</small><strong id="currentPassengers">-</strong></div>
+                    <div><small>Fare</small><strong id="currentFare">£0.00</strong></div>
+                    <div><small>Payment</small><strong id="currentPayment">-</strong></div>
+                </div>
+
+                <button id="viewCurrentJobButton" class="btn btn-secondary btn-full" type="button">
+                    View Job Details
+                </button>
+
+                <div id="jobOfferActions" class="two-buttons">
+                    <button id="acceptJobButton" class="btn btn-success" type="button">Accept</button>
+                    <button id="declineJobButton" class="btn btn-danger" type="button">Decline</button>
+                </div>
+
+                <div id="jobProgressActions" class="progress-buttons hidden">
+                    <button id="onWayButton" class="btn btn-primary" type="button">📍 On Way</button>
+                    <button id="pobButton" class="btn btn-primary hidden" type="button">👥 POB</button>
+                    <button id="dropOffButton" class="btn btn-success hidden" type="button">✅ Dropped Off</button>
+                </div>
+            </section>
+
+            <section id="noCurrentJob" class="empty-card">
+                <div class="empty-icon">🚕</div>
+                <h2>No Current Job</h2>
+                <p>Go online to receive jobs allocated to you.</p>
+            </section>
+
+            <div class="mini-stats">
+                <div>
+                    <span>Today's Earnings</span>
+                    <strong id="todayEarnings">£0.00</strong>
+                </div>
+                <div>
+                    <span>Jobs Today</span>
+                    <strong id="todayJobs">0</strong>
+                </div>
+            </div>
+        </section>
+
+        <!-- EARNINGS VIEW -->
+        <section id="view-earnings" class="driver-view">
+            <div class="page-title">
+                <h2>Earnings</h2>
+                <p>Completed jobs and earnings.</p>
+            </div>
+
+            <div class="mini-stats">
+                <div>
+                    <span>Today</span>
+                    <strong id="earningsToday">£0.00</strong>
+                </div>
+                <div>
+                    <span>This Week</span>
+                    <strong id="earningsWeek">£0.00</strong>
+                </div>
+            </div>
+
+            <div id="earningsList" class="list-stack">
+                <div class="empty-list">No completed jobs yet.</div>
+            </div>
+        </section>
+
+        <!-- HOLIDAYS VIEW -->
+        <section id="view-holidays" class="driver-view">
+            <div class="page-title">
+                <h2>Holidays / Off Days</h2>
+                <p>Mark yourself unavailable so you cannot be allocated work.</p>
+            </div>
+
+            <form id="holidayForm" class="form-card">
+                <div class="form-grid">
+                    <div>
+                        <label for="holidayFromDate">From Date</label>
+                        <input id="holidayFromDate" type="date" required>
+                    </div>
+                    <div>
+                        <label for="holidayFromTime">From Time</label>
+                        <input id="holidayFromTime" type="time" required>
+                    </div>
+                    <div>
+                        <label for="holidayToDate">To Date</label>
+                        <input id="holidayToDate" type="date" required>
+                    </div>
+                    <div>
+                        <label for="holidayToTime">To Time</label>
+                        <input id="holidayToTime" type="time" required>
+                    </div>
+                </div>
+
+                <label for="holidayReason">Reason</label>
+                <textarea id="holidayReason" placeholder="Holiday, day off, appointment..."></textarea>
+
+                <button class="btn btn-primary btn-full" type="submit">Mark Unavailable</button>
+                <button id="imBackButton" class="btn btn-success btn-full hidden" type="button">I'm Back</button>
+            </form>
+
+            <div id="holidayList" class="list-stack">
+                <div class="empty-list">No holidays or off days saved.</div>
+            </div>
+        </section>
+
+        <!-- UPCOMING VIEW -->
+        <section id="view-upcoming" class="driver-view">
+            <div class="page-title">
+                <h2>Upcoming Bookings</h2>
+                <p>Jobs allocated to you.</p>
+            </div>
+
+            <div id="upcomingBookingsList" class="list-stack">
+                <div class="empty-list">No upcoming bookings.</div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- JOB DETAILS DRAWER -->
+    <div id="jobDetailsOverlay" class="overlay details-overlay"></div>
+
+    <aside id="jobDetailsDrawer" class="job-drawer">
+        <div class="drawer-header">
+            <h2>Job Details</h2>
+            <button id="closeJobDetailsButton" type="button">×</button>
+        </div>
+
+        <div class="drawer-content">
+            <div class="detail-row"><span>Reference</span><strong id="detailReference">-</strong></div>
+            <div class="detail-row"><span>Date</span><strong id="detailDate">-</strong></div>
+            <div class="detail-row"><span>Time</span><strong id="detailTime">-</strong></div>
+            <div class="detail-row"><span>Pickup</span><strong id="detailPickup">-</strong></div>
+            <div class="detail-row"><span>Destination</span><strong id="detailDestination">-</strong></div>
+            <div class="detail-row"><span>Passenger</span><strong id="detailPassenger">-</strong></div>
+            <div class="detail-row"><span>Phone</span><strong id="detailPhone">-</strong></div>
+            <div class="detail-row"><span>Passengers</span><strong id="detailPassengers">-</strong></div>
+            <div class="detail-row"><span>Suitcases</span><strong id="detailSuitcases">-</strong></div>
+            <div class="detail-row"><span>Hand Luggage</span><strong id="detailHandLuggage">-</strong></div>
+            <div class="detail-row"><span>Flight Number</span><strong id="detailFlightNumber">-</strong></div>
+            <div class="detail-row"><span>Fare</span><strong id="detailFare">£0.00</strong></div>
+            <div class="detail-row"><span>Payment</span><strong id="detailPayment">-</strong></div>
+            <div class="detail-row"><span>Notes</span><strong id="detailNotes">-</strong></div>
+
+            <a id="callPassengerButton" class="btn btn-primary btn-full" href="#">☎ Call Passenger</a>
+        </div>
+    </aside>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/driver.js"></script>
 </body>
 </html>
