@@ -21,7 +21,7 @@
 .driver-key{display:flex;gap:12px;flex-wrap:wrap;padding:9px 12px;border-bottom:1px solid #e5e7eb;font-size:12px}
 .driver-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#16a34a;margin-right:5px}
 .jobs-panel{margin-top:14px;overflow:auto}
-.jobs-panel table{min-width:1160px;width:100%}
+.jobs-panel table{min-width:1220px;width:100%}
 .dispatch-toolbar{display:flex;gap:8px;align-items:end;flex-wrap:wrap;padding:12px;background:#f6f7f9;border-bottom:1px solid #ddd}
 .dispatch-toolbar label{font-size:12px;font-weight:600;display:grid;gap:4px}
 .dispatch-toolbar input,.dispatch-toolbar select{padding:8px;border:1px solid #cdd5df;border-radius:5px}
@@ -29,13 +29,14 @@
 .source-pill{font-size:12px;background:#eef2ff}
 .empty-row{text-align:center;padding:28px!important;color:#667085}
 .driver-select-note{font-size:11px;color:#64748b}
+.booking-driver-select{min-width:180px;padding:7px;border:1px solid #cdd5df;border-radius:6px;background:#fff}
+.pac-container{z-index:99999!important}
 @media(max-width:1050px){.dispatch-grid{grid-template-columns:1fr}#dispatchMap{height:330px}}
 </style>
 </head>
 <body>
 
 <div class="admin-layout">
-
 <aside class="sidebar">
 <h2>Transport Admin</h2>
 <a href="dashboard.html">🏠 Dashboard</a>
@@ -53,7 +54,6 @@
 </aside>
 
 <main class="main">
-
 <div class="topbar">
 <div>
 <h2>Bookings & Dispatch</h2>
@@ -72,10 +72,8 @@
 </div>
 
 <div class="dispatch-grid">
-
 <section class="dispatch-panel" id="newBookingPanel">
 <h3>New Admin Booking</h3>
-
 <form id="adminBookingForm" class="job-form">
 
 <div class="form-heading">CUSTOMER</div>
@@ -86,8 +84,8 @@
 <input id="customerEmail" type="email" placeholder="Email">
 
 <div class="form-heading">JOURNEY</div>
-<input id="pickupAddress" required placeholder="Pickup address">
-<input id="dropoffAddress" required placeholder="Destination">
+<input id="pickupAddress" required placeholder="Pickup address" autocomplete="off">
+<input id="dropoffAddress" required placeholder="Destination" autocomplete="off">
 
 <div class="two-col">
 <input id="journeyDate" type="date" required>
@@ -100,10 +98,8 @@
 </div>
 
 <div class="form-heading">DISPATCH</div>
-<select id="driverSelect">
-<option value="">Unassigned</option>
-</select>
-<div class="driver-select-note">Loaded from Drivers in Supabase using driver number + name.</div>
+<select id="driverSelect"><option value="">Unassigned</option></select>
+<div class="driver-select-note">Drivers for this company only. Online drivers are marked ONLINE.</div>
 
 <div class="two-col">
 <select id="paymentMethod">
@@ -123,23 +119,20 @@
 
 <button type="submit">Save Job</button>
 <div id="bookingMessage"></div>
-
 </form>
 </section>
 
 <section class="map-panel">
 <div class="driver-key">
 <span><span class="driver-dot"></span>Online driver</span>
-<span>Map defaults to Barry + Cardiff</span>
+<span>Driver number shown on map marker</span>
 </div>
 <div id="dispatchMap"></div>
 <div class="map-message" id="mapMessage">Loading map…</div>
 </section>
-
 </div>
 
 <section class="jobs-panel">
-
 <div class="dispatch-toolbar">
 <label>From<input id="dateFrom" type="date"></label>
 <label>To<input id="dateTo" type="date"></label>
@@ -150,6 +143,7 @@
 <option value="waiting">Waiting</option>
 <option value="booked">Booked</option>
 <option value="assigned">Assigned</option>
+<option value="accepted">Accepted</option>
 <option value="on_way">On Way</option>
 <option value="passenger_onboard">Passenger Onboard</option>
 <option value="completed">Completed</option>
@@ -170,7 +164,6 @@
 <tr><td colspan="12" class="empty-row">Loading bookings…</td></tr>
 </tbody>
 </table>
-
 </section>
 
 </main>
@@ -181,6 +174,5 @@
 <script src="js/auth.js"></script>
 <script src="js/admin.js"></script>
 <script src="js/bookings.js"></script>
-
 </body>
 </html>

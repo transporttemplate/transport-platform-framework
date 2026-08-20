@@ -3,25 +3,29 @@ const bookingsDb = getSupabase();
 let allBookings = [];
 let allDrivers = [];
 let currentTab = "dispatch";
+let adminCompanyId = null;
 
 let dispatchMap = null;
 let driverMarkers = [];
+let liveTimer = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
-    setDefaultDates();
-    bindBookingEvents();
+    try {
+        const context = await window.getAdminCompanyContext();
+        adminCompanyId = context.companyId;
 
-    await Promise.all([
-        loadDrivers(),
-        loadBookings()
-    ]);
+        setDefaultDates();
+        bindBookingEvents();
 
-    await initialiseDispatchMap();
+        await Promise.all([loadDrivers(), loadBookings()]);
+        await initialiseDispatchMap();
+        startLiveRefresh();
+    } catch (error) {
+        console.error("Bookings startup error:", error);
+    }
 });
 
-
 function bindBookingEvents() {
-
     document.getElementById("adminBookingForm")?.addEventListener("submit", createAdminBooking);
 
     document.getElementById("refreshBookings")?.addEventListener("click", async () => {
@@ -39,52 +43,35 @@ function bindBookingEvents() {
         document.getElementById("newBookingPanel")?.scrollIntoView({ behavior: "smooth" });
     });
 
-    document.querySelectorAll(".dispatch-tabs button").forEach((button) => {
+    document.querySelectorAll(".dispatch-tabs button").forEach(button => {
         button.addEventListener("click", () => {
-
             document.querySelectorAll(".dispatch-tabs button")
-                .forEach((item) => item.classList.remove("active"));
-
+                .forEach(item => item.classList.remove("active"));
             button.classList.add("active");
             currentTab = button.dataset.status;
-
             renderBookings();
         });
     });
 }
 
-
 function setDefaultDates() {
-
     const today = new Date();
-
-    const from = today.toISOString().slice(0, 10);
-
     const future = new Date(today);
     future.setDate(future.getDate() + 14);
 
-    document.getElementById("dateFrom").value = from;
-    document.getElementById("dateTo").value = future.toISOString().slice(0, 10);
+    const from = today.toISOString().slice(0, 10);
+    const to = future.toISOString().slice(0, 10);
 
-    document.getElementById("journeyDate").value = from;
+    if (document.getElementById("dateFrom")) document.getElementById("dateFrom").value = from;
+    if (document.getElementById("dateTo")) document.getElementById("dateTo").value = to;
+    if (document.getElementById("journeyDate")) document.getElementById("journeyDate").value = from;
 }
 
-
 async function loadDrivers() {
-
     const { data, error } = await bookingsDb
         .from("drivers")
-        .select(`
-            id,
-            driver_number,
-            full_name,
-            vehicle,
-            status,
-            online,
-            latitude,
-            longitude,
-            location_updated_at
-        `)
+        .select("id,company_id,driver_number,full_name,vehicle,status,online,latitude,longitude,location_updated_at")
+        .eq("company_id", adminCompanyId)
         .order("driver_number", { ascending: true });
 
     if (error) {
@@ -93,152 +80,83 @@ async function loadDrivers() {
     }
 
     allDrivers = data || [];
-
     populateDriverDropdown();
 }
 
-
 function populateDriverDropdown() {
-
     const select = document.getElementById("driverSelect");
-
     if (!select) return;
 
     select.innerHTML = '<option value="">Unassigned</option>';
 
-    allDrivers.forEach((driver) => {
-
+    allDrivers.forEach(driver => {
         const option = document.createElement("option");
-
         option.value = driver.id;
-
-        const driverNumber = driver.driver_number || "No No.";
-        const driverName = driver.full_name || "Unnamed Driver";
-
-        option.textContent = `${driverNumber} — ${driverName}`;
-
+        option.textContent =
+            `${driver.driver_number || "-"} — ${driver.full_name || "Driver"}${driver.online ? " • ONLINE" : ""}`;
         select.appendChild(option);
     });
 }
 
-
 async function loadBookings() {
-
     const body = document.getElementById("bookingsBody");
-
-    body.innerHTML =
+    if (body) body.innerHTML =
         '<tr><td colspan="12" class="empty-row">Loading bookings…</td></tr>';
 
     const { data, error } = await bookingsDb
         .from("bookings")
         .select("*")
+        .eq("company_id", adminCompanyId)
         .order("journey_date", { ascending: true })
         .order("journey_time", { ascending: true });
 
     if (error) {
-
         console.error("Unable to load bookings:", error);
-
-        body.innerHTML =
-            `<tr><td colspan="12" class="empty-row">
-                Unable to load bookings: ${escapeHtml(error.message)}
-            </td></tr>`;
-
+        if (body) body.innerHTML =
+            `<tr><td colspan="12" class="empty-row">${escapeHtml(error.message)}</td></tr>`;
         return;
     }
 
     allBookings = data || [];
-
     updateCounts();
     renderBookings();
 }
 
-
 function bookingStatus(booking) {
-
-    return String(
-        booking.status ||
-        booking.booking_status ||
-        "waiting"
-    ).toLowerCase();
+    return String(booking.status || booking.booking_status || "waiting")
+        .trim().toLowerCase().replaceAll(" ", "_");
 }
 
-
 function matchesTab(booking) {
-
     const status = bookingStatus(booking);
 
     if (currentTab === "all") return true;
-
-    if (currentTab === "completed") {
-        return status === "completed";
-    }
-
-    if (currentTab === "cancelled") {
-        return ["cancelled", "canceled"].includes(status);
-    }
-
-    if (currentTab === "booked") {
-        return ["booked", "assigned"].includes(status);
-    }
+    if (currentTab === "completed") return status === "completed";
+    if (currentTab === "cancelled") return ["cancelled", "canceled"].includes(status);
+    if (currentTab === "booked") return ["booked", "assigned", "accepted"].includes(status);
 
     if (currentTab === "prebooked") {
-
         const today = new Date().toISOString().slice(0, 10);
-
-        return (
-            booking.journey_date > today &&
-            !["completed", "cancelled", "canceled"].includes(status)
-        );
+        return booking.journey_date > today &&
+            !["completed", "cancelled", "canceled", "declined"].includes(status);
     }
 
-    return [
-        "waiting",
-        "assigned",
-        "on_way",
-        "passenger_onboard",
-        "dispatched"
-    ].includes(status);
+    return ["waiting", "assigned", "accepted", "on_way", "passenger_onboard", "dispatched"].includes(status);
 }
 
-
 function renderBookings() {
+    const from = document.getElementById("dateFrom")?.value || "";
+    const to = document.getElementById("dateTo")?.value || "";
+    const search = document.getElementById("searchBookings")?.value.trim().toLowerCase() || "";
+    const statusFilter = document.getElementById("statusFilter")?.value || "";
 
-    const from = document.getElementById("dateFrom").value;
-    const to = document.getElementById("dateTo").value;
-
-    const search =
-        document.getElementById("searchBookings")
-            .value
-            .trim()
-            .toLowerCase();
-
-    const statusFilter =
-        document.getElementById("statusFilter").value;
-
-    const rows = allBookings.filter((booking) => {
-
-        if (
-            from &&
-            booking.journey_date &&
-            booking.journey_date < from
-        ) return false;
-
-        if (
-            to &&
-            booking.journey_date &&
-            booking.journey_date > to
-        ) return false;
-
+    const rows = allBookings.filter(booking => {
+        if (from && booking.journey_date && booking.journey_date < from) return false;
+        if (to && booking.journey_date && booking.journey_date > to) return false;
         if (!matchesTab(booking)) return false;
-
-        if (
-            statusFilter &&
-            bookingStatus(booking) !== statusFilter
-        ) return false;
+        if (statusFilter && bookingStatus(booking) !== statusFilter) return false;
 
         if (search) {
-
             const haystack = [
                 booking.booking_reference,
                 booking.customer_name,
@@ -249,10 +167,7 @@ function renderBookings() {
                 booking.destination,
                 booking.customer_phone,
                 booking.phone
-            ]
-                .filter(Boolean)
-                .join(" ")
-                .toLowerCase();
+            ].filter(Boolean).join(" ").toLowerCase();
 
             if (!haystack.includes(search)) return false;
         }
@@ -260,656 +175,352 @@ function renderBookings() {
         return true;
     });
 
-
     const body = document.getElementById("bookingsBody");
+    if (!body) return;
 
     if (!rows.length) {
-
         body.innerHTML =
             '<tr><td colspan="12" class="empty-row">No bookings found for this view.</td></tr>';
-
         return;
     }
 
-
-    body.innerHTML = rows.map((booking) => {
-
-        const driver = findDriver(booking.driver_id);
-
-        const driverText = driver
-            ? `${driver.driver_number || "-"} — ${driver.full_name || "Driver"}`
-            : "Unassigned";
+    body.innerHTML = rows.map(booking => {
+        const driverOptions = [
+            '<option value="">Unassigned</option>',
+            ...allDrivers.map(driver => {
+                const selected = String(driver.id) === String(booking.driver_id || "") ? " selected" : "";
+                const online = driver.online ? " • ONLINE" : "";
+                return `<option value="${escapeHtml(driver.id)}"${selected}>${escapeHtml(
+                    `${driver.driver_number || "-"} — ${driver.full_name || "Driver"}${online}`
+                )}</option>`;
+            })
+        ].join("");
 
         return `
             <tr>
                 <td>${escapeHtml(booking.journey_date || "")}</td>
-
                 <td>${escapeHtml(formatTime(booking.journey_time))}</td>
-
-                <td>${escapeHtml(
-                    booking.booking_reference ||
-                    shortId(booking.id)
-                )}</td>
-
-                <td>${escapeHtml(
-                    booking.customer_name ||
-                    booking.full_name ||
-                    "-"
-                )}</td>
-
-                <td>${escapeHtml(
-                    booking.pickup_address ||
-                    booking.pickup ||
-                    "-"
-                )}</td>
-
-                <td>${escapeHtml(
-                    booking.dropoff_address ||
-                    booking.destination ||
-                    "-"
-                )}</td>
-
-                <td>${escapeHtml(driverText)}</td>
-
-                <td>${money(
-                    booking.price ||
-                    booking.job_price
-                )}</td>
-
-                <td>${escapeHtml(
-                    booking.payment_method ||
-                    booking.payment_status ||
-                    "-"
-                )}</td>
-
+                <td>${escapeHtml(booking.booking_reference || shortId(booking.id))}</td>
+                <td>${escapeHtml(booking.customer_name || booking.full_name || "-")}</td>
+                <td>${escapeHtml(booking.pickup_address || booking.pickup || "-")}</td>
+                <td>${escapeHtml(booking.dropoff_address || booking.destination || "-")}</td>
                 <td>
-                    <span class="source-pill">
-                        ${escapeHtml(
-                            booking.booking_source ||
-                            "website"
-                        )}
-                    </span>
+                    <select class="booking-driver-select" data-booking-id="${escapeHtml(booking.id)}">
+                        ${driverOptions}
+                    </select>
                 </td>
-
-                <td>
-                    <span class="status-pill">
-                        ${escapeHtml(
-                            prettyStatus(
-                                bookingStatus(booking)
-                            )
-                        )}
-                    </span>
-                </td>
-
+                <td>${money(booking.price ?? booking.job_price)}</td>
+                <td>${escapeHtml(booking.payment_method || booking.payment_status || "-")}</td>
+                <td><span class="source-pill">${escapeHtml(booking.booking_source || "website")}</span></td>
+                <td><span class="status-pill">${escapeHtml(prettyStatus(bookingStatus(booking)))}</span></td>
                 <td>
                     <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                        <button
-                            type="button"
-                            onclick="cycleBookingStatus(
-                                '${booking.id}',
-                                '${bookingStatus(booking)}'
-                            )">
-                            Update
-                        </button>
-
-                        ${
-                            ["completed","cancelled","canceled"].includes(bookingStatus(booking))
+                        <button type="button" onclick="cycleBookingStatus('${booking.id}','${bookingStatus(booking)}')">Update</button>
+                        ${["completed","cancelled","canceled"].includes(bookingStatus(booking))
                             ? ""
-                            : `
-                                <button
-                                    type="button"
-                                    onclick="cancelBooking('${booking.id}')"
-                                    style="background:#dc2626;color:white;">
-                                    Cancel
-                                </button>
-                            `
-                        }
+                            : `<button type="button" onclick="cancelBooking('${booking.id}')" style="background:#dc2626;color:white;">Cancel</button>`}
                     </div>
                 </td>
-            </tr>
-        `;
+            </tr>`;
     }).join("");
+
+    body.querySelectorAll(".booking-driver-select").forEach(select => {
+        select.addEventListener("change", () =>
+            assignBookingDriver(select.dataset.bookingId, select.value || null)
+        );
+    });
 }
 
+async function assignBookingDriver(bookingId, driverId) {
+    const booking = allBookings.find(row => String(row.id) === String(bookingId));
+    if (!booking) return;
 
-async function createAdminBooking(event) {
-
-    event.preventDefault();
-
-    const message =
-        document.getElementById("bookingMessage");
-
-    message.textContent = "Saving…";
-
-    const driverId =
-        document.getElementById("driverSelect").value || null;
-
-    const selectedStatus =
-        document.getElementById("bookingStatus").value;
-
-    const payload = {
-
-        booking_reference: makeReference(),
-
-        customer_name:
-            document.getElementById("customerName").value.trim(),
-
-        customer_email:
-            document.getElementById("customerEmail").value.trim() || null,
-
-        customer_phone:
-            document.getElementById("customerPhone").value.trim() || null,
-
-        pickup_address:
-            document.getElementById("pickupAddress").value.trim(),
-
-        dropoff_address:
-            document.getElementById("dropoffAddress").value.trim(),
-
-        journey_date:
-            document.getElementById("journeyDate").value,
-
-        journey_time:
-            document.getElementById("journeyTime").value,
-
-        passengers:
-            Number(
-                document.getElementById("passengers").value || 1
-            ),
-
-        job_price:
-            document.getElementById("jobPrice").value === ""
-                ? null
-                : Number(
-                    document.getElementById("jobPrice").value
-                ),
-
-        payment_method:
-            document.getElementById("paymentMethod").value,
-
+    const update = {
         driver_id: driverId,
-
-        status:
-            driverId && selectedStatus === "waiting"
-                ? "assigned"
-                : selectedStatus,
-
-        notes:
-            document.getElementById("notes").value.trim() || null,
-
-        booking_source: "admin"
+        status: driverId ? "assigned" : "waiting",
+        dispatched_at: driverId ? new Date().toISOString() : null
     };
-
-
-    if (driverId) {
-        payload.dispatched_at = new Date().toISOString();
-    }
-
 
     const { error } = await bookingsDb
         .from("bookings")
-        .insert(payload);
-
+        .update(update)
+        .eq("id", bookingId)
+        .eq("company_id", adminCompanyId);
 
     if (error) {
-
-        console.error(error);
-
-        message.textContent =
-            "Could not save: " + error.message;
-
+        alert("Unable to assign driver: " + error.message);
+        await loadBookings();
         return;
     }
-
-
-    message.textContent = "Booking saved.";
-
-    event.target.reset();
-
-    setDefaultDates();
-    populateDriverDropdown();
 
     await loadBookings();
 }
 
+async function createAdminBooking(event) {
+    event.preventDefault();
 
+    const message = document.getElementById("bookingMessage");
+    if (message) message.textContent = "Saving…";
+
+    const driverId = document.getElementById("driverSelect")?.value || null;
+    const selectedStatus = document.getElementById("bookingStatus")?.value || "waiting";
+
+    const payload = {
+        company_id: adminCompanyId,
+        booking_reference: makeReference(),
+        customer_name: document.getElementById("customerName")?.value.trim() || "",
+        customer_email: document.getElementById("customerEmail")?.value.trim() || null,
+        customer_phone: document.getElementById("customerPhone")?.value.trim() || null,
+        pickup_address: document.getElementById("pickupAddress")?.value.trim() || "",
+        dropoff_address: document.getElementById("dropoffAddress")?.value.trim() || "",
+        journey_date: document.getElementById("journeyDate")?.value || null,
+        journey_time: document.getElementById("journeyTime")?.value || null,
+        passengers: Number(document.getElementById("passengers")?.value || 1),
+        job_price: document.getElementById("jobPrice")?.value === ""
+            ? null : Number(document.getElementById("jobPrice")?.value),
+        payment_method: document.getElementById("paymentMethod")?.value || "cash",
+        driver_id: driverId,
+        status: driverId && selectedStatus === "waiting" ? "assigned" : selectedStatus,
+        notes: document.getElementById("notes")?.value.trim() || null,
+        booking_source: "admin"
+    };
+
+    if (driverId) payload.dispatched_at = new Date().toISOString();
+
+    const { error } = await bookingsDb.from("bookings").insert(payload);
+
+    if (error) {
+        if (message) message.textContent = "Could not save: " + error.message;
+        return;
+    }
+
+    if (message) message.textContent = "Booking saved.";
+    event.target.reset();
+    setDefaultDates();
+    populateDriverDropdown();
+    await loadBookings();
+}
 
 async function cancelBooking(id) {
-
-    const confirmed = confirm(
-        "Cancel this booking? This will move it to the Cancelled section."
-    );
-
-    if (!confirmed) return;
-
-    const now = new Date().toISOString();
+    if (!confirm("Cancel this booking?")) return;
 
     const { error } = await bookingsDb
         .from("bookings")
         .update({
             status: "cancelled",
             booking_status: "cancelled",
-            cancelled_at: now
+            cancelled_at: new Date().toISOString()
         })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("company_id", adminCompanyId);
 
-    if (error) {
-        console.error("Unable to cancel booking:", error);
-        alert(error.message);
-        return;
-    }
-
+    if (error) return alert(error.message);
     await loadBookings();
 }
 
 async function cycleBookingStatus(id, current) {
+    const sequence = ["waiting", "assigned", "accepted", "on_way", "passenger_onboard", "completed"];
+    const next = sequence[sequence.indexOf(current) + 1] || "completed";
 
-    const sequence = [
-        "waiting",
-        "assigned",
-        "on_way",
-        "passenger_onboard",
-        "completed"
-    ];
-
-    let next =
-        sequence[sequence.indexOf(current) + 1] ||
-        "completed";
-
-    const update = {
-        status: next
-    };
-
+    const update = { status: next };
     const now = new Date().toISOString();
 
-    if (next === "assigned") {
-        update.dispatched_at = now;
-    }
-
-    if (next === "on_way") {
-        update.on_way_at = now;
-    }
-
-    if (next === "passenger_onboard") {
-        update.passenger_onboard_at = now;
-    }
-
-    if (next === "completed") {
-        update.completed_at = now;
-    }
-
+    if (next === "assigned") update.dispatched_at = now;
+    if (next === "on_way") update.on_way_at = now;
+    if (next === "passenger_onboard") update.passenger_onboard_at = now;
+    if (next === "completed") update.completed_at = now;
 
     const { error } = await bookingsDb
         .from("bookings")
         .update(update)
-        .eq("id", id);
+        .eq("id", id)
+        .eq("company_id", adminCompanyId);
 
-
-    if (error) {
-
-        alert(error.message);
-
-        return;
-    }
-
-
+    if (error) return alert(error.message);
     await loadBookings();
 }
 
-
 function updateCounts() {
+    const today = new Date().toISOString().slice(0, 10);
+    const status = booking => bookingStatus(booking);
 
-    const today =
-        new Date().toISOString().slice(0, 10);
-
-    const status =
-        (booking) => bookingStatus(booking);
-
-    document.getElementById("countAll").textContent =
-        allBookings.length;
-
-    document.getElementById("countCompleted").textContent =
-        allBookings.filter(
-            (booking) => status(booking) === "completed"
-        ).length;
-
-    document.getElementById("countCancelled").textContent =
-        allBookings.filter(
-            (booking) =>
-                ["cancelled", "canceled"].includes(
-                    status(booking)
-                )
-        ).length;
-
-    document.getElementById("countBooked").textContent =
-        allBookings.filter(
-            (booking) =>
-                ["booked", "assigned"].includes(
-                    status(booking)
-                )
-        ).length;
-
-    document.getElementById("countPrebooked").textContent =
-        allBookings.filter(
-            (booking) =>
-                booking.journey_date > today &&
-                !["completed", "cancelled", "canceled"].includes(
-                    status(booking)
-                )
-        ).length;
-
-    document.getElementById("countDispatch").textContent =
-        allBookings.filter(
-            (booking) =>
-                [
-                    "waiting",
-                    "assigned",
-                    "on_way",
-                    "passenger_onboard",
-                    "dispatched"
-                ].includes(status(booking))
-        ).length;
+    setCount("countAll", allBookings.length);
+    setCount("countCompleted", allBookings.filter(b => status(b) === "completed").length);
+    setCount("countCancelled", allBookings.filter(b => ["cancelled", "canceled"].includes(status(b))).length);
+    setCount("countBooked", allBookings.filter(b => ["booked", "assigned", "accepted"].includes(status(b))).length);
+    setCount("countPrebooked", allBookings.filter(b =>
+        b.journey_date > today &&
+        !["completed", "cancelled", "canceled", "declined"].includes(status(b))
+    ).length);
+    setCount("countDispatch", allBookings.filter(b =>
+        ["waiting", "assigned", "accepted", "on_way", "passenger_onboard", "dispatched"].includes(status(b))
+    ).length);
 }
 
-
-/* =========================================================
-   GOOGLE MAP
-   ========================================================= */
+function setCount(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
 
 async function initialiseDispatchMap() {
-
-    const message =
-        document.getElementById("mapMessage");
+    const message = document.getElementById("mapMessage");
 
     try {
-
         const { data, error } = await bookingsDb
             .from("settings")
             .select("googlemapsapi")
-            .limit(1)
+            .eq("company_id", adminCompanyId)
             .maybeSingle();
 
-
         if (error) throw error;
-
-
-        const apiKey = data?.googlemapsapi;
-
-
-        if (!apiKey) {
-
-            message.textContent =
-                "Google Maps API key not found. Add it in Settings → Integrations.";
-
+        if (!data?.googlemapsapi) {
+            if (message) message.textContent = "Google Maps API key not found.";
             return;
         }
 
+        await loadGoogleMaps(data.googlemapsapi);
+        setupAdminAutocomplete("pickupAddress");
+        setupAdminAutocomplete("dropoffAddress");
 
-        await loadGoogleMaps(apiKey);
-
-
-        const { Map } =
-            await google.maps.importLibrary("maps");
-
-
-        dispatchMap = new Map(
+        dispatchMap = new google.maps.Map(
             document.getElementById("dispatchMap"),
             {
-                center: {
-                    lat: 51.445,
-                    lng: -3.235
-                },
-
+                center: { lat: 51.445, lng: -3.235 },
                 zoom: 10,
-
                 mapTypeControl: true,
                 streetViewControl: false,
-
                 fullscreenControl: true
             }
         );
 
-
-        const bounds =
-            new google.maps.LatLngBounds();
-
-
-        /* Barry */
-        bounds.extend({
-            lat: 51.3998,
-            lng: -3.2849
-        });
-
-
-        /* Cardiff */
-        bounds.extend({
-            lat: 51.4816,
-            lng: -3.1791
-        });
-
-
-        dispatchMap.fitBounds(bounds, 55);
-
         refreshDriverMarkers();
 
-
-        message.textContent =
-            "Map centred on Barry and Cardiff. Online drivers with saved GPS positions appear automatically.";
-
+        if (message) {
+            message.textContent =
+                "Online drivers with GPS positions appear automatically.";
+        }
     } catch (error) {
-
         console.error("Map error:", error);
-
-        message.textContent =
-            "Unable to load Google Map: " + error.message;
+        if (message) message.textContent = "Unable to load Google Map: " + error.message;
     }
 }
 
-
 function loadGoogleMaps(apiKey) {
-
-    if (
-        window.google &&
-        window.google.maps &&
-        window.google.maps.importLibrary
-    ) {
-        return Promise.resolve();
-    }
-
+    if (window.google?.maps?.places?.Autocomplete) return Promise.resolve();
 
     return new Promise((resolve, reject) => {
-
-        const callbackName =
-            "__dispatchGoogleMapsLoaded";
-
-
+        const callbackName = "__dispatchGoogleMapsLoaded";
         window[callbackName] = () => {
-
             resolve();
-
             delete window[callbackName];
         };
 
-
-        const script =
-            document.createElement("script");
-
-
+        const script = document.createElement("script");
         script.src =
             "https://maps.googleapis.com/maps/api/js" +
             "?key=" + encodeURIComponent(apiKey) +
+            "&libraries=places" +
             "&loading=async" +
             "&callback=" + callbackName;
-
-
         script.async = true;
-
-
-        script.onerror = () => {
-            reject(
-                new Error(
-                    "Google Maps JavaScript API failed to load."
-                )
-            );
-        };
-
-
+        script.onerror = () => reject(new Error("Google Maps JavaScript API failed to load."));
         document.head.appendChild(script);
     });
 }
 
+function setupAdminAutocomplete(id) {
+    const input = document.getElementById(id);
+    if (!input) return;
 
-function refreshDriverMarkers() {
-
-    if (!dispatchMap || !window.google) return;
-
-
-    driverMarkers.forEach((marker) => {
-        marker.setMap(null);
+    const autocomplete = new google.maps.places.Autocomplete(input, {
+        componentRestrictions: { country: "gb" },
+        fields: ["formatted_address", "geometry", "name"]
     });
 
+    autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        if (!place?.geometry?.location) return;
 
+        input.value = place.formatted_address || place.name || "";
+        input.dataset.lat = place.geometry.location.lat();
+        input.dataset.lng = place.geometry.location.lng();
+    });
+}
+
+function refreshDriverMarkers() {
+    if (!dispatchMap || !window.google) return;
+
+    driverMarkers.forEach(marker => marker.setMap(null));
     driverMarkers = [];
 
+    allDrivers
+        .filter(driver =>
+            driver.online === true &&
+            Number.isFinite(Number(driver.latitude)) &&
+            Number.isFinite(Number(driver.longitude))
+        )
+        .forEach(driver => {
+            const number = String(driver.driver_number || "DRV");
 
-    const onlineDrivers =
-        allDrivers.filter((driver) => {
-
-            const lat =
-                Number(driver.latitude);
-
-            const lng =
-                Number(driver.longitude);
-
-            return (
-                driver.online === true &&
-                Number.isFinite(lat) &&
-                Number.isFinite(lng)
-            );
-        });
-
-
-    onlineDrivers.forEach((driver) => {
-
-        const marker =
-            new google.maps.Marker({
-
+            const marker = new google.maps.Marker({
                 position: {
                     lat: Number(driver.latitude),
                     lng: Number(driver.longitude)
                 },
-
                 map: dispatchMap,
-
-                title:
-                    `${driver.driver_number || ""} ${driver.full_name || "Driver"}`
+                title: `${number} ${driver.full_name || "Driver"}`,
+                label: {
+                    text: number,
+                    color: "#ffffff",
+                    fontWeight: "700"
+                }
             });
 
-
-        const info =
-            new google.maps.InfoWindow({
-
-                content: `
-                    <strong>
-                        ${escapeHtml(
-                            driver.driver_number || ""
-                        )}
-                        ${escapeHtml(
-                            driver.full_name || "Driver"
-                        )}
-                    </strong>
-                    <br>
-                    ${escapeHtml(
-                        driver.vehicle || ""
-                    )}
-                    <br>
-                    Status:
-                    ${escapeHtml(
-                        driver.status || "Unknown"
-                    )}
-                `
+            const info = new google.maps.InfoWindow({
+                content: `<strong>${escapeHtml(number)} — ${escapeHtml(driver.full_name || "Driver")}</strong><br>${escapeHtml(driver.vehicle || "")}`
             });
 
-
-        marker.addListener("click", () => {
-            info.open({
-                anchor: marker,
-                map: dispatchMap
-            });
+            marker.addListener("click", () => info.open({ anchor: marker, map: dispatchMap }));
+            driverMarkers.push(marker);
         });
-
-
-        driverMarkers.push(marker);
-    });
 }
 
-
-/* =========================================================
-   HELPERS
-   ========================================================= */
-
-function findDriver(id) {
-
-    if (!id) return null;
-
-    return allDrivers.find(
-        (driver) => driver.id === id
-    ) || null;
+function startLiveRefresh() {
+    liveTimer = setInterval(async () => {
+        await Promise.all([loadDrivers(), loadBookings()]);
+        refreshDriverMarkers();
+    }, 10000);
 }
 
+window.addEventListener("beforeunload", () => {
+    if (liveTimer) clearInterval(liveTimer);
+});
 
 function makeReference() {
-
-    return "ADM-" +
-        Date.now()
-            .toString()
-            .slice(-8);
+    return "ADM-" + Date.now().toString().slice(-8);
 }
-
 
 function shortId(id) {
-
-    return id
-        ? String(id)
-            .slice(0, 8)
-            .toUpperCase()
-        : "-";
+    return id ? String(id).slice(0, 8).toUpperCase() : "-";
 }
-
 
 function formatTime(time) {
-
-    return time
-        ? String(time).slice(0, 5)
-        : "";
+    return time ? String(time).slice(0, 5) : "";
 }
 
-
 function money(value) {
-
-    return (
-        value === null ||
-        value === undefined ||
-        value === ""
-    )
+    return value === null || value === undefined || value === ""
         ? "-"
         : "£" + Number(value).toFixed(2);
 }
 
-
 function prettyStatus(status) {
-
-    return status
+    return String(status || "")
         .replaceAll("_", " ")
-        .replace(
-            /\b\w/g,
-            (letter) => letter.toUpperCase()
-        );
+        .replace(/\b\w/g, letter => letter.toUpperCase());
 }
 
-
 function escapeHtml(value) {
-
     return String(value ?? "")
         .replaceAll("&", "&amp;")
         .replaceAll("<", "&lt;")
