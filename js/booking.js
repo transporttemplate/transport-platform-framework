@@ -1325,8 +1325,12 @@ function distanceFare(miles){
     }
 
 
-    total+=
-        bookingFee;
+    const passengers =
+    Number(document.getElementById("passengers")?.value || 0);
+
+if (passengers >= 5 && passengers <= 7) {
+    total += total * (bookingFee / 100);
+};
 
 
     if(
@@ -1357,12 +1361,12 @@ function distanceFare(miles){
     }
 
 
-    return round(
+    return Math.floor(
         Math.max(
             minimumFare,
             total
-        )
-    );
+        ) * 2
+    ) / 2;
 }
 
 
@@ -1923,10 +1927,40 @@ async function saveBooking(event){
         };
 
 
-        const {error}=
-            await bookingdb
-                .from("bookings")
-                .insert(record);
+        const records = [record];
+
+if (record.return_journey && record.return_date && record.return_time) {
+    records.push({
+        ...record,
+
+        // Same booking reference links the two journeys
+        booking_reference: `${reference}-R`,
+
+        // Reverse the journey
+        pickup_address: record.dropoff_address,
+        dropoff_address: record.pickup_address,
+
+        // Return date/time becomes this job's date/time
+        journey_date: record.return_date,
+        journey_time: record.return_time,
+
+        // Return is a separate job
+        return_journey: false,
+        return_date: null,
+        return_time: null,
+
+        // Full booking price stays on outbound
+        price: 0,
+
+        // Makes it obvious in dispatch
+        journey_type: "return"
+    });
+}
+
+const { error } =
+    await bookingdb
+        .from("bookings")
+        .insert(records);
 
 
         if(error){
