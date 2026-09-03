@@ -836,6 +836,8 @@ async function assignBookingDriver(
         return;
     }
 
+    await requestGoogleCalendarSync(bookingId);
+
     await loadBookings();
 }
 
@@ -1002,6 +1004,8 @@ async function createAdminBooking(event) {
         }
     }
 
+    await requestGoogleCalendarSync(payload.id);
+
     await requestBookingConfirmation(payload.id, false);
 
     if (message) {
@@ -1060,6 +1064,8 @@ async function cancelBooking(id) {
 
         return;
     }
+
+    await requestGoogleCalendarSync(id);
 
     await loadBookings();
 }
@@ -1132,6 +1138,8 @@ async function cycleBookingStatus(
 
         return;
     }
+
+    await requestGoogleCalendarSync(id);
 
     await loadBookings();
 }
@@ -1389,6 +1397,25 @@ async function requestBookingConfirmation(bookingId, notify) {
         return;
     }
     if (notify) alert("Confirmation email sent.");
+}
+
+async function requestGoogleCalendarSync(bookingId) {
+    const { data, error } = await bookingsDb.functions.invoke("google-calendar-sync", {
+        body: { company_id: adminCompanyId, booking_id: bookingId }
+    });
+
+    if (error || !data?.ok) {
+        console.error("Google Calendar sync failed", {
+            company_id: adminCompanyId,
+            booking_id: bookingId,
+            stage: data?.stage,
+            error: data?.error || error?.message || "Unknown Edge Function error"
+        });
+        return false;
+    }
+
+    console.info("Google Calendar sync completed", data);
+    return true;
 }
 
 

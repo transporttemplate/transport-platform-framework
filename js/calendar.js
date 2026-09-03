@@ -434,7 +434,7 @@ function renderGoogleCalendarStatus() {
 
     if (calendarSettings.googlecalendarid) {
         el.textContent =
-            `Calendar ID saved: ${calendarSettings.googlecalendarid}. Google account connection is the next integration step.`;
+            `Google Calendar sync configured for: ${calendarSettings.googlecalendarid}`;
     } else {
         el.textContent =
             "No Google Calendar ID saved yet. Add one in Settings → Integrations.";

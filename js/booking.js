@@ -2116,6 +2116,8 @@ const { error } =
             if(stopsError) throw stopsError;
         }
 
+        await Promise.all(records.map(booking => requestPublicGoogleCalendarSync(company.id, booking.id)));
+
         const emailResult=await bookingdb.functions.invoke("send-booking-email",{body:{company_id:company.id,booking_id:record.id,template_key:"booking_confirmation"}});
         if(emailResult.error) console.error("Booking saved but confirmation email could not be sent:",emailResult.error);
 
@@ -2133,6 +2135,25 @@ const { error } =
             error.message
         );
     }
+}
+
+async function requestPublicGoogleCalendarSync(companyId, bookingId) {
+    const { data, error } = await bookingdb.functions.invoke("google-calendar-sync", {
+        body: { company_id: companyId, booking_id: bookingId }
+    });
+
+    if (error || !data?.ok) {
+        console.error("Google Calendar sync failed", {
+            company_id: companyId,
+            booking_id: bookingId,
+            stage: data?.stage,
+            error: data?.error || error?.message || "Unknown Edge Function error"
+        });
+        return false;
+    }
+
+    console.info("Google Calendar sync completed", data);
+    return true;
 }
 
 
