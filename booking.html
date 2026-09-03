@@ -9,8 +9,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script defer src="js/supabase.js"></script>
 <script defer src="js/config.js"></script>
-<script defer src="js/settings.js"></script>
-<script defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBSUexy01jGVSWtkAHym1pjbXjRMKaujGM&libraries=places"></script>
+<script defer src="js/main.js"></script>
 <script defer src="js/booking.js"></script>
 </head>
 <body>
@@ -41,7 +40,7 @@
 <section class="booking-step active" data-step="1">
 <div class="step-heading"><p class="eyebrow">Step 1 of 5</p><h2>Your journey</h2><p>Choose airport pricing or a standard journey using the mileage calculator.</p></div>
 <div class="journey-choice-grid">
-<button type="button" class="journey-choice active" data-mode="airport"><span class="choice-icon">✈</span><strong>Airport Transfer</strong><small>Fixed airport prices apply to airport transfers with a pickup or drop-off in the Barry or Cardiff area only. For all other areas, please contact us for a quote.</small></button>
+<button type="button" class="journey-choice active" data-mode="airport"><span class="choice-icon">✈</span><strong>Airport Transfer</strong><small id="airportServiceAreaMessage">Fixed airport prices apply in the company's configured service areas. For other areas, please contact us for a quote.</small></button>
 <button type="button" class="journey-choice" data-mode="distance"><span class="choice-icon">📍</span><strong>Standard Journey</strong><small>Price calculated from mileage</small></button>
 </div>
 <input id="journeyMode" type="hidden" value="airport">

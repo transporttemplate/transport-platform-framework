@@ -42,7 +42,8 @@ document.addEventListener("DOMContentLoaded",async()=>{
         loadAirports(),
         loadPricingSettings()
     ]);
-    
+
+    await initialiseGoogleMapsForCompany();
     setDateMinimums();
 
 
@@ -54,17 +55,58 @@ document.addEventListener("DOMContentLoaded",async()=>{
 });
 
 
-window.addEventListener("load",async()=>{
+async function initialiseGoogleMapsForCompany(){
 
-    await initGoogleAutocomplete();
+    const apiKey=
+        pricingSettings.googlemapsapi || "";
 
-    initMap();
+    if(!apiKey){
+        console.warn("Google Maps is not configured for this company.");
+        return;
+    }
 
-    setTimeout(()=>{
-        refreshMapViewport();
-        scheduleLiveRoute();
-    },300);
-});
+    try{
+        await loadGoogleMapsBrowserApi(apiKey);
+        await initGoogleAutocomplete();
+        initMap();
+
+        setTimeout(()=>{
+            refreshMapViewport();
+            scheduleLiveRoute();
+        },300);
+    }catch(error){
+        console.error("Unable to load Google Maps:",error);
+    }
+}
+
+
+function loadGoogleMapsBrowserApi(apiKey){
+
+    if(window.google?.maps?.places?.Autocomplete){
+        return Promise.resolve();
+    }
+
+    return new Promise((resolve,reject)=>{
+        const callbackName="__publicBookingGoogleMapsLoaded";
+        window[callbackName]=()=>{
+            delete window[callbackName];
+            resolve();
+        };
+
+        const script=document.createElement("script");
+        script.src=
+            "https://maps.googleapis.com/maps/api/js?key="+
+            encodeURIComponent(apiKey)+
+            "&libraries=places&loading=async&callback="+
+            callbackName;
+        script.async=true;
+        script.onerror=()=>{
+            delete window[callbackName];
+            reject(new Error("Google Maps JavaScript API failed to load."));
+        };
+        document.head.appendChild(script);
+    });
+}
 
 
 async function loadAirports(){
@@ -99,6 +141,19 @@ async function loadAirports(){
 
         select.appendChild(option);
     });
+
+    const requestedAirport=
+        new URLSearchParams(window.location.search).get("airport");
+
+    const matchingAirport=airportRows.find(airport=>
+        requestedAirport &&
+        airport.name.toLowerCase()===requestedAirport.toLowerCase()
+    );
+
+    if(matchingAirport){
+        select.value=matchingAirport.name;
+        airportHint();
+    }
 }
 
 
@@ -106,7 +161,7 @@ async function loadPricingSettings(){
 
     const {data,error}=await bookingdb
         .from("settings")
-        .select("*")
+        .select("company_id,airportpricing,distancecalculator,maxadvancedays,minimumnotice,googlemapsapi,minimumfare,firstmile,mileband1,mileband2,mileband3,mileband4,mileband5,mileband6,bookingfee,returndiscount")
         .eq("company_id",bookingCompany.id)
         .maybeSingle();
 
