@@ -3,6 +3,7 @@ const bookingdb=getSupabase();
 let bookingCompany=null;
 let airportRows=[];
 let pricingSettings={};
+let publicViaCounter=0;
 
 let routeMap=null;
 let routeRenderer=null;
@@ -27,6 +28,8 @@ let currentPrices={
 
 
 document.addEventListener("DOMContentLoaded",async()=>{
+
+    bindPublicViaButton();
 
     bookingCompany=await loadCompanyConfig();
 
@@ -53,6 +56,15 @@ document.addEventListener("DOMContentLoaded",async()=>{
 
     updateLiveJourneyTitle();
 });
+
+
+function bindPublicViaButton(){
+    const button=document.getElementById("addPublicVia");
+    if(!button || button.dataset.bound==="true") return;
+
+    button.dataset.bound="true";
+    button.addEventListener("click",()=>addPublicViaStop());
+}
 
 
 async function initialiseGoogleMapsForCompany(){
@@ -720,6 +732,8 @@ async function initGoogleAutocomplete(){
             "Enter destination"
         );
 
+        document.querySelectorAll("#publicViaStops .via-stop-row").forEach(setupViaAutocomplete);
+
         console.log("Classic Google Places autocomplete loaded");
 
     }catch(error){
@@ -761,7 +775,9 @@ function setupClassicAutocomplete(
                 fields:[
                     "formatted_address",
                     "geometry",
-                    "name"
+                    "name",
+                    "place_id",
+                    "address_components"
                 ]
             }
         );
@@ -797,6 +813,12 @@ function setupClassicAutocomplete(
             input.dataset.lng=
                 place.geometry.location.lng();
 
+            input.dataset.placeId=place.place_id || "";
+
+            const postcode=(place.address_components||[]).find(component=>component.types.includes("postal_code"))?.long_name || "";
+            const postcodeInput=document.getElementById(id==="pickupAddress"?"pickupPostcode":"dropoffPostcode");
+            if(postcodeInput && postcode) postcodeInput.value=postcode;
+
 
             // Keep all of the existing booking logic unchanged.
             resetPrice();
@@ -806,6 +828,49 @@ function setupClassicAutocomplete(
             scheduleLiveRoute(150);
         }
     );
+}
+
+
+function addPublicViaStop(value={}){
+    const container=document.getElementById("publicViaStops");
+    if(!container) return;
+
+    publicViaCounter+=1;
+    const row=document.createElement("div");
+    row.className="via-stop-row";
+    row.dataset.viaId=String(publicViaCounter);
+    row.innerHTML=`<label>Via ${publicViaCounter}</label><input class="via-name" placeholder="House name, hotel or business (optional)" value="${esc(value.address_name||"")}"><input class="via-address" placeholder="Search or enter via address" value="${esc(value.formatted_address||"")}"><input class="via-postcode" placeholder="Postcode (optional)" value="${esc(value.postcode||"")}"><button type="button" class="secondary-btn via-remove">Remove</button>`;
+    row.querySelector(".via-remove").onclick=()=>{
+        row.remove();
+        relabelPublicViaStops();
+        resetPrice();
+        scheduleLiveRoute(150);
+    };
+    container.appendChild(row);
+    relabelPublicViaStops();
+    if(window.google?.maps?.places) setupViaAutocomplete(row);
+}
+
+
+function setupViaAutocomplete(row){
+    if(row.dataset.autocompleteBound==="true") return;
+    row.dataset.autocompleteBound="true";
+    const input=row.querySelector(".via-address");
+    const autocomplete=new google.maps.places.Autocomplete(input,{componentRestrictions:{country:"gb"},fields:["formatted_address","geometry","name","place_id","address_components"]});
+    autocomplete.addListener("place_changed",()=>{const place=autocomplete.getPlace();if(!place?.geometry?.location)return;input.value=place.formatted_address||place.name||"";input.dataset.lat=place.geometry.location.lat();input.dataset.lng=place.geometry.location.lng();input.dataset.placeId=place.place_id||"";const postcode=(place.address_components||[]).find(c=>c.types.includes("postal_code"))?.long_name||"";if(postcode)row.querySelector(".via-postcode").value=postcode;resetPrice();scheduleLiveRoute(150);});
+}
+
+
+function relabelPublicViaStops(){
+    document.querySelectorAll("#publicViaStops .via-stop-row").forEach((row,index)=>{
+        const label=row.querySelector("label");
+        if(label) label.textContent=`Via ${index+1}`;
+    });
+}
+
+
+function collectPublicViaStops(){
+    return [...document.querySelectorAll("#publicViaStops .via-stop-row")].map((row,index)=>{const input=row.querySelector(".via-address");return{stop_order:index+1,label:"Via",address_name:row.querySelector(".via-name").value.trim()||null,formatted_address:input.value.trim(),postcode:row.querySelector(".via-postcode").value.trim()||null,latitude:input.dataset.lat?Number(input.dataset.lat):null,longitude:input.dataset.lng?Number(input.dataset.lng):null,place_id:input.dataset.placeId||null};}).filter(stop=>stop.formatted_address);
 }
 
 
@@ -947,6 +1012,8 @@ async function calculateRoute(showError=false){
 
                     destination:endpoint.destination,
 
+                    waypoints:collectPublicViaStops().map(stop=>({location:stop.formatted_address,stopover:true})),
+
                     travelMode:
                         google.maps.TravelMode.DRIVING,
 
@@ -978,24 +1045,25 @@ async function calculateRoute(showError=false){
     routeRenderer.setDirections(result);
 
 
-    const leg=
-        result.routes[0].legs[0];
+    const legs=result.routes[0].legs;
+    const leg=legs[0];
+    const lastLeg=legs[legs.length-1];
 
 
     currentRoute={
         miles:
-            leg.distance.value /
+            legs.reduce((sum,item)=>sum+item.distance.value,0) /
             1609.344,
 
         minutes:
-            leg.duration.value /
+            legs.reduce((sum,item)=>sum+item.duration.value,0) /
             60,
 
         origin:
             leg.start_address,
 
         destination:
-            leg.end_address
+            lastLeg.end_address
     };
 
 
@@ -1886,6 +1954,8 @@ async function saveBooking(event){
 
         const record={
 
+            id:crypto.randomUUID(),
+
             company_id:
                 company.id,
 
@@ -1901,8 +1971,20 @@ async function saveBooking(event){
             pickup_address:
                 savedPickup(),
 
+            pickup_name:document.getElementById("pickupName").value.trim()||null,
+            pickup_postcode:document.getElementById("pickupPostcode").value.trim()||null,
+            pickup_place_id:document.getElementById("pickupAddress").dataset.placeId||null,
+            pickup_lat:document.getElementById("pickupAddress").dataset.lat?Number(document.getElementById("pickupAddress").dataset.lat):null,
+            pickup_lng:document.getElementById("pickupAddress").dataset.lng?Number(document.getElementById("pickupAddress").dataset.lng):null,
+
             dropoff_address:
                 savedDropoff(),
+
+            dropoff_name:document.getElementById("dropoffName").value.trim()||null,
+            dropoff_postcode:document.getElementById("dropoffPostcode").value.trim()||null,
+            dropoff_place_id:document.getElementById("dropoffAddress").dataset.placeId||null,
+            dropoff_lat:document.getElementById("dropoffAddress").dataset.lat?Number(document.getElementById("dropoffAddress").dataset.lat):null,
+            dropoff_lng:document.getElementById("dropoffAddress").dataset.lng?Number(document.getElementById("dropoffAddress").dataset.lng):null,
 
             airport:
                 document.getElementById("journeyMode").value==="airport"
@@ -1988,6 +2070,8 @@ if (record.return_journey && record.return_date && record.return_time) {
     records.push({
         ...record,
 
+        id:crypto.randomUUID(),
+
         // Same booking reference links the two journeys
         booking_reference: `${reference}-R`,
 
@@ -2021,6 +2105,19 @@ const { error } =
         if(error){
             throw error;
         }
+
+        const stops=collectPublicViaStops();
+        const stopRows=records.flatMap((booking,index)=>{
+            const ordered=index===0?stops:[...stops].reverse().map((stop,stopIndex)=>({...stop,stop_order:stopIndex+1}));
+            return ordered.map(stop=>({...stop,company_id:company.id,booking_id:booking.id}));
+        });
+        if(stopRows.length){
+            const {error:stopsError}=await bookingdb.from("booking_stops").insert(stopRows);
+            if(stopsError) throw stopsError;
+        }
+
+        const emailResult=await bookingdb.functions.invoke("send-booking-email",{body:{company_id:company.id,booking_id:record.id,template_key:"booking_confirmation"}});
+        if(emailResult.error) console.error("Booking saved but confirmation email could not be sent:",emailResult.error);
 
 
         alert(

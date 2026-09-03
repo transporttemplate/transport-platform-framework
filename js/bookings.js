@@ -4,6 +4,7 @@ let allBookings = [];
 let allDrivers = [];
 let currentTab = "bookings";
 let adminCompanyId = null;
+let adminViaCounter = 0;
 
 let dispatchMap = null;
 let driverMarkers = [];
@@ -32,6 +33,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
 function bindBookingEvents() {
+
+    document.getElementById("addAdminVia")?.addEventListener("click", () => addAdminViaStop());
 
     document
         .getElementById("adminBookingForm")
@@ -112,6 +115,8 @@ function bindBookingEvents() {
             "click",
             closeBookingView
         );
+
+    document.getElementById("resendBookingConfirmation")?.addEventListener("click", resendBookingConfirmation);
 
     document
         .getElementById("bookingViewBackdrop")
@@ -364,8 +369,17 @@ async function loadBookings() {
         return;
     }
 
-    allBookings =
-        data || [];
+    const { data: stops, error: stopsError } = await bookingsDb
+        .from("booking_stops")
+        .select("*")
+        .eq("company_id", adminCompanyId)
+        .order("stop_order", { ascending: true });
+
+    if (stopsError) console.error("Unable to load booking stops:", stopsError);
+    allBookings = (data || []).map(booking => ({
+        ...booking,
+        via_stops: (stops || []).filter(stop => String(stop.booking_id) === String(booking.id))
+    }));
 
     updateCounts();
     renderBookings();
@@ -852,6 +866,8 @@ async function createAdminBooking(event) {
 
     const payload = {
 
+        id: crypto.randomUUID(),
+
         company_id:
             adminCompanyId,
 
@@ -882,11 +898,23 @@ async function createAdminBooking(event) {
                 ?.value
                 .trim() || "",
 
+        pickup_name: document.getElementById("pickupName")?.value.trim() || null,
+        pickup_postcode: document.getElementById("pickupPostcode")?.value.trim() || null,
+        pickup_place_id: document.getElementById("pickupAddress")?.dataset.placeId || null,
+        pickup_lat: document.getElementById("pickupAddress")?.dataset.lat ? Number(document.getElementById("pickupAddress").dataset.lat) : null,
+        pickup_lng: document.getElementById("pickupAddress")?.dataset.lng ? Number(document.getElementById("pickupAddress").dataset.lng) : null,
+
         dropoff_address:
             document
                 .getElementById("dropoffAddress")
                 ?.value
                 .trim() || "",
+
+        dropoff_name: document.getElementById("dropoffName")?.value.trim() || null,
+        dropoff_postcode: document.getElementById("dropoffPostcode")?.value.trim() || null,
+        dropoff_place_id: document.getElementById("dropoffAddress")?.dataset.placeId || null,
+        dropoff_lat: document.getElementById("dropoffAddress")?.dataset.lat ? Number(document.getElementById("dropoffAddress").dataset.lat) : null,
+        dropoff_lng: document.getElementById("dropoffAddress")?.dataset.lng ? Number(document.getElementById("dropoffAddress").dataset.lng) : null,
 
         journey_date:
             document
@@ -963,6 +991,19 @@ async function createAdminBooking(event) {
         return;
     }
 
+    const viaStops = collectAdminViaStops();
+    if (viaStops.length) {
+        const { error: stopError } = await bookingsDb.from("booking_stops").insert(
+            viaStops.map(stop => ({ ...stop, company_id: adminCompanyId, booking_id: payload.id }))
+        );
+        if (stopError) {
+            if (message) message.textContent = "Booking saved, but via stops could not be saved: " + stopError.message;
+            return;
+        }
+    }
+
+    await requestBookingConfirmation(payload.id, false);
+
     if (message) {
 
         message.textContent =
@@ -970,6 +1011,7 @@ async function createAdminBooking(event) {
     }
 
     event.target.reset();
+    document.getElementById("adminViaStops").innerHTML = "";
 
     setActiveDateRange();
 
@@ -1110,6 +1152,9 @@ function openBookingView(id) {
 
     if (!booking) return;
 
+    const resendButton = document.getElementById("resendBookingConfirmation");
+    if (resendButton) resendButton.dataset.bookingId = booking.id;
+
     const status =
         bookingStatus(booking);
 
@@ -1196,6 +1241,8 @@ function openBookingView(id) {
         booking.destination ||
         "-"
     );
+
+    setText("viewViaStops", (booking.via_stops || []).map(stop => `${stop.stop_order}. ${stop.formatted_address}`).join("\n") || "-");
 
     setText(
         "viewJourneyType",
@@ -1326,6 +1373,22 @@ function openBookingView(id) {
         ?.classList.add(
             "open"
         );
+}
+
+async function resendBookingConfirmation() {
+    const id = document.getElementById("resendBookingConfirmation")?.dataset.bookingId;
+    if (!id) return;
+    await requestBookingConfirmation(id, true);
+}
+
+async function requestBookingConfirmation(bookingId, notify) {
+    const { data, error } = await bookingsDb.functions.invoke("send-booking-email", { body: { company_id: adminCompanyId, booking_id: bookingId, template_key: "booking_confirmation" } });
+    if (error || !data?.ok) {
+        console.error("Booking email:", error || data?.error);
+        if (notify) alert(data?.error || error?.message || "Unable to send confirmation.");
+        return;
+    }
+    if (notify) alert("Confirmation email sent.");
 }
 
 
@@ -1716,7 +1779,9 @@ function setupAdminAutocomplete(id) {
                 fields: [
                     "formatted_address",
                     "geometry",
-                    "name"
+                    "name",
+                    "place_id",
+                    "address_components"
                 ]
             }
         );
@@ -1746,8 +1811,30 @@ function setupAdminAutocomplete(id) {
 
             input.dataset.lng =
                 place.geometry.location.lng();
+            input.dataset.placeId = place.place_id || "";
+            const postcode = (place.address_components || []).find(component => component.types.includes("postal_code"))?.long_name || "";
+            const postcodeInput = document.getElementById(id === "pickupAddress" ? "pickupPostcode" : "dropoffPostcode");
+            if (postcodeInput && postcode) postcodeInput.value = postcode;
         }
     );
+}
+
+function addAdminViaStop() {
+    adminViaCounter += 1;
+    const row = document.createElement("div");
+    row.className = "admin-via-row";
+    row.innerHTML = `<input class="admin-via-address" placeholder="Via stop ${adminViaCounter}" autocomplete="off"><button type="button">Remove</button>`;
+    row.querySelector("button").onclick = () => row.remove();
+    document.getElementById("adminViaStops").appendChild(row);
+    if (window.google?.maps?.places) {
+        const input = row.querySelector("input");
+        const autocomplete = new google.maps.places.Autocomplete(input, { componentRestrictions: { country: "gb" }, fields: ["formatted_address", "geometry", "place_id", "address_components"] });
+        autocomplete.addListener("place_changed", () => { const place = autocomplete.getPlace(); if (!place?.geometry?.location) return; input.value = place.formatted_address || ""; input.dataset.lat = place.geometry.location.lat(); input.dataset.lng = place.geometry.location.lng(); input.dataset.placeId = place.place_id || ""; input.dataset.postcode = (place.address_components || []).find(c => c.types.includes("postal_code"))?.long_name || ""; });
+    }
+}
+
+function collectAdminViaStops() {
+    return [...document.querySelectorAll("#adminViaStops .admin-via-address")].map((input, index) => ({ stop_order: index + 1, label: "Via", formatted_address: input.value.trim(), postcode: input.dataset.postcode || null, latitude: input.dataset.lat ? Number(input.dataset.lat) : null, longitude: input.dataset.lng ? Number(input.dataset.lng) : null, place_id: input.dataset.placeId || null })).filter(stop => stop.formatted_address);
 }
 
 

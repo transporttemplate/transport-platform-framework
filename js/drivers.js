@@ -202,6 +202,9 @@ function openDriverForm(driver = null) {
     document.getElementById("driverLicenceExpiryInput").value = driver?.licence_expiry || "";
     document.getElementById("driverStatusInput").value = driver?.status || "available";
     document.getElementById("driverOnlineInput").value = String(Boolean(driver?.online));
+    document.getElementById("driverPayTypeInput").value = driver?.pay_type || "commission";
+    document.getElementById("driverCommissionInput").value = driver?.commission_percent ?? "";
+    document.getElementById("driverFixedPayInput").value = driver?.fixed_job_amount ?? "";
 
     document.getElementById("driverModalBackdrop")?.classList.add("open");
 }
@@ -228,7 +231,10 @@ async function saveDriver(event) {
         licence_number: document.getElementById("driverLicenceInput").value.trim() || null,
         licence_expiry: document.getElementById("driverLicenceExpiryInput").value || null,
         status: document.getElementById("driverStatusInput").value,
-        online: document.getElementById("driverOnlineInput").value === "true"
+        online: document.getElementById("driverOnlineInput").value === "true",
+        pay_type: document.getElementById("driverPayTypeInput").value,
+        commission_percent: document.getElementById("driverCommissionInput").value === "" ? null : Number(document.getElementById("driverCommissionInput").value),
+        fixed_job_amount: document.getElementById("driverFixedPayInput").value === "" ? null : Number(document.getElementById("driverFixedPayInput").value)
     };
 
     if (!payload.full_name || !payload.driver_number || !payload.pin) {
@@ -287,6 +293,9 @@ function openViewDriver(driver) {
         viewItem("Online", driver.online ? "Yes" : "No"),
         viewItem("Licence Number", driver.licence_number || "-"),
         viewItem("Licence Expiry", driver.licence_expiry || "-"),
+        viewItem("Pay Rule", driver.pay_type || "commission"),
+        viewItem("Company Commission %", driver.commission_percent ?? "Company default"),
+        viewItem("Fixed Amount / Job", driver.fixed_job_amount ?? "-"),
         viewItem("Company ID", driver.company_id || "-"),
         viewItem("Driver ID", driver.id || "-")
     ].join("");

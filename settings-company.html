@@ -45,13 +45,40 @@
 <label>Website</label><input id="companyWebsite" type="text">
 <label>Business Address</label><textarea id="companyAddress" rows="4"></textarea>
 </div><div>
-<label>Company Logo</label><input id="companyLogo" type="file" accept="image/*"><small>Logo upload will be connected separately.</small>
+<label for="companyLogo">Company Logo</label>
+<div id="companyLogoPreviewWrap" style="margin:8px 0 12px;min-height:72px;display:flex;align-items:center;">
+<img id="companyLogoPreview" alt="Saved company logo preview" style="display:none;max-width:220px;max-height:90px;object-fit:contain;">
+<span id="companyLogoPreviewFallback">No company logo saved.</span>
+</div>
+<input id="companyLogo" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+<small id="companyLogoStatus">PNG, JPG, WebP or GIF. Maximum file size 5 MB. The logo is uploaded when you save changes.</small>
 <label>Operator Licence Number</label><input id="operatorLicence" type="text">
 <label>Company Registration Number</label><input id="companyRegistration" type="text">
 <label>VAT Number</label><input id="vatNumber" type="text">
+<label>VAT / Tax Rate (%)</label><input id="vatRate" type="number" min="0" step="0.01">
 <label>Currency</label><select id="currency"><option value="GBP">GBP (£)</option><option value="EUR">EUR (€)</option><option value="USD">USD ($)</option></select>
 <label>Time Zone</label><select id="timeZone"><option value="Europe/London">Europe/London</option><option value="Europe/Dublin">Europe/Dublin</option><option value="Europe/Paris">Europe/Paris</option></select>
 </div></div></div>
+
+<div class="card company-theme-card">
+<h3>🎨 Company Theme</h3>
+<div class="theme-settings-grid">
+<label for="primaryColour">Primary colour<input id="primaryColour" type="color" value="#37d4d4"></label>
+<label for="secondaryColour">Secondary colour<input id="secondaryColour" type="color" value="#111111"></label>
+<label for="accentColour">Accent colour<input id="accentColour" type="color" value="#d71a1a"></label>
+<label for="buttonColour">Button colour<input id="buttonColour" type="color" value="#37d4d4"></label>
+<label for="buttonTextColour">Button text colour<input id="buttonTextColour" type="color" value="#111111"></label>
+<label for="adminSidebarColour">Admin sidebar colour<input id="adminSidebarColour" type="color" value="#1f2937"></label>
+</div>
+<div id="companyThemePreview" class="company-theme-preview" aria-label="Company colour theme preview">
+<div class="theme-preview-sidebar">Admin</div>
+<div class="theme-preview-content">
+<strong>Company theme preview</strong>
+<span>Primary and accent highlights</span>
+<button type="button">Example button</button>
+</div>
+</div>
+</div>
 
 </main>
 </div>

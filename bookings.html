@@ -335,8 +335,14 @@
 
 <div class="form-heading">JOURNEY</div>
 
+<input id="pickupName" placeholder="Pickup house, hotel or business (optional)">
 <input id="pickupAddress" required placeholder="Pickup address" autocomplete="off">
+<input id="pickupPostcode" placeholder="Pickup postcode (optional)">
+<input id="dropoffName" placeholder="Destination house, hotel or business (optional)">
 <input id="dropoffAddress" required placeholder="Destination" autocomplete="off">
+<input id="dropoffPostcode" placeholder="Destination postcode (optional)">
+<div id="adminViaStops"></div>
+<button id="addAdminVia" type="button">+ Add Via</button>
 
 <div class="two-col">
 <input id="journeyDate" type="date" required>
@@ -573,6 +579,7 @@ Loading bookings…
 <small>Destination</small>
 <strong id="viewDestination">-</strong>
 </div>
+<div><small>Via Stops</small><strong id="viewViaStops">-</strong></div>
 
 <div class="booking-detail-item">
 <small>Journey Type</small>
@@ -692,6 +699,8 @@ Loading bookings…
 <div class="empty-row">No linked outbound / return journey.</div>
 </div>
 </section>
+
+<button id="resendBookingConfirmation" type="button">Resend Confirmation Email</button>
 
 </div>
 </div>

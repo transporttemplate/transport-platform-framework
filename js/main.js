@@ -24,15 +24,48 @@ function applyCompanyInformation({ company, settings }) {
     setTextIfValue("footerEmail", settings.companyemail);
     setTextIfValue("footerCompany", displayName);
 
-    const logo = document.getElementById("companyLogo");
-    if (logo && settings.companylogo) {
-        logo.src = settings.companylogo;
-        logo.alt = displayName || "Company logo";
-    }
+    renderCompanyLogo(settings.companylogo, displayName);
 
     setCssVariableIfValue("--primary", settings.primarycolour || settings.primary_color);
     setCssVariableIfValue("--secondary", settings.secondarycolour || settings.secondary_color);
     setCssVariableIfValue("--accent", settings.accentcolour || settings.accent_color);
+    setCssVariableIfValue("--button", settings.buttoncolour || settings.button_color);
+    setCssVariableIfValue("--button-text", settings.buttontextcolour || settings.button_text_color);
+}
+
+function renderCompanyLogo(logoUrl, displayName) {
+    const logo = document.getElementById("companyLogo");
+    const fallback = document.getElementById("companyLogoFallback");
+    if (!logo) return;
+
+    const showFallback = () => {
+        logo.hidden = true;
+        logo.removeAttribute("src");
+        if (fallback) {
+            fallback.hidden = false;
+            fallback.textContent = companyInitials(displayName);
+            fallback.setAttribute("aria-label", displayName || "Company");
+        }
+    };
+
+    if (!logoUrl) {
+        showFallback();
+        return;
+    }
+
+    logo.hidden = true;
+    logo.alt = displayName ? `${displayName} logo` : "Company logo";
+    logo.onload = () => {
+        logo.hidden = false;
+        if (fallback) fallback.hidden = true;
+    };
+    logo.onerror = showFallback;
+    logo.src = logoUrl;
+}
+
+function companyInitials(name) {
+    const words = String(name || "Company").trim().split(/\s+/).filter(Boolean);
+    return words.slice(0, 2).map(word => word.charAt(0).toUpperCase()).join("") || "C";
 }
 
 function airportCards(airports, settings) {

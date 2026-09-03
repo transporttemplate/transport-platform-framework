@@ -6,7 +6,7 @@
 .booking-progress{display:flex;align-items:center;justify-content:center;margin-bottom:18px;overflow:auto}
 .progress-step{border:0;background:transparent;display:grid;justify-items:center;gap:4px;color:#777}
 .progress-step span{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:#ddd;font-weight:800}
-.progress-step.active span,.progress-step.done span{background:#334155;color:#fff}
+.progress-step.active span,.progress-step.done span{background:var(--primary);color:var(--button-text)}
 .progress-line{height:2px;width:40px;background:#ddd}
 
 .booking-step{display:none;background:#fff;border:1px solid #ddd;border-radius:14px;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.08)}
@@ -18,7 +18,7 @@
 
 .journey-choice-grid,.vehicle-grid,.field-grid{display:grid;grid-template-columns:1fr;gap:12px}
 .journey-choice,.vehicle-card{border:2px solid #d7dce2;background:#fff;border-radius:12px;padding:15px;text-align:left;cursor:pointer}
-.journey-choice.active,.vehicle-card.active{border-color:#334155;box-shadow:0 0 0 3px rgba(51,65,85,.08)}
+.journey-choice.active,.vehicle-card.active{border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 18%,transparent)}
 .journey-choice{display:grid;grid-template-columns:42px 1fr}
 .journey-choice small{grid-column:2;color:#667085}
 .choice-icon{font-size:26px}
@@ -30,6 +30,8 @@
 .field input,.field select,.field textarea{padding:11px}
 .field-hint{display:block;color:#667085;margin-top:5px}
 .hidden{display:none!important}
+.via-stop-row{display:grid;grid-template-columns:1fr 2fr 1fr auto;gap:8px;align-items:end;margin:10px 0;padding:12px;border:1px solid #ddd;border-radius:10px}
+.via-stop-row label{grid-column:1/-1;margin:0}
 
 .return-card{display:flex;gap:10px;margin:15px 0;padding:13px;border:1px solid #ddd;border-radius:10px}
 .return-card span{display:grid}
@@ -42,7 +44,7 @@
 
 .vehicle-card{display:grid;grid-template-columns:70px 1fr auto;align-items:center;gap:10px}
 .vehicle-card.disabled{opacity:.4;pointer-events:none}
-.vehicle-art{height:55px;border-radius:9px;background:#334155;color:#fff;display:grid;place-items:center;font-weight:900}
+.vehicle-art{height:55px;border-radius:9px;background:var(--primary);color:var(--button-text);display:grid;place-items:center;font-weight:900}
 .vehicle-copy{display:grid}
 .vehicle-copy span{color:#667085}
 .vehicle-price{font-size:21px;font-weight:900}
@@ -50,7 +52,7 @@
 .notice-box{margin-top:14px;padding:12px;background:#f7f8fa;border:1px solid #ddd;border-radius:9px}
 .step-actions{display:flex;justify-content:space-between;gap:10px;margin-top:20px}
 .primary-btn,.secondary-btn{border-radius:9px;padding:12px 18px;font-weight:800;font-size:15px;cursor:pointer}
-.primary-btn{background:#334155;color:#fff;border:0}
+.primary-btn{background:var(--button);color:var(--button-text);border:0}
 .secondary-btn{background:#fff;border:1px solid #ccd3db}
 
 .review-card{border:1px solid #ddd;border-radius:12px;overflow:hidden}
@@ -59,7 +61,7 @@
 .review-row span{color:#667085}
 .review-row strong{color:#111827;font-weight:700}
 
-.final-price-card{background:#1f2937;color:#fff;padding:18px;border-radius:12px;margin-top:14px}
+.final-price-card{background:var(--secondary);color:#fff;padding:18px;border-radius:12px;margin-top:14px;border-top:4px solid var(--accent)}
 .final-price-card strong{display:block;font-size:34px;margin:5px 0}
 
 /* VISIBILITY FIXES */
@@ -121,4 +123,4 @@
     .field-grid.three{grid-template-columns:repeat(3,1fr)}
     .booking-step{padding:28px}
 }
-
+@media(max-width:699px){.via-stop-row{grid-template-columns:1fr}.via-stop-row label{grid-column:auto}}

@@ -8,10 +8,17 @@ const fieldMap = {
     companyWebsite: "companywebsite",
     companyAddress: "companyaddress",
     companyLogo: "companylogo",
+    primaryColour: "primarycolour",
+    secondaryColour: "secondarycolour",
+    accentColour: "accentcolour",
+    buttonColour: "buttoncolour",
+    buttonTextColour: "buttontextcolour",
+    adminSidebarColour: "adminsidebarcolour",
 
     operatorLicence: "operatorlicence",
     companyRegistration: "companyregistration",
     vatNumber: "vatnumber",
+    vatRate: "vatrate",
 
     currency: "currency",
     timeZone: "timezone",
@@ -122,6 +129,7 @@ const fieldMap = {
 
     bookingPrefix: "bookingprefix",
     invoicePrefix: "invoiceprefix",
+    statementPrefix: "statementprefix",
     quotePrefix: "quoteprefix",
     dateFormat: "dateformat",
     timeFormat: "timeformat",
@@ -130,6 +138,26 @@ const fieldMap = {
 };
 
 let settingsCompanyId = null;
+let savedCompanyLogo = "";
+let pendingCompanyLogoPreviewUrl = "";
+
+const COMPANY_LOGO_BUCKET = "company-logos";
+const COMPANY_LOGO_MAX_BYTES = 5 * 1024 * 1024;
+const COMPANY_LOGO_TYPES = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+    "image/gif": "gif"
+};
+
+const COMPANY_THEME_DEFAULTS = {
+    primaryColour: "#37d4d4",
+    secondaryColour: "#111111",
+    accentColour: "#d71a1a",
+    buttonColour: "#37d4d4",
+    buttonTextColour: "#111111",
+    adminSidebarColour: "#1f2937"
+};
 
 document.addEventListener("DOMContentLoaded", async () => {
     try {
@@ -137,6 +165,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         settingsCompanyId = context.companyId;
 
         await loadSettings();
+
+        const logoInput = document.getElementById("companyLogo");
+        if (logoInput) {
+            logoInput.addEventListener("change", previewSelectedCompanyLogo);
+        }
+
+        bindCompanyThemePreview();
 
         const saveButton = document.getElementById("saveSettings");
 
@@ -163,7 +198,8 @@ async function loadSettings() {
         return;
     }
 
-    if (!data) return;
+    savedCompanyLogo = data?.companylogo || "";
+    renderCompanyLogoPreview(savedCompanyLogo);
 
     Object.entries(fieldMap).forEach(([htmlId, dbColumn]) => {
         const el = document.getElementById(htmlId);
@@ -175,9 +211,11 @@ async function loadSettings() {
         } else if (el.type === "file") {
             return;
         } else {
-            el.value = data[dbColumn] ?? "";
+            el.value = data?.[dbColumn] ?? COMPANY_THEME_DEFAULTS[htmlId] ?? "";
         }
     });
+
+    updateCompanyThemePreview();
 }
 
 async function saveSettings() {
@@ -209,6 +247,17 @@ async function saveSettings() {
             settings[dbColumn] = el.value;
         }
     });
+
+    try {
+        const uploadedLogoUrl = await uploadSelectedCompanyLogo();
+        if (uploadedLogoUrl) {
+            settings.companylogo = uploadedLogoUrl;
+        }
+    } catch (error) {
+        console.error("Company logo upload error:", error);
+        alert(error.message || "The company logo could not be uploaded.");
+        return;
+    }
 
     const { data: existing, error: existingError } = await db
         .from("settings")
@@ -242,5 +291,125 @@ async function saveSettings() {
         return;
     }
 
+    if (settings.companylogo) {
+        savedCompanyLogo = settings.companylogo;
+        const logoInput = document.getElementById("companyLogo");
+        if (logoInput) logoInput.value = "";
+        renderCompanyLogoPreview(savedCompanyLogo);
+    }
+
     alert("Settings saved successfully.");
+}
+
+function previewSelectedCompanyLogo(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+        renderCompanyLogoPreview(savedCompanyLogo);
+        return;
+    }
+
+    try {
+        validateCompanyLogo(file);
+    } catch (error) {
+        event.target.value = "";
+        renderCompanyLogoPreview(savedCompanyLogo);
+        alert(error.message);
+        return;
+    }
+
+    if (pendingCompanyLogoPreviewUrl) {
+        URL.revokeObjectURL(pendingCompanyLogoPreviewUrl);
+    }
+
+    pendingCompanyLogoPreviewUrl = URL.createObjectURL(file);
+    renderCompanyLogoPreview(pendingCompanyLogoPreviewUrl, "Selected logo preview. Save changes to upload it.");
+}
+
+function validateCompanyLogo(file) {
+    if (!COMPANY_LOGO_TYPES[file.type]) {
+        throw new Error("Choose a PNG, JPG, WebP or GIF image.");
+    }
+
+    if (file.size > COMPANY_LOGO_MAX_BYTES) {
+        throw new Error("The company logo must be 5 MB or smaller.");
+    }
+}
+
+async function uploadSelectedCompanyLogo() {
+    const logoInput = document.getElementById("companyLogo");
+    const file = logoInput?.files?.[0];
+    if (!file) return "";
+
+    validateCompanyLogo(file);
+
+    const extension = COMPANY_LOGO_TYPES[file.type];
+    const storagePath = `${settingsCompanyId}/logo-${Date.now()}.${extension}`;
+    const { error } = await db.storage
+        .from(COMPANY_LOGO_BUCKET)
+        .upload(storagePath, file, {
+            cacheControl: "3600",
+            contentType: file.type,
+            upsert: false
+        });
+
+    if (error) throw error;
+
+    const { data } = db.storage
+        .from(COMPANY_LOGO_BUCKET)
+        .getPublicUrl(storagePath);
+
+    if (!data?.publicUrl) {
+        throw new Error("Supabase did not return a public URL for the uploaded logo.");
+    }
+
+    return data.publicUrl;
+}
+
+function renderCompanyLogoPreview(url, statusMessage = "") {
+    const preview = document.getElementById("companyLogoPreview");
+    const fallback = document.getElementById("companyLogoPreviewFallback");
+    const status = document.getElementById("companyLogoStatus");
+    if (!preview || !fallback) return;
+
+    if (url) {
+        preview.src = url;
+        preview.style.display = "block";
+        fallback.style.display = "none";
+        preview.onerror = () => {
+            preview.style.display = "none";
+            fallback.style.display = "inline";
+            fallback.textContent = "The saved logo could not be loaded.";
+        };
+    } else {
+        preview.removeAttribute("src");
+        preview.style.display = "none";
+        fallback.style.display = "inline";
+        fallback.textContent = "No company logo saved.";
+    }
+
+    if (status && statusMessage) status.textContent = statusMessage;
+}
+
+function bindCompanyThemePreview() {
+    Object.keys(COMPANY_THEME_DEFAULTS).forEach(id => {
+        document.getElementById(id)?.addEventListener("input", updateCompanyThemePreview);
+    });
+    updateCompanyThemePreview();
+}
+
+function updateCompanyThemePreview() {
+    const preview = document.getElementById("companyThemePreview");
+    if (!preview) return;
+
+    preview.style.setProperty("--preview-primary", themeFieldValue("primaryColour"));
+    preview.style.setProperty("--preview-secondary", themeFieldValue("secondaryColour"));
+    preview.style.setProperty("--preview-accent", themeFieldValue("accentColour"));
+    preview.style.setProperty("--preview-button", themeFieldValue("buttonColour"));
+    preview.style.setProperty("--preview-button-text", themeFieldValue("buttonTextColour"));
+    preview.style.setProperty("--preview-sidebar", themeFieldValue("adminSidebarColour"));
+}
+
+function themeFieldValue(id) {
+    return document.getElementById(id)?.value || COMPANY_THEME_DEFAULTS[id];
 }

@@ -4,20 +4,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Driver Availability</title>
-
 <link rel="stylesheet" href="css/admin.css">
+<style>
+.availability-status{display:inline-flex;align-items:center;gap:7px;font-weight:700}
+.availability-dot{width:10px;height:10px;border-radius:50%;background:#64748b}
+.availability-status.available .availability-dot{background:#16a34a}
+.availability-status.on-job .availability-dot{background:#f59e0b}
+.availability-status.on-break .availability-dot{background:#2563eb}
+.availability-status.offline .availability-dot{background:#dc2626}
+.availability-status.unavailable .availability-dot{background:#7c3aed}
+.availability-table-wrap{overflow:auto}
+</style>
 </head>
-
 <body>
-
-<div class="overlay"></div>
-
+<div class="overlay" id="overlay"></div>
 <div class="admin-layout">
-
 <aside class="sidebar" id="sidebar">
-
 <h2>Transport Admin</h2>
-
 <a href="dashboard.html">🏠 Dashboard</a>
 <a href="bookings.html">📖 Bookings</a>
 <a href="customers.html">👥 Customers</a>
@@ -28,138 +31,43 @@
 <a href="reports.html">📊 Reports</a>
 <a href="email-templates.html">📧 Email Templates</a>
 <a href="settings.html">⚙️ Settings</a>
-
 <hr style="margin:25px 0;border-color:#374151;">
-
 <a href="login.html">🚪 Logout</a>
-
 </aside>
 
 <main class="main">
-
 <div class="topbar">
-
 <div class="topbar-left">
-
-<button
-class="menu-toggle"
-id="menuToggle">
-
-☰
-
-</button>
-
-<h2>Driver Availability</h2>
-
+<button class="menu-toggle" id="menuToggle" type="button">☰</button>
+<div><h2>Driver Availability</h2><small id="availabilityUpdated">Loading live driver status…</small></div>
 </div>
-
-<div>
-
-<strong>Christopher</strong><br>
-<small>Administrator</small>
-
-</div>
-
+<button id="refreshAvailability" type="button">Refresh</button>
 </div>
 
 <div class="stats">
-
-<div class="card green">
-<h3>Available Drivers</h3>
-<div class="stat">5</div>
+<div class="card green"><h3>Available / Online</h3><div class="stat" id="availableCount">0</div></div>
+<div class="card orange"><h3>On Job</h3><div class="stat" id="onJobCount">0</div></div>
+<div class="card blue"><h3>On Break</h3><div class="stat" id="onBreakCount">0</div></div>
+<div class="card red"><h3>Offline</h3><div class="stat" id="offlineCount">0</div></div>
+<div class="card"><h3>Unavailable / Holiday</h3><div class="stat" id="unavailableCount">0</div></div>
 </div>
 
-<div class="card orange">
-<h3>On Jobs</h3>
-<div class="stat">3</div>
-</div>
-
-<div class="card blue">
-<h3>On Break</h3>
-<div class="stat">1</div>
-</div>
-
-<div class="card red">
-<h3>Offline</h3>
-<div class="stat">2</div>
-</div>
-
-</div>
-
-<div class="card">
-
+<section class="card">
 <h3>Driver Status</h3>
-
+<div class="availability-table-wrap">
 <table>
-
-<thead>
-
-<tr>
-<th>Driver</th>
-<th>Vehicle</th>
-<th>Status</th>
-<th>Current Job</th>
-<th>Updated</th>
-</tr>
-
-</thead>
-
-<tbody>
-
-<tr>
-<td>Nick</td>
-<td>Tesla Model 3</td>
-<td>🟢 Available</td>
-<td>-</td>
-<td>18:35</td>
-</tr>
-
-<tr>
-<td>Francis</td>
-<td>Toyota Corolla</td>
-<td>🟠 On Job</td>
-<td>Cardiff Airport</td>
-<td>18:34</td>
-</tr>
-
-<tr>
-<td>Stan</td>
-<td>MG4</td>
-<td>🔵 Break</td>
-<td>-</td>
-<td>18:20</td>
-</tr>
-
-<tr>
-<td>Rasool</td>
-<td>Ford Galaxy</td>
-<td>🟠 On Job</td>
-<td>Bristol Airport</td>
-<td>18:31</td>
-</tr>
-
-<tr>
-<td>NG</td>
-<td>Tesla Model 3</td>
-<td>🔴 Offline</td>
-<td>-</td>
-<td>16:15</td>
-</tr>
-
-</tbody>
-
+<thead><tr><th>Driver</th><th>Vehicle</th><th>Status</th><th>Current Job</th><th>Location Updated</th></tr></thead>
+<tbody id="availabilityRows"><tr><td colspan="5">Loading drivers…</td></tr></tbody>
 </table>
-
 </div>
-
+</section>
 </main>
-
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/admin.js"></script>
-
+<script src="js/availability.js"></script>
 </body>
 </html>

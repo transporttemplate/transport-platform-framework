@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Driver Statements</title>
+    <link rel="stylesheet" href="css/admin.css" />
+    <style>
+      @media print {
+        .sidebar,
+        .statement-controls,
+        .topbar {
+          display: none;
+        }
+        .admin-layout {
+          display: block;
+        }
+        .main {
+          padding: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="admin-layout">
+      <aside class="sidebar">
+        <h2>Transport Admin</h2>
+        <a href="accounts.html">💷 Finance</a
+        ><a href="invoices.html">🧾 Invoices</a
+        ><a class="active" href="driver-statements.html">📄 Driver Statements</a
+        ><a href="drivers.html">🚖 Drivers</a>
+      </aside>
+      <main class="main">
+        <div class="topbar">
+          <h2>Driver Statements / Remittances</h2>
+          <button onclick="print()">Print</button>
+        </div>
+        <section class="card statement-controls">
+          <div class="grid-2">
+            <label>Driver<select id="statementDriver"></select></label
+            ><label>From<input id="statementFrom" type="date" /></label
+            ><label>To<input id="statementTo" type="date" /></label>
+          </div>
+          <button id="calculateStatement">Calculate</button>
+          <button id="finaliseStatement">Finalise & Lock</button>
+          <button id="markStatementPaid">Mark Paid</button>
+          <button id="emailStatement">Email Remittance</button>
+        </section>
+        <section class="card">
+          <div id="statementSummary">Choose a driver and period.</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Job</th>
+                <th>Gross</th>
+<th>Company rate</th>
+                <th>Driver</th>
+                <th>Company</th>
+              </tr>
+            </thead>
+            <tbody id="statementItems"></tbody>
+          </table>
+        </section>
+        <section class="card">
+          <h3>Saved Statements</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Number</th>
+                <th>Driver</th>
+                <th>Period</th>
+                <th>Driver total</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="savedStatements"></tbody>
+          </table>
+        </section>
+      </main>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/admin.js"></script>
+    <script src="js/driver-statements.js"></script>
+  </body>
+</html>

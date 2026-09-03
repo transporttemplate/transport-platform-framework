@@ -259,6 +259,12 @@
                         <option value="true">Yes</option>
                     </select>
                 </div>
+                <div>
+                    <label for="driverPayTypeInput">Pay Rule</label>
+                    <select id="driverPayTypeInput"><option value="commission">Company commission percentage</option><option value="fixed">Fixed amount per job</option></select>
+                </div>
+                <div><label for="driverCommissionInput">Company commission %</label><input id="driverCommissionInput" type="number" min="0" max="100" step="0.01"></div>
+                <div><label for="driverFixedPayInput">Fixed Amount / Job</label><input id="driverFixedPayInput" type="number" min="0" step="0.01"></div>
             </div>
 
             <div class="driver-form-actions">

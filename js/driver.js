@@ -5,6 +5,7 @@ let currentDriver = null;
 let currentJob = null;
 let driverBookings = [];
 let driverUnavailable = false;
+let driverCommissionDefault = 0;
 
 let gpsWatchId = null;
 let driverRefreshTimer = null;
@@ -203,12 +204,18 @@ async function refreshDriverPortal() {
 
     await refreshHolidayStatus();
     await refreshDriverRow();
+    await loadDriverPaySettings();
     await loadDriverBookings();
 
     renderCurrentJob();
     renderUpcomingBookings();
     renderEarnings();
     refreshAvailabilityUI();
+}
+
+async function loadDriverPaySettings() {
+    const { data } = await driverdb.from("settings").select("company_id,drivercommission").eq("company_id", currentCompany.id).maybeSingle();
+    driverCommissionDefault = Number(data?.drivercommission || 0);
 }
 
 async function refreshDriverRow() {
@@ -331,7 +338,16 @@ async function loadDriverBookings() {
         return;
     }
 
-    driverBookings = data || [];
+    const { data: stops, error: stopsError } = await driverdb.rpc("get_driver_booking_stops", {
+        target_company_id: currentCompany.id,
+        target_driver_id: currentDriver.id,
+        target_pin: String(currentDriver.pin ?? currentDriver.driver_pin ?? currentDriver.password ?? "")
+    });
+    if (stopsError) console.error("Driver booking stops:", stopsError);
+    driverBookings = (data || []).map(job => ({
+        ...job,
+        via_stops: (stops || []).filter(stop => String(stop.booking_id) === String(job.id))
+    }));
 }
 
 function renderCurrentJob() {
@@ -435,7 +451,7 @@ async function setPOB() {
     if (await updateCurrentJobStatus("passenger_onboard", {
         passenger_onboard_at: new Date().toISOString()
     })) {
-        openNavigation(destination(currentJob));
+        openJobRoute(currentJob);
         renderJobActions();
     }
 }
@@ -481,12 +497,20 @@ function openNavigation(address) {
         encodeURIComponent(address);
 }
 
+function openJobRoute(job) {
+    const stops = (job?.via_stops || []).map(stop => stop.formatted_address).filter(Boolean);
+    const params = new URLSearchParams({ api: "1", travelmode: "driving", destination: destination(job) });
+    if (stops.length) params.set("waypoints", stops.join("|"));
+    window.location.href = `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
 function openJobDetails(job) {
     setText("detailReference", job.booking_reference || shortId(job.id));
     setText("detailDate", formatDate(job.journey_date));
     setText("detailTime", formatTime(job.journey_time));
     setText("detailPickup", pickup(job));
     setText("detailDestination", destination(job));
+    setText("detailViaStops", (job.via_stops || []).map(stop => `${stop.stop_order}. ${stop.formatted_address}`).join("\n") || "-");
     setText("detailPassenger", job.customer_name ?? job.passenger_name ?? "-");
     setText("detailPhone", job.phone ?? job.customer_phone ?? "-");
     setText("detailPassengers", job.passengers ?? "-");
@@ -546,12 +570,12 @@ function renderEarnings() {
     const today = localDateKey(new Date());
 
     const todayJobs = completed.filter(job => job.journey_date === today);
-    const todayTotal = todayJobs.reduce((sum, job) => sum + jobPrice(job), 0);
+    const todayTotal = todayJobs.reduce((sum, job) => sum + driverEarning(job), 0);
 
     const weekStart = getWeekStart(new Date());
     const weekTotal = completed.reduce((sum, job) => {
         const d = job.journey_date ? new Date(`${job.journey_date}T00:00:00`) : null;
-        return d && d >= weekStart ? sum + jobPrice(job) : sum;
+        return d && d >= weekStart ? sum + driverEarning(job) : sum;
     }, 0);
 
     setText("todayEarnings", money(todayTotal));
@@ -573,9 +597,17 @@ function renderEarnings() {
                 <strong>${escapeHtml(formatDate(job.journey_date))} • ${escapeHtml(formatTime(job.journey_time))}</strong>
                 <span>${escapeHtml(destination(job))}</span>
             </div>
-            <strong>${escapeHtml(money(jobPrice(job)))}</strong>
+            <strong>${escapeHtml(money(driverEarning(job)))}</strong>
         </div>
     `).join("");
+}
+
+function driverEarning(job) {
+    if (currentDriver?.pay_type === "fixed") return Number(currentDriver.fixed_job_amount || 0);
+    const rate = Number(currentDriver?.commission_percent ?? driverCommissionDefault ?? 0);
+    const grossFare = jobPrice(job);
+    const companyCommission = grossFare * rate / 100;
+    return grossFare - companyCommission;
 }
 
 async function refreshHolidayStatus() {

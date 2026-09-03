@@ -16,7 +16,8 @@
 <header>
 <div class="container">
 <div class="logo-area">
-<img id="companyLogo" src="assets/logos/logo.png" height="55" alt="Logo">
+<img id="companyLogo" height="55" alt="" hidden>
+<span id="companyLogoFallback" class="company-logo-fallback" aria-label="Company">C</span>
 <div><h1 id="companyName">Company Name</h1><small id="companyPhone">Phone Number</small></div>
 </div>
 <nav>
@@ -53,11 +54,13 @@
 </div>
 
 <div class="field-grid">
-<div class="field" id="pickupWrap"><label for="pickupAddress">Pickup address</label><input id="pickupAddress" type="text" placeholder="Enter pickup address"></div>
-<div class="field" id="dropoffWrap"><label for="dropoffAddress">Destination</label><input id="dropoffAddress" type="text" placeholder="Enter destination"></div>
+<div class="field" id="pickupWrap"><label for="pickupAddress">Pickup address</label><input id="pickupName" type="text" placeholder="House name, hotel or business (optional)"><input id="pickupAddress" type="text" placeholder="Search or enter pickup address"><input id="pickupPostcode" type="text" placeholder="Postcode (optional)"></div>
+<div class="field" id="dropoffWrap"><label for="dropoffAddress">Destination</label><input id="dropoffName" type="text" placeholder="House name, hotel or business (optional)"><input id="dropoffAddress" type="text" placeholder="Search or enter destination"><input id="dropoffPostcode" type="text" placeholder="Postcode (optional)"></div>
 <div class="field"><label for="journeyDate">Date</label><input id="journeyDate" type="date"></div>
 <div class="field"><label for="journeyTime">Time</label><input id="journeyTime" type="time" step="300"><small class="field-hint">24-hour time</small></div>
 </div>
+
+<div class="field full"><div id="publicViaStops"></div><button id="addPublicVia" type="button" class="secondary-btn">+ Add Via</button></div>
 
 <label class="return-card"><input id="returnJourney" type="checkbox"><span><strong>Book a return journey</strong><small>Add return date and time</small></span></label>
 <div id="returnFields" class="field-grid hidden">

@@ -124,7 +124,13 @@ async function loadCalendarBookings() {
         return;
     }
 
-    calendarBookings = data || [];
+    const { data: stops, error: stopsError } = await calendarDb
+        .from("booking_stops").select("*").eq("company_id", calendarCompanyId).order("stop_order");
+    if (stopsError) console.error("Calendar stops:", stopsError);
+    calendarBookings = (data || []).map(booking => ({
+        ...booking,
+        via_stops: (stops || []).filter(stop => String(stop.booking_id) === String(booking.id))
+    }));
 }
 
 function renderCalendarPage() {
@@ -411,6 +417,7 @@ function openCalendarBooking(id) {
     setText("detailFlight", booking.flight_number || "-");
     setText("detailPrice", money(booking.price ?? booking.job_price));
     setText("detailPayment", booking.payment_method || booking.payment_status || "-");
+    setText("detailViaStops", (booking.via_stops || []).map(stop => `${stop.stop_order}. ${stop.formatted_address}`).join("\n") || "-");
     setText("detailSource", booking.booking_source || "website");
     setText("detailNotes", booking.notes || "-");
 

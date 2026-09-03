@@ -6,88 +6,14 @@
 <title>Finance</title>
 <link rel="stylesheet" href="css/admin.css">
 </head>
-<body>
-<div class="admin-layout">
-
-<aside class="sidebar">
-<h2>Transport Admin</h2>
-<a href="dashboard.html">🏠 Dashboard</a>
-<a href="bookings.html">📖 Bookings</a>
-<a href="customers.html">👥 Customers</a>
-<a href="drivers.html">🚖 Drivers</a>
-<a href="availability.html">🟢 Availability</a>
-<a class="active" href="accounts.html">💷 Finance</a>
-<a href="calendar.html">📅 Calendar</a>
-<a href="reports.html">📊 Reports</a>
-<a href="email-templates.html">📧 Email Templates</a>
-<a href="settings.html">⚙️ Settings</a>
-<hr style="margin:25px 0;border-color:#374151;">
-<a href="login.html">🚪 Logout</a>
-</aside>
-
+<body><div class="admin-layout">
+<aside class="sidebar"><h2>Transport Admin</h2><a href="dashboard.html">🏠 Dashboard</a><a href="bookings.html">📖 Bookings</a><a href="customers.html">👥 Customers</a><a href="drivers.html">🚖 Drivers</a><a class="active" href="accounts.html">💷 Finance</a><a href="invoices.html">🧾 Invoices</a><a href="driver-statements.html">📄 Driver Statements</a><a href="calendar.html">📅 Calendar</a><a href="settings.html">⚙️ Settings</a><hr><a href="login.html">🚪 Logout</a></aside>
 <main class="main">
-
-<div class="topbar">
-<h2>Finance</h2>
-<button>+ Create Invoice</button>
-</div>
-
-<div class="stats">
-<div class="card blue"><h3>Today's Revenue</h3><div class="stat">£0.00</div></div>
-<div class="card green"><h3>This Week</h3><div class="stat">£0.00</div></div>
-<div class="card orange"><h3>Outstanding</h3><div class="stat">£0.00</div></div>
-<div class="card red"><h3>Refunds</h3><div class="stat">£0.00</div></div>
-</div>
-
-<div class="grid-2">
-
-<div class="card">
-<h3>Recent Payments</h3>
-<table>
-<thead>
-<tr>
-<th>Date</th>
-<th>Customer</th>
-<th>Amount</th>
-<th>Method</th>
-<th>Status</th>
-</tr>
-</thead>
-<tbody>
-<tr><td>05 Aug</td><td>John Smith</td><td>£120</td><td>Card</td><td>Paid</td></tr>
-<tr><td>05 Aug</td><td>Sarah Jones</td><td>£180</td><td>Cash</td><td>Paid</td></tr>
-<tr><td>05 Aug</td><td>ABC Ltd</td><td>£460</td><td>Invoice</td><td>Outstanding</td></tr>
-</tbody>
-</table>
-</div>
-
-<div>
-<div class="card" style="margin-bottom:20px;">
-<h3>Quick Actions</h3>
-<button>Create Invoice</button><br><br>
-<button>Record Payment</button><br><br>
-<button>Issue Refund</button><br><br>
-<button>Export Accounts</button>
-</div>
-
-<div class="card">
-<h3>Payment Breakdown</h3>
-<p>💳 Card: £0.00</p><br>
-<p>💷 Cash: £0.00</p><br>
-<p>🏢 Account: £0.00</p><br>
-<p>💰 Deposits: £0.00</p>
-</div>
-</div>
-
-</div>
-</main>
-
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/supabase.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/admin.js"></script>
-
-</body>
-</html>
+<div class="topbar"><div><h2>Finance & Accounts</h2><small>Completed jobs and payment position</small></div><div><button id="exportFinance">Download CSV</button> <a href="invoices.html"><button>Create Invoice</button></a></div></div>
+<div class="card"><div class="grid-2"><label>From<input id="financeFrom" type="date"></label><label>To<input id="financeTo" type="date"></label></div><button id="refreshFinance">Apply dates</button></div>
+<div class="stats"><div class="card blue"><h3>Revenue</h3><div class="stat" id="financeRevenue">£0.00</div></div><div class="card green"><h3>Paid</h3><div class="stat" id="financePaid">£0.00</div></div><div class="card orange"><h3>Unpaid</h3><div class="stat" id="financeUnpaid">£0.00</div></div><div class="card red"><h3>Driver Earnings</h3><div class="stat" id="financeDriver">£0.00</div></div></div>
+<div class="grid-2"><section class="card"><h3>Payment Split</h3><p>Cash: <strong id="splitCash">£0.00</strong></p><p>Card: <strong id="splitCard">£0.00</strong></p><p>Account: <strong id="splitAccount">£0.00</strong></p><p>Company share: <strong id="financeCompany">£0.00</strong></p></section><section class="card"><h3>Unpaid Jobs</h3><div style="overflow:auto"><table><thead><tr><th>Job</th><th>Customer</th><th>Amount</th><th>Action</th></tr></thead><tbody id="unpaidJobs"></tbody></table></div></section></div>
+<section class="card"><h3>Completed Jobs</h3><div style="overflow:auto"><table><thead><tr><th>Date</th><th>Reference</th><th>Customer</th><th>Driver</th><th>Method</th><th>Status</th><th>Fare</th></tr></thead><tbody id="completedJobs"></tbody></table></div></section>
+</main></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/supabase.js"></script><script src="js/auth.js"></script><script src="js/admin.js"></script><script src="js/accounts.js"></script>
+</body></html>

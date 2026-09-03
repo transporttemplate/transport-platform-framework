@@ -7,6 +7,8 @@
   --primary:#37d4d4;
   --secondary:#111111;
   --accent:#d71a1a;
+  --button:#37d4d4;
+  --button-text:#111111;
   --background:#0b0b0b;
   --card:#1a1a1a;
   --text:#ffffff;
@@ -37,7 +39,7 @@ a{text-decoration:none;color:inherit}
 header{
   position:sticky;
   top:0;
-  background:#111;
+  background:var(--secondary);
   border-bottom:1px solid #222;
   z-index:1000;
 }
@@ -57,6 +59,23 @@ header .container{
   gap:15px;
 }
 
+.company-logo-fallback{
+  width:55px;
+  height:55px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 55px;
+  border-radius:12px;
+  background:var(--primary);
+  color:#111;
+  font-size:1.15rem;
+  font-weight:700;
+  letter-spacing:.04em;
+}
+
+.company-logo-fallback[hidden]{display:none}
+
 nav{
   display:flex;
   gap:25px;
@@ -70,8 +89,8 @@ nav a:hover{
 .call-btn,
 .book-btn{
   display:inline-block;
-  background:var(--primary);
-  color:#111;
+  background:var(--button);
+  color:var(--button-text);
   padding:14px 26px;
   border-radius:999px;
   font-weight:bold;
