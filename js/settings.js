@@ -25,7 +25,9 @@ const fieldMap = {
 
     businessStatus: "businessstatus",
     holidayFrom: "holidayfrom",
+    holidayFromTime: "holidayfromtime",
     holidayTo: "holidayto",
+    holidayToTime: "holidaytotime",
     websiteNotice: "websitenotice",
     acceptAdvanceBookings: "acceptadvancebookings",
 

@@ -9,6 +9,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script defer src="js/supabase.js"></script>
 <script defer src="js/config.js"></script>
+<script defer src="js/public-status.js"></script>
 <script defer src="js/main.js"></script>
 <script defer src="js/booking.js"></script>
 </head>
@@ -27,6 +28,7 @@
 </header>
 
 <section class="booking-hero"><div class="container"><h2>Book Your Journey</h2><p>Quick, simple booking with live route and pricing.</p></div></section>
+<div class="container"><div id="closureBookingNotice" class="notice-box" hidden></div></div>
 
 <main class="booking-page"><div class="container"><div class="booking-shell">
 <div class="booking-progress">
@@ -93,8 +95,8 @@
 <section class="booking-step" data-step="3">
 <div class="step-heading"><p class="eyebrow">Step 3 of 5</p><h2>Choose your vehicle</h2><p>Select the vehicle that suits your group.</p></div>
 <div class="vehicle-grid">
-<button type="button" class="vehicle-card active" data-vehicle="car"><div class="vehicle-art">CAR</div><div class="vehicle-copy"><strong>Car</strong><span>Up to 4 passengers</span></div><div class="vehicle-price" id="carPrice">£—</div></button>
-<button type="button" class="vehicle-card" data-vehicle="mpv"><div class="vehicle-art">MPV</div><div class="vehicle-copy"><strong>MPV</strong><span>Up to 7 passengers</span></div><div class="vehicle-price" id="mpvPrice">£—</div></button>
+<button type="button" class="vehicle-card active" data-vehicle="car"><div class="vehicle-art">CAR</div><div class="vehicle-copy"><strong>Car</strong><span>Up to 4 passengers</span></div><div class="vehicle-price" id="carPrice">—</div></button>
+<button type="button" class="vehicle-card" data-vehicle="mpv"><div class="vehicle-art">MPV</div><div class="vehicle-copy"><strong>MPV</strong><span>Up to 7 passengers</span></div><div class="vehicle-price" id="mpvPrice">—</div></button>
 </div>
 <input id="vehicleType" type="hidden" value="car">
 <div id="vehiclePriceNote" class="notice-box">Complete the journey details to calculate your fare.</div>
@@ -116,7 +118,7 @@
 <section class="booking-step" data-step="5">
 <div class="step-heading"><p class="eyebrow">Step 5 of 5</p><h2>Review & book</h2><p>Check everything before confirming.</p></div>
 <div id="bookingSummary" class="review-card"></div>
-<div class="final-price-card"><span>Total fare</span><strong id="finalPrice">£—</strong><small>Price based on the journey details provided.</small></div>
+<div class="final-price-card"><span>Total fare</span><strong id="finalPrice">—</strong><small>Price based on the journey details provided.</small></div>
 <div class="step-actions"><button type="button" class="secondary-btn" data-back="4">Back</button><button type="submit" class="primary-btn">Confirm Booking</button></div>
 </section>
 </form>

@@ -2,84 +2,24 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Reports</title>
 <link rel="stylesheet" href="css/admin.css">
 </head>
 <body>
 <div class="admin-layout">
-
-<aside class="sidebar">
-<h2>Transport Admin</h2>
-<a href="dashboard.html">🏠 Dashboard</a>
-<a href="bookings.html">📖 Bookings</a>
-<a href="customers.html">👥 Customers</a>
-<a href="drivers.html">🚖 Drivers</a>
-<a href="availability.html">🟢 Availability</a>
-<a href="accounts.html">💷 Finance</a>
-<a href="calendar.html">📅 Calendar</a>
-<a class="active" href="reports.html">📊 Reports</a>
-<a href="email-templates.html">📧 Email Templates</a>
-<a href="settings.html">⚙️ Settings</a>
-<hr style="margin:25px 0;border-color:#374151;">
-<a href="login.html">🚪 Logout</a>
-</aside>
-
+<aside class="sidebar" id="sidebar"><h2>Transport Admin</h2><a href="dashboard.html">🏠 Dashboard</a><a href="bookings.html">📖 Bookings</a><a href="customers.html">👥 Customers</a><a href="drivers.html">🚖 Drivers</a><a href="availability.html">🟢 Availability</a><a href="accounts.html">💷 Finance</a><a href="calendar.html">📅 Calendar</a><a class="active" href="reports.html">📊 Reports</a><a href="email-templates.html">📧 Email Templates</a><a href="settings.html">⚙️ Settings</a><hr><a href="login.html">🚪 Logout</a></aside>
 <main class="main">
-
-<div class="topbar">
-<h2>Reports & Analytics</h2>
-<button>⬇ Export Report</button>
-</div>
-
-<div class="stats">
-<div class="card blue"><h3>Today's Revenue</h3><div class="stat">£865</div></div>
-<div class="card green"><h3>This Week</h3><div class="stat">£4,280</div></div>
-<div class="card orange"><h3>This Month</h3><div class="stat">£18,940</div></div>
-<div class="card red"><h3>Jobs Completed</h3><div class="stat">412</div></div>
-</div>
-
-<div class="grid-2" style="margin-top:25px;">
-<div class="card">
-<h3>Driver Performance</h3>
-<table>
-<tr><th>Driver</th><th>Jobs</th><th>Revenue</th></tr>
-<tr><td>Nick</td><td>82</td><td>£4,560</td></tr>
-<tr><td>Francis</td><td>75</td><td>£4,110</td></tr>
-<tr><td>Stan</td><td>69</td><td>£3,820</td></tr>
-<tr><td>Chris</td><td>88</td><td>£5,030</td></tr>
-</table>
-</div>
-
-<div class="card">
-<h3>Journey Breakdown</h3>
-<table>
-<tr><th>Type</th><th>Total</th></tr>
-<tr><td>Airport Transfers</td><td>126</td></tr>
-<tr><td>Corporate</td><td>94</td></tr>
-<tr><td>Local Journeys</td><td>172</td></tr>
-<tr><td>School Runs</td><td>20</td></tr>
-</table>
-</div>
-</div>
-
-<div class="card" style="margin-top:25px;">
-<h3>Top Customers</h3>
-<table>
-<tr><th>Customer</th><th>Bookings</th><th>Total Spend</th></tr>
-<tr><td>ABC Ltd</td><td>44</td><td>£6,220</td></tr>
-<tr><td>John Smith</td><td>18</td><td>£1,540</td></tr>
-<tr><td>Sarah Jones</td><td>14</td><td>£1,120</td></tr>
-</table>
-</div>
+<div class="topbar"><div class="topbar-left"><button class="menu-toggle" id="menuToggle" type="button">☰</button><div><h2>Reports & Analytics</h2><small>Company booking performance</small></div></div><button id="exportReport" type="button">Download CSV</button></div>
+<section class="card"><div class="grid-2"><label>From<input id="reportFrom" type="date"></label><label>To<input id="reportTo" type="date"></label></div><button id="refreshReport" type="button">Apply dates</button></section>
+<div class="stats"><div class="card blue"><h3>Total Revenue</h3><div class="stat" id="reportRevenue">0.00</div></div><div class="card green"><h3>Bookings</h3><div class="stat" id="reportBookings">0</div></div><div class="card orange"><h3>Completed Jobs</h3><div class="stat" id="reportCompleted">0</div></div><div class="card red"><h3>Airport / Local</h3><div class="stat" id="reportJourneySplit">0 / 0</div></div></div>
+<div class="grid-2"><section class="card"><h3>Top Drivers</h3><table><thead><tr><th>Driver</th><th>Completed Jobs</th><th>Revenue</th></tr></thead><tbody id="reportDrivers"><tr><td colspan="3">Loading…</td></tr></tbody></table></section><section class="card"><h3>Top Customers</h3><table><thead><tr><th>Customer</th><th>Bookings</th><th>Total Spend</th></tr></thead><tbody id="reportCustomers"><tr><td colspan="3">Loading…</td></tr></tbody></table></section></div>
 </main>
-
 </div>
-
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/admin.js"></script>
-
+<script src="js/reports.js"></script>
 </body>
 </html>

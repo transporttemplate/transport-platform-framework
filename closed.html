@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Temporarily Closed</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/closed.css">
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="js/supabase.js"></script>
+<script defer src="js/config.js"></script>
+<script defer src="js/main.js"></script>
+<script defer src="js/public-status.js"></script>
+</head>
+<body data-closure-theme="generic">
+<main class="closure-page">
+<section class="closure-card" aria-live="polite">
+<div class="closure-brand">
+<img id="companyLogo" alt="" hidden>
+<span id="companyLogoFallback" class="company-logo-fallback" aria-label="Company">C</span>
+<strong id="closedCompanyName">Company</strong>
+</div>
+<div class="closure-scene" aria-hidden="true"><span class="scene-main"></span></div>
+<p class="closure-kicker">Booking status</p>
+<h1 id="closedTitle">We’re Currently Closed</h1>
+<p id="closedMessage" class="closure-message">Please check back shortly.</p>
+<div id="closedNotice" class="closure-notice" hidden></div>
+<div class="reopening-panel">
+<span>Reopening</span>
+<strong id="reopeningAt">Loading…</strong>
+<div id="closureCountdown" class="countdown">Calculating…</div>
+</div>
+<a id="advanceBookingLink" class="closure-button" href="booking.html" hidden>Book a Journey After Reopening</a>
+</section>
+</main>
+</body>
+</html>

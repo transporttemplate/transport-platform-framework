@@ -6,14 +6,14 @@ let selectedDriver = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
     bindDriverManagementUI();
-    currentCompanyId = await resolveCurrentCompanyId();
-
-    if (!currentCompanyId) {
-        renderDriverError("No company is currently selected/logged in.");
-        return;
+    try {
+        const context = await window.getAdminCompanyContext();
+        currentCompanyId = context.companyId;
+        await loadDrivers();
+    } catch (error) {
+        console.error("Driver management startup error:", error);
+        renderDriverError("Unable to load the signed-in company.");
     }
-
-    await loadDrivers();
 });
 
 function bindDriverManagementUI() {
@@ -45,50 +45,13 @@ function bindDriverManagementUI() {
     document.getElementById("driverVehicleFilter")?.addEventListener("change", renderDrivers);
 }
 
-async function resolveCurrentCompanyId() {
-    const candidates = [
-        localStorage.getItem("company_id"),
-        localStorage.getItem("companyId"),
-        sessionStorage.getItem("company_id"),
-        sessionStorage.getItem("companyId")
-    ].filter(Boolean);
-
-    if (candidates.length) return candidates[0];
-
-    try {
-        const authKeys = ["currentCompany", "company", "loggedInCompany", "adminCompany"];
-        for (const key of authKeys) {
-            const raw = localStorage.getItem(key) || sessionStorage.getItem(key);
-            if (!raw) continue;
-
-            try {
-                const obj = JSON.parse(raw);
-                if (obj?.id) return obj.id;
-                if (obj?.company_id) return obj.company_id;
-            } catch (_) {}
-        }
-
-        const { data, error } = await driversDb
-            .from("companies")
-            .select("id")
-            .limit(1)
-            .maybeSingle();
-
-        if (!error && data?.id) return data.id;
-    } catch (error) {
-        console.error("Company resolution error:", error);
-    }
-
-    return null;
-}
-
 async function loadDrivers() {
     const body = document.getElementById("driversTableBody");
     if (body) body.innerHTML = '<tr><td colspan="8" class="muted">Loading drivers...</td></tr>';
 
     const { data, error } = await driversDb
         .from("drivers")
-        .select("*")
+        .select("id,company_id,driver_number,full_name,phone,email,vehicle,licence_number,licence_expiry,status,online,latitude,longitude,location_updated_at,pay_type,commission_percent,fixed_job_amount")
         .eq("company_id", currentCompanyId)
         .order("full_name", { ascending: true });
 
@@ -194,7 +157,9 @@ function openDriverForm(driver = null) {
     document.getElementById("driverId").value = driver?.id || "";
     document.getElementById("driverFullName").value = driver?.full_name || "";
     document.getElementById("driverNumberInput").value = driver?.driver_number || "";
-    document.getElementById("driverPinInput").value = driver?.pin || "";
+    document.getElementById("driverPinInput").value = "";
+    document.getElementById("driverPinInput").required = !isEdit;
+    document.getElementById("driverPinInput").placeholder = isEdit ? "Leave blank to keep current PIN" : "4–12 digits";
     document.getElementById("driverPhoneInput").value = driver?.phone || "";
     document.getElementById("driverEmailInput").value = driver?.email || "";
     document.getElementById("driverVehicleInput").value = driver?.vehicle || "";
@@ -220,11 +185,10 @@ async function saveDriver(event) {
 
     const id = document.getElementById("driverId").value.trim();
 
+    const pin = document.getElementById("driverPinInput").value.trim();
     const payload = {
-        company_id: currentCompanyId,
         full_name: document.getElementById("driverFullName").value.trim(),
         driver_number: document.getElementById("driverNumberInput").value.trim(),
-        pin: document.getElementById("driverPinInput").value.trim(),
         phone: document.getElementById("driverPhoneInput").value.trim() || null,
         email: document.getElementById("driverEmailInput").value.trim() || null,
         vehicle: document.getElementById("driverVehicleInput").value.trim() || null,
@@ -237,8 +201,8 @@ async function saveDriver(event) {
         fixed_job_amount: document.getElementById("driverFixedPayInput").value === "" ? null : Number(document.getElementById("driverFixedPayInput").value)
     };
 
-    if (!payload.full_name || !payload.driver_number || !payload.pin) {
-        alert("Full Name, Driver Number and PIN are required.");
+    if (!payload.full_name || !payload.driver_number || (!id && !pin)) {
+        alert("Full Name and Driver Number are required. New drivers also need a PIN.");
         return;
     }
 
@@ -252,19 +216,9 @@ async function saveDriver(event) {
         return;
     }
 
-    let result;
-
-    if (id) {
-        result = await driversDb
-            .from("drivers")
-            .update(payload)
-            .eq("id", id)
-            .eq("company_id", currentCompanyId);
-    } else {
-        result = await driversDb
-            .from("drivers")
-            .insert(payload);
-    }
+    const result = await driversDb.functions.invoke("driver-portal", {
+        body: { action: "admin_save_driver", company_id: currentCompanyId, driver_id: id || null, pin: pin || null, driver: payload }
+    });
 
     if (result.error) {
         console.error("Save driver error:", result.error);
@@ -285,7 +239,7 @@ function openViewDriver(driver) {
     content.innerHTML = [
         viewItem("Full Name", driver.full_name || "-"),
         viewItem("Driver Number", driver.driver_number || "-"),
-        viewItem("PIN", driver.pin || "-"),
+        viewItem("PIN", "Stored securely — use Edit Driver to replace it"),
         viewItem("Phone", driver.phone || "-"),
         viewItem("Email", driver.email || "-"),
         viewItem("Vehicle", driver.vehicle || "-"),

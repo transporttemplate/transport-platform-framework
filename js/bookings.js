@@ -866,6 +866,24 @@ async function createAdminBooking(event) {
             .getElementById("bookingStatus")
             ?.value || "waiting";
 
+    const customerName = document.getElementById("customerName")?.value.trim() || "";
+    const customerEmail = document.getElementById("customerEmail")?.value.trim() || null;
+    const customerPhone = document.getElementById("customerPhone")?.value.trim() || null;
+    const [customerResult, referenceResult] = await Promise.all([
+        bookingsDb.rpc("find_or_create_admin_customer", {
+            target_company_id: adminCompanyId,
+            customer_name: customerName,
+            customer_email: customerEmail,
+            customer_phone: customerPhone
+        }),
+        bookingsDb.rpc("next_admin_booking_reference", { target_company_id: adminCompanyId })
+    ]);
+
+    if (customerResult.error || referenceResult.error) {
+        if (message) message.textContent = "Could not link customer/reference: " + (customerResult.error?.message || referenceResult.error?.message);
+        return;
+    }
+
     const payload = {
 
         id: crypto.randomUUID(),
@@ -873,26 +891,18 @@ async function createAdminBooking(event) {
         company_id:
             adminCompanyId,
 
-        booking_reference:
-            makeReference(),
+        booking_reference: referenceResult.data,
+
+        customer_id: customerResult.data,
 
         customer_name:
-            document
-                .getElementById("customerName")
-                ?.value
-                .trim() || "",
+            customerName,
 
         customer_email:
-            document
-                .getElementById("customerEmail")
-                ?.value
-                .trim() || null,
+            customerEmail,
 
         customer_phone:
-            document
-                .getElementById("customerPhone")
-                ?.value
-                .trim() || null,
+            customerPhone,
 
         pickup_address:
             document
@@ -2024,17 +2034,6 @@ function driverDisplayName(id) {
     }
 
     return `${driver.driver_number || "-"} — ${driver.full_name || "Driver"}`;
-}
-
-
-function makeReference() {
-
-    return (
-        "ADM-" +
-        Date.now()
-            .toString()
-            .slice(-8)
-    );
 }
 
 

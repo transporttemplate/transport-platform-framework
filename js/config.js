@@ -112,7 +112,7 @@
             const db = getSupabase();
             const [settingsResult, airportsResult, areasResult] = await Promise.all([
                 db.from("settings")
-                    .select("company_id,companyname,tradingname,companyphone,companyemail,companyaddress,companylogo,currencysymbol,allowairportoutsidearea,primarycolour,secondarycolour,accentcolour,buttoncolour,buttontextcolour")
+                    .select("company_id,companyname,tradingname,companyphone,companyemail,companyaddress,companylogo,currencysymbol,allowairportoutsidearea,primarycolour,secondarycolour,accentcolour,buttoncolour,buttontextcolour,businessstatus,holidayfrom,holidayfromtime,holidayto,holidaytotime,websitenotice,acceptadvancebookings,bookwhileclosed,closedmessage,timezone")
                     .eq("company_id", company.id)
                     .maybeSingle(),
                 db.from("airports").select("*").eq("company_id", company.id).eq("active", true).order("sort_order", { ascending: true }).order("name", { ascending: true }),

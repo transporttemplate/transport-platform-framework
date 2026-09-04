@@ -173,7 +173,7 @@ async function loadPricingSettings(){
 
     const {data,error}=await bookingdb
         .from("settings")
-        .select("company_id,airportpricing,distancecalculator,maxadvancedays,minimumnotice,googlemapsapi,minimumfare,firstmile,mileband1,mileband2,mileband3,mileband4,mileband5,mileband6,bookingfee,returndiscount")
+        .select("company_id,airportpricing,distancecalculator,maxadvancedays,minimumnotice,googlemapsapi,minimumfare,firstmile,mileband1,mileband2,mileband3,mileband4,mileband5,mileband6,bookingfee,returndiscount,currencysymbol")
         .eq("company_id",bookingCompany.id)
         .maybeSingle();
 
@@ -537,6 +537,14 @@ function validateStep(step){
             return false;
         }
 
+        if (typeof window.validatePublicJourneyAgainstClosure === "function" &&
+            !window.validatePublicJourneyAgainstClosure(
+                document.getElementById("journeyDate").value,
+                document.getElementById("journeyTime").value
+            )) {
+            return false;
+        }
+
         const mode=
             document.getElementById("journeyMode").value;
 
@@ -585,6 +593,15 @@ function validateStep(step){
             )
         ){
             alert("Please enter return date and time.");
+            return false;
+        }
+
+        if (document.getElementById("returnJourney").checked &&
+            typeof window.validatePublicJourneyAgainstClosure === "function" &&
+            !window.validatePublicJourneyAgainstClosure(
+                document.getElementById("returnDate").value,
+                document.getElementById("returnTime").value
+            )) {
             return false;
         }
     }
@@ -651,11 +668,18 @@ function setDateMinimums(){
     const maxAdvanceDays =
         Number(pricingSettings.maxadvancedays || 365);
 
-    const earliest =
+    let earliest =
         new Date(
             now.getTime() +
             minimumNoticeMinutes * 60 * 1000
         );
+
+    const closureEnd = window.PUBLIC_CLOSURE_STATE?.active &&
+        window.PUBLIC_CLOSURE_STATE?.acceptAdvance
+        ? window.PUBLIC_CLOSURE_STATE.endsAt
+        : null;
+
+    if (closureEnd instanceof Date && closureEnd > earliest) earliest = closureEnd;
 
     const latest =
         new Date(
@@ -711,7 +735,7 @@ function airportHint(){
 
     hint.textContent=
         prices.length
-            ?`Prices from £${Math.min(...prices).toFixed(2)}`
+            ?`Prices from ${currencySymbol()}${Math.min(...prices).toFixed(2)}`
             :"Contact us for price.";
 }
 
@@ -1866,6 +1890,23 @@ async function saveBooking(event){
 
     event.preventDefault();
 
+    if (typeof window.validatePublicJourneyAgainstClosure === "function" &&
+        !window.validatePublicJourneyAgainstClosure(
+            document.getElementById("journeyDate").value,
+            document.getElementById("journeyTime").value
+        )) {
+        return;
+    }
+
+    if (document.getElementById("returnJourney").checked &&
+        typeof window.validatePublicJourneyAgainstClosure === "function" &&
+        !window.validatePublicJourneyAgainstClosure(
+            document.getElementById("returnDate").value,
+            document.getElementById("returnTime").value
+        )) {
+        return;
+    }
+
 
     if(
         !validateStep(4) ||
@@ -1888,82 +1929,8 @@ async function saveBooking(event){
         document.getElementById("customerPhone").value.trim();
 
 
-    const reference=
-        generateBookingReference();
-
-
     try{
-
-        let customerId=null;
-
-
-        const {
-            data:existing,
-            error:lookupError
-        }=
-            await bookingdb
-                .from("customers")
-                .select("id")
-                .eq("company_id",company.id)
-                .eq("phone",phone)
-                .limit(1);
-
-
-        if(lookupError){
-            throw lookupError;
-        }
-
-
-        if(existing?.length){
-
-            customerId=
-                existing[0].id;
-
-        }else{
-
-            const {
-                data:newCustomer,
-                error
-            }=
-                await bookingdb
-                    .from("customers")
-                    .insert({
-                        company_id:company.id,
-
-                        full_name:
-                            document.getElementById("customerName").value.trim(),
-
-                        email:
-                            document.getElementById("customerEmail").value.trim(),
-
-                        phone
-                    })
-                    .select()
-                    .single();
-
-
-            if(error){
-                throw error;
-            }
-
-
-            customerId=
-                newCustomer.id;
-        }
-
-
         const record={
-
-            id:crypto.randomUUID(),
-
-            company_id:
-                company.id,
-
-            booking_reference:
-                reference,
-
-            customer_id:
-                customerId,
 
             customer_name:
                 document.getElementById("customerName").value.trim(),
@@ -2064,66 +2031,20 @@ async function saveBooking(event){
         };
 
 
-        const records = [record];
-
-if (record.return_journey && record.return_date && record.return_time) {
-    records.push({
-        ...record,
-
-        id:crypto.randomUUID(),
-
-        // Same booking reference links the two journeys
-        booking_reference: `${reference}-R`,
-
-        // Reverse the journey
-        pickup_address: record.dropoff_address,
-        dropoff_address: record.pickup_address,
-
-        // Return date/time becomes this job's date/time
-        journey_date: record.return_date,
-        journey_time: record.return_time,
-
-        // Return is a separate job
-        return_journey: false,
-        return_date: null,
-        return_time: null,
-
-        // Full booking price stays on outbound
-        price: 0,
-
-        // Makes it obvious in dispatch
-        journey_type: "return"
-    });
-}
-
-const { error } =
-    await bookingdb
-        .from("bookings")
-        .insert(records);
-
-
-        if(error){
-            throw error;
-        }
-
-        const stops=collectPublicViaStops();
-        const stopRows=records.flatMap((booking,index)=>{
-            const ordered=index===0?stops:[...stops].reverse().map((stop,stopIndex)=>({...stop,stop_order:stopIndex+1}));
-            return ordered.map(stop=>({...stop,company_id:company.id,booking_id:booking.id}));
+        const {data:created,error}=await bookingdb.functions.invoke("public-booking-create",{
+            body:{company_id:company.id,booking:record,stops:collectPublicViaStops()}
         });
-        if(stopRows.length){
-            const {error:stopsError}=await bookingdb.from("booking_stops").insert(stopRows);
-            if(stopsError) throw stopsError;
-        }
+        if(error||!created?.ok) throw new Error(created?.error||error?.message||"Unable to create booking");
 
-        await Promise.all(records.map(booking => requestPublicGoogleCalendarSync(company.id, booking.id)));
+        await Promise.all((created.bookings||[]).map(booking => requestPublicGoogleCalendarSync(company.id, booking.id)));
 
-        const emailResult=await bookingdb.functions.invoke("send-booking-email",{body:{company_id:company.id,booking_id:record.id,template_key:"booking_confirmation"}});
+        const firstBooking=created.bookings?.[0];
+        const emailResult=firstBooking?await bookingdb.functions.invoke("send-booking-email",{body:{company_id:company.id,booking_id:firstBooking.id,template_key:"booking_confirmation"}}):{error:null};
         if(emailResult.error) console.error("Booking saved but confirmation email could not be sent:",emailResult.error);
 
 
         alert(
-            `Booking created successfully!\n\nReference: ${reference}`
+            `Booking created successfully!\n\nReference: ${created.reference}`
         );
 
     }catch(error){
@@ -2260,40 +2181,6 @@ function resetPrice(){
 }
 
 
-function generateBookingReference(){
-
-    const date=
-        new Date();
-
-
-    const year=
-        String(
-            date.getFullYear()
-        ).slice(-2);
-
-
-    const month=
-        String(
-            date.getMonth()+1
-        ).padStart(2,"0");
-
-
-    const day=
-        String(
-            date.getDate()
-        ).padStart(2,"0");
-
-
-    return(
-        `BK${year}${month}${day}-`+
-        Math.floor(
-            1000+
-            Math.random()*9000
-        )
-    );
-}
-
-
 function positive(value){
 
     value=
@@ -2322,8 +2209,12 @@ function round(value){
 function money(value){
 
     return Number.isFinite(value)
-        ?`£${Number(value).toFixed(2)}`
-        :"£—";
+        ?`${currencySymbol()}${Number(value).toFixed(2)}`
+        :`${currencySymbol()}—`;
+}
+
+function currencySymbol(){
+    return pricingSettings.currencysymbol || "£";
 }
 
 

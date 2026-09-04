@@ -5,13 +5,13 @@ async function loadDashboard() {
         const { companyId } = await window.getAdminCompanyContext();
         const today = new Date().toISOString().split("T")[0];
 
-        const { data: bookings, error: bookingsError } = await db
+        const [{ data: bookings, error: bookingsError }, { data: settings, error: settingsError }] = await Promise.all([db
             .from("bookings")
             .select("*")
             .eq("company_id", companyId)
-            .eq("journey_date", today);
+            .eq("journey_date", today), db.from("settings").select("currencysymbol").eq("company_id", companyId).maybeSingle()]);
 
-        if (bookingsError) throw bookingsError;
+        if (bookingsError || settingsError) throw bookingsError || settingsError;
 
         const todayBookings = document.getElementById("todayBookings");
         if (todayBookings) todayBookings.textContent = bookings?.length || 0;
@@ -22,11 +22,11 @@ async function loadDashboard() {
         });
 
         const todayRevenue = document.getElementById("todayRevenue");
-        if (todayRevenue) todayRevenue.textContent = "£" + revenue.toFixed(2);
+        if (todayRevenue) todayRevenue.textContent = (settings?.currencysymbol || "£") + revenue.toFixed(2);
 
         const { data: drivers, error: driversError } = await db
             .from("drivers")
-            .select("*")
+            .select("id,company_id,driver_number,full_name,vehicle,status,online,latitude,longitude,location_updated_at")
             .eq("company_id", companyId);
 
         if (driversError) throw driversError;

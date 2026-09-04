@@ -6,6 +6,9 @@ let currentJob = null;
 let driverBookings = [];
 let driverUnavailable = false;
 let driverCommissionDefault = 0;
+let driverCurrencySymbol = "£";
+let driverSessionToken = null;
+let driverUnavailability = [];
 
 let gpsWatchId = null;
 let driverRefreshTimer = null;
@@ -57,42 +60,17 @@ async function driverLogin() {
     setLoginMessage("Checking details...", false);
 
     try {
-        const { data: company, error: companyError } = await driverdb
-            .from("companies")
-            .select("*")
-            .eq("company_code", companyCode)
-            .maybeSingle();
-
-        if (companyError) throw companyError;
-        if (!company) return setLoginMessage("Company ID not recognised.", true);
-
-        const { data: drivers, error: driverError } = await driverdb
-            .from("drivers")
-            .select("*")
-            .eq("company_id", company.id);
-
-        if (driverError) throw driverError;
-
-        const driver = (drivers || []).find(row => {
-            const no = String(row.driver_number ?? row.driver_no ?? row.number ?? row.driver_ref ?? "").trim();
-            const pin = String(row.pin ?? row.driver_pin ?? row.password ?? "").trim();
-            return no === numberInput && pin === pinInput;
-        });
-
-        if (!driver) return setLoginMessage("Driver Number or PIN is incorrect.", true);
-
-        currentCompany = company;
-        currentDriver = driver;
-
-        localStorage.setItem("driverPortalSession", JSON.stringify({
-            companyCode,
-            driverId: driver.id
-        }));
+        const data = await driverPortalRequest("login", { company_code: companyCode, driver_number: numberInput, pin: pinInput }, false);
+        currentCompany = data.company;
+        currentDriver = data.driver;
+        driverSessionToken = data.session_token;
+        document.getElementById("driverPin").value = "";
+        localStorage.setItem("driverPortalSession", JSON.stringify({ token: driverSessionToken, expiresAt: data.expires_at }));
 
         await enterDriverPortal();
     } catch (error) {
         console.error("Driver login:", error);
-        setLoginMessage("Unable to log in.", true);
+        setLoginMessage(error.message || "Unable to log in.", true);
     }
 }
 
@@ -102,26 +80,10 @@ async function restoreDriverSession() {
 
     try {
         const session = JSON.parse(raw);
-
-        const { data: company } = await driverdb
-            .from("companies")
-            .select("*")
-            .eq("company_code", session.companyCode)
-            .maybeSingle();
-
-        if (!company) return;
-
-        const { data: driver } = await driverdb
-            .from("drivers")
-            .select("*")
-            .eq("id", session.driverId)
-            .eq("company_id", company.id)
-            .maybeSingle();
-
-        if (!driver) return;
-
-        currentCompany = company;
-        currentDriver = driver;
+        if (!session.token) throw new Error("Legacy driver session");
+        driverSessionToken = session.token;
+        const data = await driverPortalRequest("refresh");
+        applyDriverPortalData(data);
         await enterDriverPortal();
 
     } catch (error) {
@@ -148,17 +110,12 @@ async function driverLogout() {
     stopGpsTracking();
     if (driverRefreshTimer) clearInterval(driverRefreshTimer);
 
-    if (currentDriver && currentCompany) {
-        await driverdb
-            .from("drivers")
-            .update({ online: false })
-            .eq("id", currentDriver.id)
-            .eq("company_id", currentCompany.id);
-    }
+    if (driverSessionToken) await driverPortalRequest("logout").catch(error => console.warn("Driver logout:", error));
 
     localStorage.removeItem("driverPortalSession");
     currentCompany = null;
     currentDriver = null;
+    driverSessionToken = null;
     currentJob = null;
     driverBookings = [];
 
@@ -199,34 +156,42 @@ function setLoginMessage(text, error) {
     el.classList.toggle("error", !!error);
 }
 
-async function refreshDriverPortal() {
-    if (!currentCompany || !currentDriver) return;
+async function driverPortalRequest(action, body = {}, includeSession = true) {
+    const requestBody = { action, ...body };
+    if (includeSession) requestBody.session_token = driverSessionToken;
+    const { data, error } = await driverdb.functions.invoke("driver-portal", { body: requestBody });
+    if (error || !data?.ok) throw new Error(data?.error || error?.message || "Driver portal request failed");
+    return data;
+}
 
-    await refreshHolidayStatus();
-    await refreshDriverRow();
-    await loadDriverPaySettings();
-    await loadDriverBookings();
+function applyDriverPortalData(data) {
+    currentCompany = data.company || currentCompany;
+    currentDriver = data.driver || currentDriver;
+    driverBookings = data.jobs || driverBookings;
+    driverUnavailability = data.unavailability || [];
+    driverCommissionDefault = Number(data.settings?.drivercommission || 0);
+    driverCurrencySymbol = data.settings?.currencysymbol || "£";
+    const now = new Date();
+    driverUnavailable = driverUnavailability.some(row => row.active !== false && new Date(row.from_datetime) <= now && new Date(row.to_datetime) >= now);
+    renderHolidayList(driverUnavailability);
+    document.getElementById("imBackButton")?.classList.toggle("hidden", !driverUnavailable);
+    populateDriverHeader();
+}
+
+async function refreshDriverPortal() {
+    if (!driverSessionToken) return;
+    try {
+        applyDriverPortalData(await driverPortalRequest("refresh"));
+    } catch (error) {
+        console.error("Driver refresh:", error);
+        if (/session/i.test(error.message)) await driverLogout();
+        return;
+    }
 
     renderCurrentJob();
     renderUpcomingBookings();
     renderEarnings();
     refreshAvailabilityUI();
-}
-
-async function loadDriverPaySettings() {
-    const { data } = await driverdb.from("settings").select("company_id,drivercommission").eq("company_id", currentCompany.id).maybeSingle();
-    driverCommissionDefault = Number(data?.drivercommission || 0);
-}
-
-async function refreshDriverRow() {
-    const { data } = await driverdb
-        .from("drivers")
-        .select("*")
-        .eq("id", currentDriver.id)
-        .eq("company_id", currentCompany.id)
-        .maybeSingle();
-
-    if (data) currentDriver = data;
 }
 
 function isDriverOnline(driver) {
@@ -240,13 +205,8 @@ async function toggleAvailability() {
 
     const goingOnline = !isDriverOnline(currentDriver);
 
-    const { error } = await driverdb
-        .from("drivers")
-        .update({ online: goingOnline })
-        .eq("id", currentDriver.id)
-        .eq("company_id", currentCompany.id);
-
-    if (error) return alert("Unable to update availability.");
+    try { await driverPortalRequest("set_online", { online: goingOnline }); }
+    catch (error) { console.error(error); return alert("Unable to update availability."); }
 
     currentDriver.online = goingOnline;
 
@@ -314,40 +274,8 @@ async function saveDriverPosition(position) {
         location_updated_at: new Date().toISOString()
     };
 
-    const { error } = await driverdb
-        .from("drivers")
-        .update(update)
-        .eq("id", currentDriver.id)
-        .eq("company_id", currentCompany.id);
-
-    if (!error) Object.assign(currentDriver, update);
-}
-
-async function loadDriverBookings() {
-    const { data, error } = await driverdb
-        .from("bookings")
-        .select("*")
-        .eq("company_id", currentCompany.id)
-        .eq("driver_id", currentDriver.id)
-        .order("journey_date", { ascending: true })
-        .order("journey_time", { ascending: true });
-
-    if (error) {
-        console.error("Driver bookings:", error);
-        driverBookings = [];
-        return;
-    }
-
-    const { data: stops, error: stopsError } = await driverdb.rpc("get_driver_booking_stops", {
-        target_company_id: currentCompany.id,
-        target_driver_id: currentDriver.id,
-        target_pin: String(currentDriver.pin ?? currentDriver.driver_pin ?? currentDriver.password ?? "")
-    });
-    if (stopsError) console.error("Driver booking stops:", stopsError);
-    driverBookings = (data || []).map(job => ({
-        ...job,
-        via_stops: (stops || []).filter(stop => String(stop.booking_id) === String(job.id))
-    }));
+    try { await driverPortalRequest("gps", update); Object.assign(currentDriver, update); }
+    catch (error) { console.warn("Driver GPS update:", error); }
 }
 
 function renderCurrentJob() {
@@ -418,17 +346,8 @@ async function acceptCurrentJob() {
 async function declineCurrentJob() {
     if (!currentJob || !confirm("Decline this job?")) return;
 
-    const { error } = await driverdb
-        .from("bookings")
-        .update({
-            status: "waiting",
-            driver_id: null,
-            dispatched_at: null
-        })
-        .eq("id", currentJob.id)
-        .eq("company_id", currentCompany.id);
-
-    if (error) return alert("Unable to decline this job.");
+    try { await driverPortalRequest("job_status", { booking_id: currentJob.id, status: "declined" }); }
+    catch (error) { console.error(error); return alert("Unable to decline this job."); }
 
     currentJob = null;
     await refreshDriverPortal();
@@ -471,15 +390,9 @@ async function updateCurrentJobStatus(status, extra = {}) {
     if (!currentJob) return false;
 
     const update = { status, ...extra };
-
-    const { error } = await driverdb
-        .from("bookings")
-        .update(update)
-        .eq("id", currentJob.id)
-        .eq("company_id", currentCompany.id)
-        .eq("driver_id", currentDriver.id);
-
-    if (error) {
+    try { await driverPortalRequest("job_status", { booking_id: currentJob.id, status }); }
+    catch (error) {
+        console.error(error);
         alert("Unable to update this job.");
         return false;
     }
@@ -614,20 +527,7 @@ async function refreshHolidayStatus() {
     driverUnavailable = false;
     const list = document.getElementById("holidayList");
 
-    const { data, error } = await driverdb
-        .from("driver_unavailability")
-        .select("*")
-        .eq("company_id", currentCompany.id)
-        .eq("driver_id", currentDriver.id)
-        .order("from_datetime", { ascending: false });
-
-    if (error) {
-        if (list) list.innerHTML =
-            '<div class="empty-list">Holiday storage has not been set up yet.</div>';
-        return;
-    }
-
-    const rows = data || [];
+    const rows = driverUnavailability;
     const now = new Date();
 
     driverUnavailable = rows.some(row =>
@@ -655,24 +555,8 @@ async function saveDriverHoliday(event) {
         return alert("Check the From and To dates/times.");
     }
 
-    const { error } = await driverdb
-        .from("driver_unavailability")
-        .insert({
-            company_id: currentCompany.id,
-            driver_id: currentDriver.id,
-            from_datetime: from.toISOString(),
-            to_datetime: to.toISOString(),
-            reason,
-            active: true
-        });
-
-    if (error) return alert("Unable to save holiday/off day.");
-
-    await driverdb
-        .from("drivers")
-        .update({ online: false })
-        .eq("id", currentDriver.id)
-        .eq("company_id", currentCompany.id);
+    try { await driverPortalRequest("create_unavailability", { from_datetime: from.toISOString(), to_datetime: to.toISOString(), reason }); }
+    catch (error) { console.error(error); return alert("Unable to save holiday/off day."); }
 
     currentDriver.online = false;
     stopGpsTracking();
@@ -683,25 +567,8 @@ async function saveDriverHoliday(event) {
 }
 
 async function endDriverHoliday() {
-    const { data, error } = await driverdb
-        .from("driver_unavailability")
-        .select("*")
-        .eq("company_id", currentCompany.id)
-        .eq("driver_id", currentDriver.id)
-        .eq("active", true);
-
-    if (error) return alert("Unable to end unavailable period.");
-
-    const now = new Date().toISOString();
-
-    for (const row of data || []) {
-        await driverdb
-            .from("driver_unavailability")
-            .update({ active: false, to_datetime: now })
-            .eq("id", row.id);
-    }
-
-    await refreshHolidayStatus();
+    try { await driverPortalRequest("end_unavailability"); await refreshDriverPortal(); }
+    catch (error) { console.error(error); return alert("Unable to end unavailable period."); }
     refreshAvailabilityUI();
 }
 
@@ -767,7 +634,7 @@ function jobPrice(job) {
 
 function money(value) {
     const n = Number(value);
-    return Number.isFinite(n) ? `£${n.toFixed(2)}` : "£0.00";
+    return Number.isFinite(n) ? `${driverCurrencySymbol}${n.toFixed(2)}` : `${driverCurrencySymbol}0.00`;
 }
 
 function normaliseStatus(status) {
