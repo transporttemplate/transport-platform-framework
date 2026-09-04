@@ -10,6 +10,15 @@ let supabaseClient = null;
 // Initialise connection
 function initSupabase() {
 
+    if (supabaseClient) {
+        return supabaseClient;
+    }
+
+    if (window.__TRANSPORT_SUPABASE_CLIENT) {
+        supabaseClient = window.__TRANSPORT_SUPABASE_CLIENT;
+        return supabaseClient;
+    }
+
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
         console.warn("Supabase has not been configured.");
         return null;
@@ -19,6 +28,8 @@ function initSupabase() {
         SUPABASE_URL,
         SUPABASE_ANON_KEY
     );
+
+    window.__TRANSPORT_SUPABASE_CLIENT = supabaseClient;
 
     console.log("✅ Supabase Connected");
 

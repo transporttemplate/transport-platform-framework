@@ -125,7 +125,7 @@ async function loadAirports(){
 
     const {data,error}=await bookingdb
         .from("airports")
-        .select("*")
+        .select("id,company_id,name,code,active,price_1_4_oneway,price_1_4_return,price_5_7_oneway,price_5_7_return,deposit_percent,sort_order")
         .eq("company_id",bookingCompany.id)
         .eq("active",true)
         .order("sort_order",{ascending:true})

@@ -136,7 +136,7 @@
             return false;
         }
         const journey = new Date(`${dateValue}T${timeValue || "00:00"}`);
-        if (Number.isNaN(journey.getTime()) || journey < closure.endsAt) {
+        if (Number.isNaN(journey.getTime()) || journey <= closure.endsAt) {
             alert(`Please choose a journey after ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(closure.endsAt)}.`);
             return false;
         }

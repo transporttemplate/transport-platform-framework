@@ -1,18 +1,21 @@
 -- Stage 1B security cut-over. Additive data model only; no tables/rows are removed.
 -- Deploy driver-portal and public-booking-create before applying this migration.
 
-create extension if not exists pgcrypto;
+begin;
+
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
 
 alter table public.drivers add column if not exists pin_hash text;
 alter table public.drivers alter column pin drop not null;
 
 -- Transitional backfill. Plaintext remains temporarily for rollback, but browser
 -- grants below prevent it being read. Null it in a later approved cleanup.
-update public.drivers set pin_hash = crypt(pin::text, gen_salt('bf', 10))
+update public.drivers set pin_hash = extensions.crypt(pin::text, extensions.gen_salt('bf', 10))
 where pin_hash is null and nullif(trim(pin::text), '') is not null;
 
 create table if not exists public.driver_sessions (
-  id uuid primary key default gen_random_uuid(),
+  id uuid primary key default extensions.gen_random_uuid(),
   company_id uuid not null references public.companies(id) on delete cascade,
   driver_id uuid not null,
   token_hash text not null unique,
@@ -37,7 +40,7 @@ create table if not exists public.company_counters (
   updated_at timestamptz not null default now()
 );
 create table if not exists public.driver_unavailability (
-  id uuid primary key default gen_random_uuid(),
+  id uuid primary key default extensions.gen_random_uuid(),
   company_id uuid not null references public.companies(id) on delete cascade,
   driver_id uuid not null,
   from_datetime timestamptz not null,
@@ -100,14 +103,14 @@ begin
   select * into d from public.drivers
   where drivers.company_id=target_company_id and driver_number::text=trim(target_driver_number)
     and lower(coalesce(status,'active')) not in ('inactive','disabled') limit 1;
-  if d.id is null or d.pin_hash is null or crypt(supplied_pin,d.pin_hash)<>d.pin_hash then return; end if;
+  if d.id is null or d.pin_hash is null or extensions.crypt(supplied_pin,d.pin_hash)<>d.pin_hash then return; end if;
   insert into public.driver_sessions(company_id,driver_id,token_hash,expires_at)
   values(target_company_id,d.id,new_token_hash,session_expires_at);
   return query select d.id,d.company_id;
 end $$;
 
 create or replace function public.hash_driver_pin(supplied_pin text)
-returns text language sql security definer set search_path=public as $$ select crypt(supplied_pin,gen_salt('bf',10)); $$;
+returns text language sql security definer set search_path=public as $$ select extensions.crypt(supplied_pin,extensions.gen_salt('bf',10)); $$;
 
 create or replace function public.next_company_booking_reference(target_company_id uuid)
 returns text language plpgsql security definer set search_path=public as $$
@@ -181,7 +184,12 @@ revoke all on function public.next_admin_booking_reference(uuid) from public,ano
 revoke all on function public.find_or_create_admin_customer(uuid,text,text,text) from public,anon;
 grant execute on function public.next_admin_booking_reference(uuid) to authenticated;
 grant execute on function public.find_or_create_admin_customer(uuid,text,text,text) to authenticated;
-revoke all on function public.get_driver_booking_stops(uuid,uuid,text) from public,anon,authenticated;
+do $$
+begin
+  if to_regprocedure('public.get_driver_booking_stops(uuid,uuid,text)') is not null then
+    execute 'revoke all on function public.get_driver_booking_stops(uuid,uuid,text) from public,anon,authenticated';
+  end if;
+end $$;
 
 revoke all on table public.drivers,public.customers,public.bookings,public.booking_stops,public.driver_unavailability from anon;
 revoke all on table public.drivers from authenticated;
@@ -210,3 +218,5 @@ begin
 end $$;
 
 notify pgrst,'reload schema';
+
+commit;

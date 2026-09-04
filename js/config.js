@@ -111,12 +111,9 @@
 
             const db = getSupabase();
             const [settingsResult, airportsResult, areasResult] = await Promise.all([
-                db.from("settings")
-                    .select("company_id,companyname,tradingname,companyphone,companyemail,companyaddress,companylogo,currencysymbol,allowairportoutsidearea,primarycolour,secondarycolour,accentcolour,buttoncolour,buttontextcolour,businessstatus,holidayfrom,holidayfromtime,holidayto,holidaytotime,websitenotice,acceptadvancebookings,bookwhileclosed,closedmessage,timezone")
-                    .eq("company_id", company.id)
-                    .maybeSingle(),
-                db.from("airports").select("*").eq("company_id", company.id).eq("active", true).order("sort_order", { ascending: true }).order("name", { ascending: true }),
-                db.from("service_areas").select("*").eq("company_id", company.id).eq("active", true).order("sort_order", { ascending: true }).order("area_name", { ascending: true })
+                loadPublicSettings(db, company.id),
+                db.from("airports").select("id,company_id,name,code,active,price_1_4_oneway,price_1_4_return,price_5_7_oneway,price_5_7_return,deposit_percent,sort_order").eq("company_id", company.id).eq("active", true).order("sort_order", { ascending: true }).order("name", { ascending: true }),
+                db.from("service_areas").select("id,company_id,area_name,postcode_prefix,radius_miles,active,sort_order").eq("company_id", company.id).eq("active", true).order("sort_order", { ascending: true }).order("area_name", { ascending: true })
             ]);
 
             if (settingsResult.error) console.error("Public settings load error:", settingsResult.error);
@@ -140,4 +137,20 @@
     window.resolvePublicCompanyCode = resolvePublicCompanyCode;
     window.loadCompanyConfig = loadCompanyConfig;
     window.loadPublicCompanyData = loadPublicCompanyData;
+
+    async function loadPublicSettings(db, companyId) {
+        const baseColumns = "company_id,companyname,tradingname,companyphone,companyemail,companyaddress,companylogo,currencysymbol,allowairportoutsidearea,primarycolour,secondarycolour,accentcolour,buttoncolour,buttontextcolour,businessstatus,holidayfrom,holidayto,websitenotice,acceptadvancebookings,bookwhileclosed,closedmessage,timezone";
+        const result = await db.from("settings")
+            .select(`${baseColumns},holidayfromtime,holidaytotime`)
+            .eq("company_id", companyId)
+            .maybeSingle();
+
+        if (!result.error || result.error.code !== "42703") return result;
+
+        console.warn("Closure time columns are not installed yet; using date-only public settings.");
+        return db.from("settings")
+            .select(baseColumns)
+            .eq("company_id", companyId)
+            .maybeSingle();
+    }
 })();

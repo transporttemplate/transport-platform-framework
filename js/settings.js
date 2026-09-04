@@ -103,7 +103,7 @@ const fieldMap = {
     googleReviews: "googlereviews",
     emailNotifications: "emailnotifications",
     smsNotifications: "smsnotifications",
-    bookWhileClosed: "bookwhileclosed",
+    bookWhileClosed: "acceptadvancebookings",
     emailReceipts: "emailreceipts",
     driverJobsheet: "driverjobsheet",
 
@@ -280,11 +280,15 @@ async function saveSettings() {
             .from("settings")
             .update(settings)
             .eq("id", existing.id)
-            .eq("company_id", settingsCompanyId);
+            .eq("company_id", settingsCompanyId)
+            .select("company_id,companyname,tradingname,companyphone,companyemail,companyaddress,companylogo")
+            .maybeSingle();
     } else {
         result = await db
             .from("settings")
-            .insert(settings);
+            .insert(settings)
+            .select("company_id,companyname,tradingname,companyphone,companyemail,companyaddress,companylogo")
+            .single();
     }
 
     if (result.error) {
@@ -293,8 +297,17 @@ async function saveSettings() {
         return;
     }
 
-    if (settings.companylogo) {
-        savedCompanyLogo = settings.companylogo;
+    if (!result.data || String(result.data.company_id) !== String(settingsCompanyId)) {
+        console.error("Settings save returned no matching company row.", {
+            expected_company_id: settingsCompanyId,
+            returned_company_id: result.data?.company_id || null
+        });
+        alert("Settings were not saved. Your account may not have permission to update this company.");
+        return;
+    }
+
+    savedCompanyLogo = result.data.companylogo || savedCompanyLogo;
+    if (savedCompanyLogo) {
         const logoInput = document.getElementById("companyLogo");
         if (logoInput) logoInput.value = "";
         renderCompanyLogoPreview(savedCompanyLogo);
