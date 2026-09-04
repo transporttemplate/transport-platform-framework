@@ -9,6 +9,8 @@ let adminViaCounter = 0;
 let dispatchMap = null;
 let driverMarkers = [];
 let liveTimer = null;
+let adminBookingFormDirty = false;
+let liveRefreshRunning = false;
 
 document.addEventListener("DOMContentLoaded", async () => {
     try {
@@ -33,6 +35,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
 function bindBookingEvents() {
+
+    const adminForm = document.getElementById("adminBookingForm");
+    adminForm?.addEventListener("input", () => { adminBookingFormDirty = true; });
+    adminForm?.addEventListener("change", () => { adminBookingFormDirty = true; });
 
     document.getElementById("addAdminVia")?.addEventListener("click", () => addAdminViaStop());
 
@@ -117,6 +123,7 @@ function bindBookingEvents() {
         );
 
     document.getElementById("resendBookingConfirmation")?.addEventListener("click", resendBookingConfirmation);
+    document.getElementById("saveBookingPaymentMethod")?.addEventListener("click", saveBookingPaymentMethod);
 
     document
         .getElementById("bookingViewBackdrop")
@@ -945,7 +952,7 @@ async function createAdminBooking(event) {
                     ?.value || 1
             ),
 
-        job_price:
+        price:
             document
                 .getElementById("jobPrice")
                 ?.value === ""
@@ -1025,6 +1032,7 @@ async function createAdminBooking(event) {
     }
 
     event.target.reset();
+    adminBookingFormDirty = false;
     document.getElementById("adminViaStops").innerHTML = "";
 
     setActiveDateRange();
@@ -1315,6 +1323,11 @@ function openBookingView(id) {
         "-"
     );
 
+    const paymentSelect = document.getElementById("editPaymentMethod");
+    if (paymentSelect) paymentSelect.value = canonicalPaymentMethod(booking.payment_method);
+    const paymentSave = document.getElementById("saveBookingPaymentMethod");
+    if (paymentSave) paymentSave.dataset.bookingId = booking.id;
+
     setText(
         "viewDistance",
         booking.route_distance_miles != null
@@ -1397,6 +1410,30 @@ async function resendBookingConfirmation() {
     const id = document.getElementById("resendBookingConfirmation")?.dataset.bookingId;
     if (!id) return;
     await requestBookingConfirmation(id, true);
+}
+
+async function saveBookingPaymentMethod() {
+    const button = document.getElementById("saveBookingPaymentMethod");
+    const bookingId = button?.dataset.bookingId;
+    const paymentMethod = document.getElementById("editPaymentMethod")?.value;
+    if (!bookingId || !["cash", "card", "account"].includes(paymentMethod)) return;
+
+    if (button) button.disabled = true;
+    const { data, error } = await bookingsDb
+        .from("bookings")
+        .update({ payment_method: paymentMethod })
+        .eq("id", bookingId)
+        .eq("company_id", adminCompanyId)
+        .select("id,company_id,payment_method,booking_source")
+        .maybeSingle();
+    if (button) button.disabled = false;
+
+    if (error || !data || String(data.company_id) !== String(adminCompanyId)) {
+        return alert(error?.message || "No matching company booking was updated.");
+    }
+
+    await loadBookings();
+    openBookingView(bookingId);
 }
 
 async function requestBookingConfirmation(bookingId, notify) {
@@ -1980,21 +2017,22 @@ function refreshDriverMarkers() {
    ========================================================= */
 
 function startLiveRefresh() {
+    if (liveTimer) clearInterval(liveTimer);
+    liveTimer = setInterval(runGuardedLiveRefresh, 60000);
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) runGuardedLiveRefresh();
+    });
+}
 
-    liveTimer =
-        setInterval(
-            async () => {
-
-                await Promise.all([
-                    loadDrivers(),
-                    loadBookings()
-                ]);
-
-                refreshDriverMarkers();
-
-            },
-            10000
-        );
+async function runGuardedLiveRefresh() {
+    if (document.hidden || adminBookingFormDirty || liveRefreshRunning) return;
+    liveRefreshRunning = true;
+    try {
+        await Promise.all([loadDrivers(), loadBookings()]);
+        refreshDriverMarkers();
+    } finally {
+        liveRefreshRunning = false;
+    }
 }
 
 
@@ -2015,6 +2053,13 @@ window.addEventListener(
 /* =========================================================
    HELPERS
    ========================================================= */
+
+function canonicalPaymentMethod(value) {
+    const method = String(value || "").trim().toLowerCase();
+    if (method.includes("account") || method.includes("invoice")) return "account";
+    if (method.includes("card") || method.includes("prepaid") || method.includes("pay now")) return "card";
+    return "cash";
+}
 
 function driverDisplayName(id) {
 

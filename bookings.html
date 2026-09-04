@@ -26,10 +26,11 @@
     color:#fff;
 }
 
+.bookings-page .main{min-width:0}
 .dispatch-grid{
     display:grid;
-    grid-template-columns:390px 1fr;
-    gap:14px;
+    grid-template-columns:370px minmax(0,1fr);
+    gap:12px;
 }
 .dispatch-panel,
 .map-panel,
@@ -38,15 +39,18 @@
     border:1px solid #d9dee7;
     border-radius:10px;
 }
-.dispatch-panel{padding:14px}
+.dispatch-panel{padding:12px;background:#e2e6eb;border-color:#c5ccd5}
+.map-panel{background:#dde2e7;border-color:#c5ccd5;overflow:hidden}
 
-.job-form{display:grid;gap:9px}
+.job-form{display:grid;gap:6px}
 .job-form input,
 .job-form select,
 .job-form textarea{
     width:100%;
     box-sizing:border-box;
-    padding:10px;
+    min-height:38px;
+    margin:0;
+    padding:8px 9px;
     border:1px solid #cdd5df;
     border-radius:6px;
 }
@@ -59,12 +63,12 @@
     font-size:12px;
     font-weight:700;
     color:#64748b;
-    margin-top:4px;
+    margin-top:3px;
 }
 
 #dispatchMap{
     width:100%;
-    height:430px;
+    height:330px;
     border-radius:10px;
 }
 .map-message{
@@ -91,13 +95,26 @@
 }
 
 .jobs-panel{
-    margin-top:14px;
-    overflow:auto;
+    margin-top:12px;
+    min-width:0;
+    overflow:hidden;
 }
+.jobs-table-scroll{width:100%;max-width:100%;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch}
 .jobs-panel table{
     min-width:1260px;
     width:100%;
+    font-size:13px;
 }
+.jobs-panel th,.jobs-panel td{padding:9px 10px}
+.jobs-panel th:last-child,.jobs-panel td:last-child{
+    position:sticky;
+    right:0;
+    z-index:1;
+    min-width:126px;
+    background:#fff;
+    box-shadow:-5px 0 8px rgba(15,23,42,.08);
+}
+.jobs-panel th:last-child{z-index:2;background:#f8fafc}
 .booking-toolbar{
     display:flex;
     gap:8px;
@@ -264,16 +281,20 @@
 
 @media(max-width:1050px){
     .dispatch-grid{grid-template-columns:1fr}
-    #dispatchMap{height:330px}
+    #dispatchMap{height:280px}
 }
 @media(max-width:700px){
+    .two-col{grid-template-columns:1fr}
+    .dispatch-panel{padding:10px}
+    #dispatchMap{height:230px}
+    .booking-toolbar{align-items:stretch}.booking-toolbar label{flex:1 1 140px}.booking-toolbar button{width:100%}
     .booking-detail-grid{grid-template-columns:1fr}
     .booking-detail-item.wide{grid-column:auto}
 }
 </style>
 </head>
 
-<body>
+<body class="bookings-page">
 
 <div class="admin-layout">
 
@@ -445,6 +466,7 @@ Refresh
 
 </div>
 
+<div class="jobs-table-scroll" tabindex="0" aria-label="Bookings table; scroll horizontally to see all columns">
 <table>
 
 <thead>
@@ -473,6 +495,7 @@ Loading bookings…
 </tbody>
 
 </table>
+</div>
 
 </section>
 
@@ -627,6 +650,18 @@ Loading bookings…
 <div class="booking-detail-item">
 <small>Payment</small>
 <strong id="viewPayment">-</strong>
+</div>
+
+<div class="booking-detail-item wide">
+<label for="editPaymentMethod"><small>Change payment method</small></label>
+<div class="two-col">
+<select id="editPaymentMethod">
+<option value="cash">Pay in car</option>
+<option value="card">Card / prepaid</option>
+<option value="account">Account</option>
+</select>
+<button id="saveBookingPaymentMethod" type="button">Save Payment Method</button>
+</div>
 </div>
 
 <div class="booking-detail-item">

@@ -173,7 +173,7 @@ async function loadPricingSettings(){
 
     const {data,error}=await bookingdb
         .from("settings")
-        .select("company_id,airportpricing,distancecalculator,maxadvancedays,minimumnotice,googlemapsapi,minimumfare,firstmile,mileband1,mileband2,mileband3,mileband4,mileband5,mileband6,bookingfee,returndiscount,currencysymbol,returnbookings,multiplestops,allowcash,allowcard,requiredeposit,airportdepositrequired,depositpercent")
+        .select("company_id,airportpricing,distancecalculator,maxadvancedays,minimumnotice,googlemapsapi,minimumfare,firstmile,mileband1,mileband2,mileband3,mileband4,mileband5,mileband6,bookingfee,returndiscount,currencysymbol,returnbookings,multiplestops,allowcash,allowcard,enablecash,enablestripe,requiredeposit,airportdepositrequired,depositpercent")
         .eq("company_id",bookingCompany.id)
         .maybeSingle();
 
@@ -226,8 +226,10 @@ function applyBookingRules(){
     const payment=document.getElementById("paymentMethod");
     if(payment){
         const choices=[];
-        if(pricingSettings.allowcard===true) choices.push(["Pay Now","Pay by Card"]);
-        if(pricingSettings.allowcash===true) choices.push(["Pay in Car","Pay in Car (Cash)"]);
+        const cardAllowed=pricingSettings.allowcard===true || pricingSettings.enablestripe===true;
+        const cashAllowed=pricingSettings.allowcash===true || pricingSettings.enablecash===true;
+        if(cardAllowed) choices.push(["Pay Now","Card / prepaid"]);
+        if(cashAllowed) choices.push(["Pay in Car","Pay in Car"]);
         payment.replaceChildren(...choices.map(([value,label])=>{
             const option=document.createElement("option");
             option.value=value;
@@ -1927,7 +1929,9 @@ async function saveBooking(event){
 
     event.preventDefault();
 
-    if(pricingSettings.allowcash!==true && pricingSettings.allowcard!==true){
+    const cashAllowed=pricingSettings.allowcash===true || pricingSettings.enablecash===true;
+    const cardAllowed=pricingSettings.allowcard===true || pricingSettings.enablestripe===true;
+    if(!cashAllowed && !cardAllowed){
         alert("Online booking is unavailable because no payment method is enabled.");
         return;
     }
