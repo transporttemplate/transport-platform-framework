@@ -14,6 +14,14 @@ window.adminCompanyReadyPromise = (async () => {
         throw new Error("No admin session");
     }
 
+    const { data: { user }, error: userError } = await adminDb.auth.getUser();
+    if (userError || !user || user.id !== session.user.id) {
+        console.error("Admin user verification failed:", userError);
+        await adminDb.auth.signOut();
+        window.location.href = "login.html";
+        throw new Error("Admin session could not be verified");
+    }
+
     const { data: companyUser, error } = await adminDb
         .from("company_users")
         .select(`
@@ -26,7 +34,7 @@ window.adminCompanyReadyPromise = (async () => {
                 trading_name
             )
         `)
-        .eq("user_id", session.user.id)
+        .eq("user_id", user.id)
         .limit(1)
         .maybeSingle();
 

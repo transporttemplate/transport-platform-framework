@@ -108,7 +108,6 @@ const fieldMap = {
     driverJobsheet: "driverjobsheet",
 
     stripePublishableKey: "stripepublishablekey",
-    stripeSecretKey: "stripesecretkey",
     defaultPaymentMethod: "defaultpaymentmethod",
     paymentTerms: "paymentterms",
     enableStripe: "enablestripe",
@@ -140,6 +139,8 @@ const fieldMap = {
 };
 
 let settingsCompanyId = null;
+let settingsRowId = null;
+let settingsLoaded = false;
 let savedCompanyLogo = "";
 let pendingCompanyLogoPreviewUrl = "";
 
@@ -187,20 +188,41 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 async function loadSettings() {
-    if (!settingsCompanyId) return;
+    if (!settingsCompanyId) throw new Error("Authenticated company context is unavailable.");
+
+    const pageColumns = new Set(["id", "company_id"]);
+    Object.entries(fieldMap).forEach(([htmlId, dbColumn]) => {
+        if (document.getElementById(htmlId)) pageColumns.add(dbColumn);
+    });
+    if (document.getElementById("acceptAdvanceBookings") || document.getElementById("bookWhileClosed")) {
+        pageColumns.add("acceptadvancebookings");
+        pageColumns.add("bookwhileclosed");
+    }
 
     const { data, error } = await db
         .from("settings")
-        .select("*")
+        .select([...pageColumns].join(","))
         .eq("company_id", settingsCompanyId)
         .maybeSingle();
 
     if (error) {
         console.error("Error loading settings:", error);
-        return;
+        throw error;
     }
 
-    savedCompanyLogo = data?.companylogo || "";
+    if (!data || String(data.company_id) !== String(settingsCompanyId)) {
+        throw new Error("The settings row for your authenticated company is not accessible. Saving has been disabled.");
+    }
+
+    settingsRowId = data.id;
+    settingsLoaded = true;
+
+    const loadedData = {
+        ...data,
+        acceptadvancebookings: data.acceptadvancebookings ?? data.bookwhileclosed ?? false
+    };
+
+    savedCompanyLogo = loadedData.companylogo || "";
     renderCompanyLogoPreview(savedCompanyLogo);
 
     Object.entries(fieldMap).forEach(([htmlId, dbColumn]) => {
@@ -209,11 +231,11 @@ async function loadSettings() {
         if (!el) return;
 
         if (el.type === "checkbox") {
-            el.checked = !!data[dbColumn];
+            el.checked = !!loadedData[dbColumn];
         } else if (el.type === "file") {
             return;
         } else {
-            el.value = data?.[dbColumn] ?? COMPANY_THEME_DEFAULTS[htmlId] ?? "";
+            el.value = loadedData[dbColumn] ?? COMPANY_THEME_DEFAULTS[htmlId] ?? "";
         }
     });
 
@@ -221,14 +243,19 @@ async function loadSettings() {
 }
 
 async function saveSettings() {
-    if (!settingsCompanyId) {
-        alert("Unable to identify company.");
+    if (!settingsCompanyId || !settingsLoaded || !settingsRowId) {
+        alert("Settings were not loaded for your authenticated company, so no save was attempted.");
         return;
     }
 
-    const settings = {
-        company_id: settingsCompanyId
-    };
+    const { data: { user }, error: userError } = await db.auth.getUser();
+    if (userError || !user) {
+        console.error("Settings save authentication check failed:", userError);
+        alert("Your admin session could not be verified. Please sign in again.");
+        return;
+    }
+
+    const settings = {};
 
     Object.entries(fieldMap).forEach(([htmlId, dbColumn]) => {
         const el = document.getElementById(htmlId);
@@ -250,6 +277,12 @@ async function saveSettings() {
         }
     });
 
+    const closureCheckbox = document.getElementById("acceptAdvanceBookings") || document.getElementById("bookWhileClosed");
+    if (closureCheckbox) {
+        settings.acceptadvancebookings = closureCheckbox.checked;
+        settings.bookwhileclosed = closureCheckbox.checked;
+    }
+
     try {
         const uploadedLogoUrl = await uploadSelectedCompanyLogo();
         if (uploadedLogoUrl) {
@@ -261,35 +294,13 @@ async function saveSettings() {
         return;
     }
 
-    const { data: existing, error: existingError } = await db
+    const result = await db
         .from("settings")
-        .select("id")
+        .update(settings)
+        .eq("id", settingsRowId)
         .eq("company_id", settingsCompanyId)
+        .select("id,company_id,companyname,tradingname,companyphone,companyemail,companyaddress,companylogo")
         .maybeSingle();
-
-    if (existingError) {
-        console.error("Error finding settings:", existingError);
-        alert(existingError.message);
-        return;
-    }
-
-    let result;
-
-    if (existing) {
-        result = await db
-            .from("settings")
-            .update(settings)
-            .eq("id", existing.id)
-            .eq("company_id", settingsCompanyId)
-            .select("company_id,companyname,tradingname,companyphone,companyemail,companyaddress,companylogo")
-            .maybeSingle();
-    } else {
-        result = await db
-            .from("settings")
-            .insert(settings)
-            .select("company_id,companyname,tradingname,companyphone,companyemail,companyaddress,companylogo")
-            .single();
-    }
 
     if (result.error) {
         console.error("Error saving settings:", result.error);
@@ -297,7 +308,7 @@ async function saveSettings() {
         return;
     }
 
-    if (!result.data || String(result.data.company_id) !== String(settingsCompanyId)) {
+    if (!result.data || String(result.data.id) !== String(settingsRowId) || String(result.data.company_id) !== String(settingsCompanyId)) {
         console.error("Settings save returned no matching company row.", {
             expected_company_id: settingsCompanyId,
             returned_company_id: result.data?.company_id || null
