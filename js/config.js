@@ -140,12 +140,20 @@
 
     async function loadPublicSettings(db, companyId) {
         const baseColumns = "company_id,companyname,tradingname,companyphone,companyemail,companyaddress,companylogo,currencysymbol,allowairportoutsidearea,primarycolour,secondarycolour,accentcolour,buttoncolour,buttontextcolour,businessstatus,holidayfrom,holidayto,websitenotice,acceptadvancebookings,bookwhileclosed,closedmessage,timezone";
+        const closureColumns = `${baseColumns},holidayfromtime,holidaytotime`;
         const result = await db.from("settings")
-            .select(`${baseColumns},holidayfromtime,holidaytotime`)
+            .select(`${closureColumns},googleanalyticsid,googleadsid,googleadsconversionlabel`)
             .eq("company_id", companyId)
             .maybeSingle();
 
         if (!result.error || result.error.code !== "42703") return result;
+
+        const closureResult = await db.from("settings")
+            .select(closureColumns)
+            .eq("company_id", companyId)
+            .maybeSingle();
+
+        if (!closureResult.error || closureResult.error.code !== "42703") return closureResult;
 
         console.warn("Closure time columns are not installed yet; using date-only public settings.");
         return db.from("settings")

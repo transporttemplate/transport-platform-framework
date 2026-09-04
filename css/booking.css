@@ -124,3 +124,13 @@
     .booking-step{padding:28px}
 }
 @media(max-width:699px){.via-stop-row{grid-template-columns:1fr}.via-stop-row label{grid-column:auto}}
+@media(max-width:430px){
+    .booking-page{padding-top:8px}.booking-step{padding:16px 12px}
+    .booking-progress{justify-content:flex-start;padding-bottom:6px}.progress-line{width:20px;flex:0 0 20px}
+    .progress-step{min-width:48px}.progress-step small{font-size:10px}
+    .journey-choice{grid-template-columns:34px 1fr;padding:12px}.choice-icon{font-size:22px}
+    .vehicle-card{grid-template-columns:54px 1fr;}.vehicle-price{grid-column:2;font-size:18px}
+    .route-map{height:210px}.route-stats{grid-template-columns:1fr}.route-stats div{border-bottom:1px solid #ddd}
+    .step-actions{flex-direction:column-reverse}.step-actions>button{width:100%}.step-actions>span{display:none}
+    .review-row{grid-template-columns:1fr;gap:2px}.final-price-card strong{font-size:28px}
+}

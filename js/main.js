@@ -1,4 +1,5 @@
 document.addEventListener("DOMContentLoaded", async () => {
+    initialisePublicNavigation();
     if (typeof window.loadPublicCompanyData !== "function") return;
 
     const publicData = await window.loadPublicCompanyData();
@@ -8,7 +9,35 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderPublicAirports(publicData);
     renderServiceAreas(publicData);
     preserveCompanyOnPublicLinks(publicData.company.company_code);
+    window.GoogleTags?.configureFromSettings(publicData.settings, publicData.company.company_code);
 });
+
+function initialisePublicNavigation() {
+    const header = document.querySelector("header");
+    const nav = header?.querySelector("nav");
+    const container = header?.querySelector(".container");
+    if (!nav || !container) return;
+    nav.id ||= "publicNavigation";
+
+    const button = document.createElement("button");
+    button.className = "public-menu-toggle";
+    button.type = "button";
+    button.innerHTML = '<span aria-hidden="true">☰</span><span class="sr-only">Menu</span>';
+    button.setAttribute("aria-controls", nav.id);
+    button.setAttribute("aria-expanded", "false");
+    container.insertBefore(button, nav);
+
+    const close = () => { nav.classList.remove("open"); button.setAttribute("aria-expanded", "false"); };
+    button.addEventListener("click", () => {
+        const open = !nav.classList.contains("open");
+        nav.classList.toggle("open", open);
+        button.setAttribute("aria-expanded", String(open));
+    });
+    nav.querySelectorAll("a").forEach(link => link.addEventListener("click", close));
+    document.addEventListener("click", event => { if (!header.contains(event.target)) close(); });
+    document.addEventListener("keydown", event => { if (event.key === "Escape") close(); });
+    window.addEventListener("resize", () => { if (window.innerWidth > 900) close(); });
+}
 
 function applyCompanyInformation({ company, settings }) {
     const displayName = settings.tradingname || company.trading_name || settings.companyname || company.name;

@@ -40,11 +40,11 @@
         window.location.replace(publicUrl("closed.html", data.company.company_code));
     }
 
-    function buildClosureState(settings) {
+    function buildClosureState(settings, currentTime = new Date()) {
         const status = normaliseStatus(settings.businessstatus);
         const startsAt = combineDateTime(settings.holidayfrom, settings.holidayfromtime, false);
         const endsAt = combineDateTime(settings.holidayto, settings.holidaytotime, true);
-        const now = new Date();
+        const now = currentTime instanceof Date ? currentTime : new Date(currentTime);
         const configuredClosed = ["closed", "holiday", "emergency"].includes(status);
         const active = configuredClosed && (!startsAt || now >= startsAt) && (!endsAt || now < endsAt);
 
@@ -128,8 +128,8 @@
         countdownTimer = setInterval(update, 1000);
     }
 
-    function validateJourney(dateValue, timeValue) {
-        const closure = window.PUBLIC_CLOSURE_STATE;
+    function validateJourney(dateValue, timeValue, closureOverride) {
+        const closure = closureOverride || window.PUBLIC_CLOSURE_STATE;
         if (!closure?.active) return true;
         if (!closure.acceptAdvance || !closure.endsAt) {
             alert("Online booking is currently closed.");
@@ -194,4 +194,6 @@
         const element = document.getElementById(id);
         if (element) element.textContent = value;
     }
+
+    window.PublicClosure = Object.freeze({ buildClosureState, validateJourney, chooseTheme, normaliseStatus });
 })();

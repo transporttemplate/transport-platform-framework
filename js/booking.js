@@ -173,7 +173,7 @@ async function loadPricingSettings(){
 
     const {data,error}=await bookingdb
         .from("settings")
-        .select("company_id,airportpricing,distancecalculator,maxadvancedays,minimumnotice,googlemapsapi,minimumfare,firstmile,mileband1,mileband2,mileband3,mileband4,mileband5,mileband6,bookingfee,returndiscount,currencysymbol")
+        .select("company_id,airportpricing,distancecalculator,maxadvancedays,minimumnotice,googlemapsapi,minimumfare,firstmile,mileband1,mileband2,mileband3,mileband4,mileband5,mileband6,bookingfee,returndiscount,currencysymbol,returnbookings,multiplestops,allowcash,allowcard,requiredeposit,airportdepositrequired,depositpercent")
         .eq("company_id",bookingCompany.id)
         .maybeSingle();
 
@@ -208,6 +208,39 @@ function applyBookingRules(){
 
     const modeInput =
         document.getElementById("journeyMode");
+
+    const returnCard=document.querySelector(".return-card");
+    const returnInput=document.getElementById("returnJourney");
+    const returnAllowed=pricingSettings.returnbookings===true;
+    returnCard?.classList.toggle("hidden",!returnAllowed);
+    if(!returnAllowed && returnInput){
+        returnInput.checked=false;
+        document.getElementById("returnFields")?.classList.add("hidden");
+    }
+
+    const viaButton=document.getElementById("addPublicVia");
+    const stopsAllowed=pricingSettings.multiplestops===true;
+    viaButton?.classList.toggle("hidden",!stopsAllowed);
+    if(!stopsAllowed) document.getElementById("publicViaStops")?.replaceChildren();
+
+    const payment=document.getElementById("paymentMethod");
+    if(payment){
+        const choices=[];
+        if(pricingSettings.allowcard===true) choices.push(["Pay Now","Pay by Card"]);
+        if(pricingSettings.allowcash===true) choices.push(["Pay in Car","Pay in Car (Cash)"]);
+        payment.replaceChildren(...choices.map(([value,label])=>{
+            const option=document.createElement("option");
+            option.value=value;
+            option.textContent=label;
+            return option;
+        }));
+        payment.disabled=choices.length===0;
+        if(!choices.length){
+            const option=document.createElement("option");
+            option.textContent="Online booking unavailable — contact us";
+            payment.appendChild(option);
+        }
+    }
 
     // Show / hide booking types
     if(airportButton){
@@ -1226,6 +1259,10 @@ function calculatePrices(){
                         ?airport.price_5_7_return
                         :airport.price_5_7_oneway
                 );
+
+            const bookingFee=settingNumber(["bookingfee","booking_fee","bookingFee"],0);
+            if(Number.isFinite(car)) car+=bookingFee;
+            if(Number.isFinite(mpv)) mpv+=bookingFee;
         }
 
 
@@ -1889,6 +1926,11 @@ function buildSummary(){
 async function saveBooking(event){
 
     event.preventDefault();
+
+    if(pricingSettings.allowcash!==true && pricingSettings.allowcard!==true){
+        alert("Online booking is unavailable because no payment method is enabled.");
+        return;
+    }
 
     if (typeof window.validatePublicJourneyAgainstClosure === "function" &&
         !window.validatePublicJourneyAgainstClosure(

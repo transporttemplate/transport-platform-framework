@@ -1,16 +1,57 @@
 document.addEventListener("DOMContentLoaded", async () => {
-
-    const menuButton = document.querySelector(".menu-toggle");
-    const sidebar = document.querySelector(".sidebar");
-
-    if (menuButton && sidebar) {
-        menuButton.addEventListener("click", () => {
-            sidebar.classList.toggle("open");
-        });
-    }
-
+    initialiseAdminNavigation();
     await loadAdminCompanyTheme();
 });
+
+function initialiseAdminNavigation() {
+    const sidebar = document.querySelector(".sidebar");
+    if (!sidebar) return;
+    sidebar.id ||= "adminSidebar";
+
+    let menuButton = document.querySelector(".menu-toggle");
+    const topbar = document.querySelector(".topbar");
+    if (!menuButton) {
+        menuButton = document.createElement("button");
+        menuButton.className = "menu-toggle";
+        menuButton.type = "button";
+        menuButton.textContent = "☰";
+        (topbar || document.querySelector(".main") || document.body).prepend(menuButton);
+    }
+
+    let overlay = document.querySelector(".overlay");
+    if (!overlay) {
+        overlay = document.createElement("div");
+        overlay.className = "overlay";
+        document.body.appendChild(overlay);
+    }
+
+    const close = () => {
+        sidebar.classList.remove("open");
+        overlay.classList.remove("open");
+        document.body.classList.remove("admin-nav-open");
+        menuButton?.setAttribute("aria-expanded", "false");
+        menuButton?.setAttribute("aria-label", "Open navigation");
+    };
+    const toggle = () => {
+        const open = !sidebar.classList.contains("open");
+        sidebar.classList.toggle("open", open);
+        overlay.classList.toggle("open", open);
+        document.body.classList.toggle("admin-nav-open", open);
+        menuButton?.setAttribute("aria-expanded", String(open));
+        menuButton?.setAttribute("aria-label", open ? "Close navigation" : "Open navigation");
+    };
+
+    if (menuButton) {
+        menuButton.setAttribute("aria-controls", sidebar.id);
+        menuButton.setAttribute("aria-expanded", "false");
+        menuButton.setAttribute("aria-label", "Open navigation");
+        menuButton.addEventListener("click", toggle);
+    }
+    overlay.addEventListener("click", close);
+    sidebar.querySelectorAll("a").forEach(link => link.addEventListener("click", close));
+    document.addEventListener("keydown", event => { if (event.key === "Escape") close(); });
+    window.addEventListener("resize", () => { if (window.innerWidth > 900) close(); });
+}
 
 async function loadAdminCompanyTheme() {
     if (typeof window.getAdminCompanyContext !== "function") return;

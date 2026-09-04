@@ -33,6 +33,7 @@
 body{
     background:var(--bg);
     color:var(--text);
+    overflow-x:hidden;
 }
 
 .admin-layout{
@@ -45,6 +46,7 @@ body{
     background:var(--sidebar);
     color:#fff;
     padding:25px;
+    overflow-y:auto;
 }
 
 .sidebar h2{
@@ -140,7 +142,14 @@ button{
     padding:12px 20px;
     border-radius:10px;
     cursor:pointer;
+    min-height:44px;
 }
+
+.menu-toggle{display:none;font-size:22px;padding:8px 13px;flex:0 0 auto}
+.topbar-left{display:flex;align-items:center;gap:14px;min-width:0}
+.overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:999}
+.table-wrap,.table-responsive{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.card{min-width:0;overflow-wrap:anywhere}
 
 .company-theme-card{margin-top:25px}
 .theme-settings-grid{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:12px 20px}
@@ -177,6 +186,7 @@ input,select,textarea{
         height:100%;
         z-index:1000;
         transition:left .3s ease;
+        box-shadow:12px 0 35px rgba(0,0,0,.25);
     }
     
     .sidebar.open{
@@ -188,6 +198,8 @@ input,select,textarea{
         align-items:center;
         justify-content:center;
     }
+    .overlay.open{display:block}
+    body.admin-nav-open{overflow:hidden}
     
     .main{
         padding:20px;
@@ -207,8 +219,24 @@ input,select,textarea{
     
     table{
         display:block;
+        max-width:100%;
         overflow-x:auto;
+        -webkit-overflow-scrolling:touch;
         white-space:nowrap;
     }
-    
-    }
+
+}
+
+@media(max-width:600px){
+    .main{padding:12px}
+    .topbar{padding:14px;gap:12px;align-items:stretch;flex-direction:column}
+    .topbar-left{align-items:flex-start}
+    .topbar h2{font-size:1.25rem;line-height:1.25}
+    .card{padding:16px;border-radius:11px}
+    .grid-2,.theme-settings-grid{grid-template-columns:minmax(0,1fr)}
+    input,select,textarea,button{font-size:16px;min-height:44px}
+    .sidebar{width:min(280px,86vw);left:-100%;padding:20px}
+    .company-theme-preview{grid-template-columns:90px 1fr}
+    .modal,.booking-modal,.calendar-modal,.customer-modal,.driver-modal{width:calc(100vw - 20px)!important;max-width:none!important;max-height:calc(100dvh - 20px);overflow:auto;padding:16px!important}
+    .booking-modal-backdrop,.calendar-modal-backdrop,.customer-modal-backdrop,.driver-modal-backdrop{padding:10px!important}
+}
