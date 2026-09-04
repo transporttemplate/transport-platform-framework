@@ -226,7 +226,8 @@ function applyBookingRules(){
     const payment=document.getElementById("paymentMethod");
     if(payment){
         const choices=[];
-        const cardAllowed=pricingSettings.allowcard===true || pricingSettings.enablestripe===true;
+        // Card is deliberately unavailable until a verified Stripe flow exists.
+        const cardAllowed=false;
         const cashAllowed=pricingSettings.allowcash===true || pricingSettings.enablecash===true;
         if(cardAllowed) choices.push(["Pay Now","Card / prepaid"]);
         if(cashAllowed) choices.push(["Pay in Car","Pay in Car"]);
@@ -239,7 +240,9 @@ function applyBookingRules(){
         payment.disabled=choices.length===0;
         if(!choices.length){
             const option=document.createElement("option");
-            option.textContent="Online booking unavailable — contact us";
+            option.textContent=(pricingSettings.allowcard===true || pricingSettings.enablestripe===true)
+                ?"Card payments are not available online yet — contact us"
+                :"Online booking unavailable — contact us";
             payment.appendChild(option);
         }
     }
@@ -1262,9 +1265,10 @@ function calculatePrices(){
                         :airport.price_5_7_oneway
                 );
 
-            const bookingFee=settingNumber(["bookingfee","booking_fee","bookingFee"],0);
-            if(Number.isFinite(car)) car+=bookingFee;
-            if(Number.isFinite(mpv)) mpv+=bookingFee;
+            const passengerUplift=settingNumber(["bookingfee","booking_fee","bookingFee"],0);
+            const passengers=Number(document.getElementById("passengers")?.value||0);
+            if(passengers>=5 && Number.isFinite(car)) car*=1+passengerUplift/100;
+            if(passengers>=5 && Number.isFinite(mpv)) mpv*=1+passengerUplift/100;
         }
 
 
@@ -1930,7 +1934,8 @@ async function saveBooking(event){
     event.preventDefault();
 
     const cashAllowed=pricingSettings.allowcash===true || pricingSettings.enablecash===true;
-    const cardAllowed=pricingSettings.allowcard===true || pricingSettings.enablestripe===true;
+    // The server rejects Card until a verified payment flow is deployed.
+    const cardAllowed=false;
     if(!cashAllowed && !cardAllowed){
         alert("Online booking is unavailable because no payment method is enabled.");
         return;
@@ -2056,29 +2061,13 @@ async function saveBooking(event){
             payment_method:
                 document.getElementById("paymentMethod").value,
 
-            price:
-                currentPrices.selected,
-
-            route_distance_miles:
-                Number.isFinite(currentRoute.miles)
-                    ?round(currentRoute.miles)
-                    :null,
-
-            route_duration_minutes:
-                Number.isFinite(currentRoute.minutes)
-                    ?Math.round(currentRoute.minutes)
-                    :null,
-
-            pricing_method:
-                currentPrices.method,
-
             status:
                 "Waiting"
         };
 
 
         const {data:created,error}=await bookingdb.functions.invoke("public-booking-create",{
-            body:{company_id:company.id,booking:record,stops:collectPublicViaStops()}
+            body:{company_code:company.company_code,booking:record,stops:collectPublicViaStops()}
         });
         if(error||!created?.ok) throw new Error(created?.error||error?.message||"Unable to create booking");
 

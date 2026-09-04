@@ -68,7 +68,7 @@
 
 #dispatchMap{
     width:100%;
-    height:330px;
+    height:250px;
     border-radius:10px;
 }
 .map-message{
@@ -105,7 +105,12 @@
     width:100%;
     font-size:13px;
 }
-.jobs-panel th,.jobs-panel td{padding:9px 10px}
+.jobs-panel th,.jobs-panel td{padding:6px 8px;line-height:1.25}
+.jobs-panel tbody tr{transition:filter .15s ease,box-shadow .15s ease}
+.jobs-panel tbody tr:hover{filter:brightness(.96);box-shadow:inset 0 1px rgba(15,23,42,.12),inset 0 -1px rgba(15,23,42,.12)}
+.jobs-panel tr.payment-account,.jobs-panel tr.payment-account td:last-child{background:#f1e9ff}
+.jobs-panel tr.payment-card,.jobs-panel tr.payment-card td:last-child{background:#e6f7e9}
+.jobs-panel tr.payment-cash,.jobs-panel tr.payment-cash td:last-child{background:#fff8d9}
 .jobs-panel th:last-child,.jobs-panel td:last-child{
     position:sticky;
     right:0;
@@ -164,6 +169,17 @@
     border-radius:6px;
     background:#fff;
 }
+.route-quote{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr)) auto;
+    gap:8px;
+    align-items:center;
+    padding:9px 12px;
+    background:#f8fafc;
+    border-top:1px solid #cbd5e1;
+}
+.route-quote div{min-width:0}.route-quote small{display:block;color:#64748b;font-size:10px}.route-quote strong{font-size:13px;white-space:nowrap}
+.route-quote button{padding:7px 9px;white-space:nowrap}
 .pac-container{z-index:99999!important}
 
 /* VIEW BOOKING MODAL */
@@ -281,12 +297,13 @@
 
 @media(max-width:1050px){
     .dispatch-grid{grid-template-columns:1fr}
-    #dispatchMap{height:280px}
+    #dispatchMap{height:240px}
 }
 @media(max-width:700px){
     .two-col{grid-template-columns:1fr}
     .dispatch-panel{padding:10px}
-    #dispatchMap{height:230px}
+    #dispatchMap{height:210px}
+    .route-quote{grid-template-columns:1fr 1fr}.route-quote button{width:100%}
     .booking-toolbar{align-items:stretch}.booking-toolbar label{flex:1 1 140px}.booking-toolbar button{width:100%}
     .booking-detail-grid{grid-template-columns:1fr}
     .booking-detail-item.wide{grid-column:auto}
@@ -356,12 +373,16 @@
 
 <div class="form-heading">JOURNEY</div>
 
-<input id="pickupName" placeholder="Pickup house, hotel or business (optional)">
-<input id="pickupAddress" required placeholder="Pickup address" autocomplete="off">
+<div class="two-col">
+<input id="pickupName" placeholder="Pickup name (optional)">
 <input id="pickupPostcode" placeholder="Pickup postcode (optional)">
-<input id="dropoffName" placeholder="Destination house, hotel or business (optional)">
-<input id="dropoffAddress" required placeholder="Destination" autocomplete="off">
+</div>
+<input id="pickupAddress" required placeholder="Pickup address" autocomplete="off">
+<div class="two-col">
+<input id="dropoffName" placeholder="Destination name (optional)">
 <input id="dropoffPostcode" placeholder="Destination postcode (optional)">
+</div>
+<input id="dropoffAddress" required placeholder="Destination" autocomplete="off">
 <div id="adminViaStops"></div>
 <button id="addAdminVia" type="button">+ Add Via</button>
 
@@ -372,7 +393,11 @@
 
 <div class="two-col">
 <input id="passengers" type="number" min="1" value="1" placeholder="Passengers">
-<input id="jobPrice" type="number" min="0" step="0.01" placeholder="Price £">
+<input id="jobPrice" type="number" min="0" step="0.01" placeholder="Customer Price £">
+</div>
+<div class="two-col">
+<input id="driverAmount" type="number" min="0" step="0.01" placeholder="Driver Amount £ (optional)">
+<span class="driver-select-note">Optional driver-visible commission base.</span>
 </div>
 
 <div class="form-heading">DRIVER</div>
@@ -417,6 +442,13 @@ Drivers for this company only. Online drivers are marked ONLINE.
 </div>
 
 <div id="dispatchMap"></div>
+
+<div class="route-quote" id="routeQuote" aria-live="polite">
+<div><small>Distance</small><strong id="quoteDistance">—</strong></div>
+<div><small>Estimated time</small><strong id="quoteDuration">—</strong></div>
+<div><small>Estimated customer fare</small><strong id="quoteFare">—</strong></div>
+<button id="recalculateQuote" type="button">Recalculate</button>
+</div>
 
 <div class="map-message" id="mapMessage">
 Loading map…
@@ -479,6 +511,7 @@ Refresh
 <th>Destination</th>
 <th>Driver</th>
 <th>Price</th>
+<th>Driver Amount</th>
 <th>Payment</th>
 <th>Source</th>
 <th>Status</th>
@@ -488,7 +521,7 @@ Refresh
 
 <tbody id="bookingsBody">
 <tr>
-<td colspan="12" class="empty-row">
+<td colspan="13" class="empty-row">
 Loading bookings…
 </td>
 </tr>
@@ -645,6 +678,19 @@ Loading bookings…
 <div class="booking-detail-item">
 <small>Price</small>
 <strong id="viewPrice">-</strong>
+</div>
+
+<div class="booking-detail-item">
+<small>Driver Amount</small>
+<strong id="viewDriverAmount">-</strong>
+</div>
+
+<div class="booking-detail-item wide">
+<label for="editDriverAmount"><small>Edit optional driver-visible / commissionable amount</small></label>
+<div class="two-col">
+<input id="editDriverAmount" type="number" min="0" step="0.01" placeholder="Leave blank for existing fare behavior">
+<button id="saveBookingDriverAmount" type="button">Save Driver Amount</button>
+</div>
 </div>
 
 <div class="booking-detail-item">

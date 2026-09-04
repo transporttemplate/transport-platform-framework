@@ -625,8 +625,10 @@ function destination(job) {
 }
 
 function jobPrice(job) {
+    const driverAmount = Number(job?.driver_amount);
     const p = Number(job?.price);
     const jp = Number(job?.job_price);
+    if (job?.driver_amount != null && Number.isFinite(driverAmount) && driverAmount >= 0) return driverAmount;
     if (Number.isFinite(p) && p > 0) return p;
     if (Number.isFinite(jp) && jp > 0) return jp;
     return 0;

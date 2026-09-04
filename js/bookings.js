@@ -11,6 +11,14 @@ let driverMarkers = [];
 let liveTimer = null;
 let adminBookingFormDirty = false;
 let liveRefreshRunning = false;
+let quoteSettings = {};
+let quoteAirports = [];
+let quoteDirectionsService = null;
+let quoteDirectionsRenderer = null;
+let quoteTimer = null;
+let customerPriceManual = false;
+let settingCustomerPrice = false;
+let lastRouteQuote = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
     try {
@@ -22,7 +30,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         await Promise.all([
             loadDrivers(),
-            loadBookings()
+            loadBookings(),
+            loadQuotePricing()
         ]);
 
         await initialiseDispatchMap();
@@ -41,6 +50,17 @@ function bindBookingEvents() {
     adminForm?.addEventListener("change", () => { adminBookingFormDirty = true; });
 
     document.getElementById("addAdminVia")?.addEventListener("click", () => addAdminViaStop());
+    document.getElementById("saveBookingDriverAmount")?.addEventListener("click", saveBookingDriverAmount);
+    document.getElementById("recalculateQuote")?.addEventListener("click", () => calculateRouteQuote(true));
+
+    ["pickupAddress", "dropoffAddress"].forEach(id => {
+        document.getElementById(id)?.addEventListener("input", scheduleRouteQuote);
+        document.getElementById(id)?.addEventListener("change", scheduleRouteQuote);
+    });
+    document.getElementById("passengers")?.addEventListener("change", () => calculateRouteQuote(false));
+    document.getElementById("jobPrice")?.addEventListener("input", () => {
+        if (!settingCustomerPrice) customerPriceManual = true;
+    });
 
     document
         .getElementById("adminBookingForm")
@@ -325,6 +345,24 @@ function populateDriverDropdown() {
     });
 }
 
+async function loadQuotePricing() {
+    const [settingsResult, airportsResult] = await Promise.all([
+        bookingsDb.from("settings")
+            .select("company_id,airportpricing,distancecalculator,minimumfare,firstmile,mileband1,mileband2,mileband3,mileband4,mileband5,mileband6,bookingfee,currencysymbol")
+            .eq("company_id", adminCompanyId)
+            .maybeSingle(),
+        bookingsDb.from("airports")
+            .select("id,company_id,name,code,active,price_1_4_oneway,price_5_7_oneway")
+            .eq("company_id", adminCompanyId)
+            .eq("active", true)
+            .order("sort_order", { ascending: true })
+    ]);
+    if (settingsResult.error) console.error("Unable to load quote settings:", settingsResult.error);
+    if (airportsResult.error) console.error("Unable to load airport prices:", airportsResult.error);
+    quoteSettings = settingsResult.data || {};
+    quoteAirports = airportsResult.data || [];
+}
+
 
 async function loadBookings() {
 
@@ -334,7 +372,7 @@ async function loadBookings() {
     if (body) {
 
         body.innerHTML =
-            '<tr><td colspan="12" class="empty-row">Loading bookings…</td></tr>';
+            '<tr><td colspan="13" class="empty-row">Loading bookings…</td></tr>';
     }
 
     const { data, error } =
@@ -368,7 +406,7 @@ async function loadBookings() {
         if (body) {
 
             body.innerHTML =
-                `<tr><td colspan="12" class="empty-row">
+                `<tr><td colspan="13" class="empty-row">
                     ${escapeHtml(error.message)}
                 </td></tr>`;
         }
@@ -545,7 +583,7 @@ function renderBookings() {
     if (!rows.length) {
 
         body.innerHTML =
-            '<tr><td colspan="12" class="empty-row">No bookings found for this view.</td></tr>';
+            '<tr><td colspan="13" class="empty-row">No bookings found for this view.</td></tr>';
 
         return;
     }
@@ -598,6 +636,7 @@ function bookingRowHtml(booking) {
 
     const isHistory =
         currentTab === "history";
+    const paymentClass = bookingPaymentClass(booking);
 
     const driverOptions = [
         '<option value="">Unassigned</option>',
@@ -688,7 +727,7 @@ function bookingRowHtml(booking) {
     `;
 
     return `
-        <tr>
+        <tr class="${paymentClass}">
 
             <td>
                 ${escapeHtml(
@@ -744,6 +783,10 @@ function bookingRowHtml(booking) {
                     booking.price ??
                     booking.job_price
                 )}
+            </td>
+
+            <td>
+                ${booking.driver_amount == null ? "—" : money(booking.driver_amount)}
             </td>
 
             <td>
@@ -818,6 +861,23 @@ async function assignBookingDriver(
                 : null
     };
 
+    if (driverId && ["account", "card"].includes(canonicalPaymentMethod(booking.payment_method))) {
+        const entered = prompt(
+            "Driver Amount (£) for this account/prepaid job. This is the driver-visible commission base.",
+            booking.driver_amount == null ? "" : Number(booking.driver_amount).toFixed(2)
+        );
+        if (entered === null) {
+            renderBookings();
+            return;
+        }
+        if (entered.trim() === "" || !Number.isFinite(Number(entered)) || Number(entered) < 0) {
+            alert("Enter a valid Driver Amount before assigning this account/prepaid job.");
+            renderBookings();
+            return;
+        }
+        update.driver_amount = Number(entered);
+    }
+
     const { error } =
         await bookingsDb
             .from("bookings")
@@ -872,6 +932,14 @@ async function createAdminBooking(event) {
         document
             .getElementById("bookingStatus")
             ?.value || "waiting";
+
+    const newPaymentMethod = document.getElementById("paymentMethod")?.value || "cash";
+    const newDriverAmountValue = document.getElementById("driverAmount")?.value ?? "";
+    if (driverId && ["account", "card"].includes(canonicalPaymentMethod(newPaymentMethod)) && newDriverAmountValue === "") {
+        if (message) message.textContent = "Enter a Driver Amount before assigning an account/prepaid job.";
+        document.getElementById("driverAmount")?.focus();
+        return;
+    }
 
     const customerName = document.getElementById("customerName")?.value.trim() || "";
     const customerEmail = document.getElementById("customerEmail")?.value.trim() || null;
@@ -963,10 +1031,12 @@ async function createAdminBooking(event) {
                         ?.value
                 ),
 
-        payment_method:
-            document
-                .getElementById("paymentMethod")
-                ?.value || "cash",
+        driver_amount:
+            document.getElementById("driverAmount")?.value === ""
+                ? null
+                : Number(document.getElementById("driverAmount")?.value),
+
+        payment_method: newPaymentMethod,
 
         driver_id:
             driverId,
@@ -986,6 +1056,12 @@ async function createAdminBooking(event) {
         booking_source:
             "admin"
     };
+
+    if (lastRouteQuote) {
+        payload.route_distance_miles = Number(lastRouteQuote.miles.toFixed(3));
+        payload.route_duration_minutes = Math.round(lastRouteQuote.minutes);
+        payload.pricing_method = lastRouteQuote.method;
+    }
 
     if (driverId) {
 
@@ -1033,6 +1109,8 @@ async function createAdminBooking(event) {
 
     event.target.reset();
     adminBookingFormDirty = false;
+    customerPriceManual = false;
+    clearRouteQuote();
     document.getElementById("adminViaStops").innerHTML = "";
 
     setActiveDateRange();
@@ -1316,6 +1394,12 @@ function openBookingView(id) {
         )
     );
 
+    setText("viewDriverAmount", booking.driver_amount == null ? "Not set — existing fare behavior" : money(booking.driver_amount));
+    const driverAmountInput = document.getElementById("editDriverAmount");
+    if (driverAmountInput) driverAmountInput.value = booking.driver_amount == null ? "" : booking.driver_amount;
+    const driverAmountSave = document.getElementById("saveBookingDriverAmount");
+    if (driverAmountSave) driverAmountSave.dataset.bookingId = booking.id;
+
     setText(
         "viewPayment",
         booking.payment_method ||
@@ -1418,13 +1502,21 @@ async function saveBookingPaymentMethod() {
     const paymentMethod = document.getElementById("editPaymentMethod")?.value;
     if (!bookingId || !["cash", "card", "account"].includes(paymentMethod)) return;
 
+    const booking = allBookings.find(row => String(row.id) === String(bookingId));
+    const update = { payment_method: paymentMethod };
+    if (booking?.driver_id && ["account", "card"].includes(paymentMethod) && booking.driver_amount == null) {
+        const entered = prompt("Driver Amount (£) for this assigned account/prepaid job:", "");
+        if (entered === null) return;
+        if (entered.trim() === "" || !Number.isFinite(Number(entered)) || Number(entered) < 0) return alert("Enter a valid Driver Amount.");
+        update.driver_amount = Number(entered);
+    }
     if (button) button.disabled = true;
     const { data, error } = await bookingsDb
         .from("bookings")
-        .update({ payment_method: paymentMethod })
+        .update(update)
         .eq("id", bookingId)
         .eq("company_id", adminCompanyId)
-        .select("id,company_id,payment_method,booking_source")
+        .select("id,company_id,payment_method,booking_source,driver_amount")
         .maybeSingle();
     if (button) button.disabled = false;
 
@@ -1432,6 +1524,27 @@ async function saveBookingPaymentMethod() {
         return alert(error?.message || "No matching company booking was updated.");
     }
 
+    await loadBookings();
+    openBookingView(bookingId);
+}
+
+async function saveBookingDriverAmount() {
+    const button = document.getElementById("saveBookingDriverAmount");
+    const bookingId = button?.dataset.bookingId;
+    const raw = document.getElementById("editDriverAmount")?.value ?? "";
+    if (!bookingId) return;
+    if (raw !== "" && (!Number.isFinite(Number(raw)) || Number(raw) < 0)) return alert("Enter a valid Driver Amount.");
+    const booking = allBookings.find(row => String(row.id) === String(bookingId));
+    if (raw === "" && booking?.driver_amount != null && !confirm("Clear the Driver Amount and restore the existing fare behavior?")) return;
+    button.disabled = true;
+    const { data, error } = await bookingsDb.from("bookings")
+        .update({ driver_amount: raw === "" ? null : Number(raw) })
+        .eq("id", bookingId)
+        .eq("company_id", adminCompanyId)
+        .select("id,company_id,driver_amount")
+        .maybeSingle();
+    button.disabled = false;
+    if (error || !data || String(data.company_id) !== String(adminCompanyId)) return alert(error?.message || "No matching company booking was updated.");
     await loadBookings();
     openBookingView(bookingId);
 }
@@ -1743,6 +1856,9 @@ async function initialiseDispatchMap() {
                 }
             );
 
+        quoteDirectionsService = new google.maps.DirectionsService();
+        quoteDirectionsRenderer = new google.maps.DirectionsRenderer({ map: dispatchMap, suppressMarkers: false });
+
         refreshDriverMarkers();
 
         if (message) {
@@ -1889,6 +2005,7 @@ function setupAdminAutocomplete(id) {
             const postcode = (place.address_components || []).find(component => component.types.includes("postal_code"))?.long_name || "";
             const postcodeInput = document.getElementById(id === "pickupAddress" ? "pickupPostcode" : "dropoffPostcode");
             if (postcodeInput && postcode) postcodeInput.value = postcode;
+            calculateRouteQuote(false);
         }
     );
 }
@@ -1898,17 +2015,101 @@ function addAdminViaStop() {
     const row = document.createElement("div");
     row.className = "admin-via-row";
     row.innerHTML = `<input class="admin-via-address" placeholder="Via stop ${adminViaCounter}" autocomplete="off"><button type="button">Remove</button>`;
-    row.querySelector("button").onclick = () => row.remove();
+    row.querySelector("button").onclick = () => { row.remove(); calculateRouteQuote(false); };
     document.getElementById("adminViaStops").appendChild(row);
     if (window.google?.maps?.places) {
         const input = row.querySelector("input");
         const autocomplete = new google.maps.places.Autocomplete(input, { componentRestrictions: { country: "gb" }, fields: ["formatted_address", "geometry", "place_id", "address_components"] });
-        autocomplete.addListener("place_changed", () => { const place = autocomplete.getPlace(); if (!place?.geometry?.location) return; input.value = place.formatted_address || ""; input.dataset.lat = place.geometry.location.lat(); input.dataset.lng = place.geometry.location.lng(); input.dataset.placeId = place.place_id || ""; input.dataset.postcode = (place.address_components || []).find(c => c.types.includes("postal_code"))?.long_name || ""; });
+        autocomplete.addListener("place_changed", () => { const place = autocomplete.getPlace(); if (!place?.geometry?.location) return; input.value = place.formatted_address || ""; input.dataset.lat = place.geometry.location.lat(); input.dataset.lng = place.geometry.location.lng(); input.dataset.placeId = place.place_id || ""; input.dataset.postcode = (place.address_components || []).find(c => c.types.includes("postal_code"))?.long_name || ""; calculateRouteQuote(false); });
     }
 }
 
 function collectAdminViaStops() {
     return [...document.querySelectorAll("#adminViaStops .admin-via-address")].map((input, index) => ({ stop_order: index + 1, label: "Via", formatted_address: input.value.trim(), postcode: input.dataset.postcode || null, latitude: input.dataset.lat ? Number(input.dataset.lat) : null, longitude: input.dataset.lng ? Number(input.dataset.lng) : null, place_id: input.dataset.placeId || null })).filter(stop => stop.formatted_address);
+}
+
+function scheduleRouteQuote() {
+    clearTimeout(quoteTimer);
+    quoteTimer = setTimeout(() => calculateRouteQuote(false), 650);
+}
+
+async function calculateRouteQuote(forcePrice) {
+    const origin = document.getElementById("pickupAddress")?.value.trim();
+    const destination = document.getElementById("dropoffAddress")?.value.trim();
+    if (!origin || !destination || !quoteDirectionsService || !quoteDirectionsRenderer) {
+        if (!origin || !destination) clearRouteQuote();
+        return;
+    }
+    try {
+        const result = await quoteDirectionsService.route({
+            origin,
+            destination,
+            waypoints: collectAdminViaStops().map(stop => ({ location: stop.formatted_address, stopover: true })),
+            travelMode: google.maps.TravelMode.DRIVING
+        });
+        quoteDirectionsRenderer.setDirections(result);
+        const legs = result.routes?.[0]?.legs || [];
+        const miles = legs.reduce((sum, leg) => sum + Number(leg.distance?.value || 0), 0) / 1609.344;
+        const minutes = legs.reduce((sum, leg) => sum + Number(leg.duration?.value || 0), 0) / 60;
+        const quote = estimateAdminFare(miles, origin, destination);
+        lastRouteQuote = { miles, minutes, fare: quote.fare, method: quote.method };
+        setText("quoteDistance", `${miles.toFixed(1)} miles`);
+        setText("quoteDuration", formatMinutes(minutes));
+        setText("quoteFare", quote.fare == null ? "Pricing unavailable" : `${money(quote.fare)} · ${quote.method}`);
+        if (quote.fare != null && (forcePrice || !customerPriceManual)) {
+            settingCustomerPrice = true;
+            document.getElementById("jobPrice").value = quote.fare.toFixed(2);
+            settingCustomerPrice = false;
+            customerPriceManual = false;
+        }
+    } catch (error) {
+        console.error("Admin route quote failed:", error);
+        setText("quoteDistance", "Route unavailable");
+        setText("quoteDuration", "—");
+        setText("quoteFare", "—");
+    }
+}
+
+function estimateAdminFare(miles, origin, destination) {
+    const passengers = Number(document.getElementById("passengers")?.value || 1);
+    const text = `${origin} ${destination}`.toLowerCase();
+    const airport = quoteSettings.airportpricing === true
+        ? quoteAirports.find(item => [item.name, item.code].filter(Boolean).some(value => text.includes(String(value).toLowerCase())))
+        : null;
+    if (airport) {
+        const base = Number(passengers >= 5 ? airport.price_5_7_oneway : airport.price_1_4_oneway);
+        if (Number.isFinite(base)) return { fare: Math.round((base + settingNumber("bookingfee")) * 100) / 100, method: "Airport fixed" };
+    }
+    if (quoteSettings.distancecalculator !== true) return { fare: null, method: "Pricing disabled" };
+    const rates = [1,2,3,4,5,6].map(index => settingNumber(`mileband${index}`));
+    if (!(settingNumber("firstmile") > 0 || rates.some(rate => rate > 0))) return { fare: null, method: "Pricing unavailable" };
+    const ends = [10,30,80,150,500,1000];
+    let total = settingNumber("firstmile");
+    let remaining = Math.max(0, miles - 1);
+    let start = 1;
+    for (let index = 0; index < ends.length && remaining > 0; index += 1) {
+        const amount = Math.min(remaining, ends[index] - start);
+        total += amount * rates[index];
+        remaining -= amount;
+        start = ends[index];
+    }
+    if (remaining > 0) total += remaining * rates[5];
+    if (passengers >= 5 && passengers <= 7) total += total * (settingNumber("bookingfee") / 100);
+    total = Math.floor(Math.max(settingNumber("minimumfare"), total) * 2) / 2;
+    return { fare: total, method: "Distance price" };
+}
+
+function settingNumber(key) {
+    const value = Number(quoteSettings?.[key]);
+    return Number.isFinite(value) ? value : 0;
+}
+
+function clearRouteQuote() {
+    lastRouteQuote = null;
+    if (quoteDirectionsRenderer) quoteDirectionsRenderer.set("directions", null);
+    setText("quoteDistance", "—");
+    setText("quoteDuration", "—");
+    setText("quoteFare", "—");
 }
 
 
@@ -2025,7 +2226,8 @@ function startLiveRefresh() {
 }
 
 async function runGuardedLiveRefresh() {
-    if (document.hidden || adminBookingFormDirty || liveRefreshRunning) return;
+    const bookingEditorOpen = document.getElementById("bookingViewBackdrop")?.classList.contains("open");
+    if (document.hidden || adminBookingFormDirty || bookingEditorOpen || liveRefreshRunning) return;
     liveRefreshRunning = true;
     try {
         await Promise.all([loadDrivers(), loadBookings()]);
@@ -2059,6 +2261,14 @@ function canonicalPaymentMethod(value) {
     if (method.includes("account") || method.includes("invoice")) return "account";
     if (method.includes("card") || method.includes("prepaid") || method.includes("pay now")) return "card";
     return "cash";
+}
+
+function bookingPaymentClass(booking) {
+    if (String(booking?.payment_status || "").trim().toLowerCase() === "paid") return "payment-card";
+    const method = canonicalPaymentMethod(booking?.payment_method);
+    if (method === "account") return "payment-account";
+    if (method === "card") return "payment-card";
+    return "payment-cash";
 }
 
 function driverDisplayName(id) {

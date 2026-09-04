@@ -56,7 +56,7 @@ async function updatePayment(id, status) {
     await loadFinance();
 }
 
-function driverPay(job) { const driver = financeDrivers.find(row => String(row.id) === String(job.driver_id)); if (!driver) return 0; if (driver.pay_type === "fixed") return Number(driver.fixed_job_amount || 0); const rate = Number(driver.commission_percent ?? financeSettings.drivercommission ?? 0); const grossFare = fareOf(job); const companyCommission = grossFare * rate / 100; return grossFare - companyCommission; }
+function driverPay(job) { const driver = financeDrivers.find(row => String(row.id) === String(job.driver_id)); if (!driver) return 0; if (driver.pay_type === "fixed") return Number(driver.fixed_job_amount || 0); const rate = Number(driver.commission_percent ?? financeSettings.drivercommission ?? 0); const commissionBase = job.driver_amount == null ? fareOf(job) : Number(job.driver_amount); const companyCommission = commissionBase * rate / 100; return commissionBase - companyCommission; }
 function driverName(id) { return financeDrivers.find(row => String(row.id) === String(id))?.full_name || "Unassigned"; }
 function fareOf(job) { return Number(job.price ?? job.job_price ?? 0) || 0; }
 function money(value) { return `${financeSettings.currencysymbol || "£"}${Number(value || 0).toFixed(2)}`; }

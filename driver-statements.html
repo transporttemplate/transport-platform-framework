@@ -9,6 +9,7 @@
       @media print {
         .sidebar,
         .statement-controls,
+        .saved-statements-card,
         .topbar {
           display: none;
         }
@@ -53,16 +54,16 @@
               <tr>
                 <th>Date</th>
                 <th>Job</th>
-                <th>Gross</th>
-<th>Company rate</th>
-                <th>Driver</th>
-                <th>Company</th>
+                <th>Driver Amount</th>
+                <th>Commission Rate</th>
+                <th>Commission</th>
+                <th>Driver Due</th>
               </tr>
             </thead>
             <tbody id="statementItems"></tbody>
           </table>
         </section>
-        <section class="card">
+        <section class="card saved-statements-card">
           <h3>Saved Statements</h3>
           <table>
             <thead>

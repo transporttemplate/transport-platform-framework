@@ -99,7 +99,12 @@ async function refresh(s:DriverSession){
   for(const result of [driverResult,companyResult,settingsResult,jobsResult,unavailableResult]) if(result.error)throw result.error;
   const jobs=jobsResult.data||[];const ids=jobs.map(j=>j.id);let stops:Record<string,unknown>[]=[];
   if(ids.length){const r=await db.from("booking_stops").select("*").eq("company_id",s.company_id).in("booking_id",ids).order("stop_order");if(r.error)throw r.error;stops=r.data||[];}
-  return reply({ok:true,driver:driverResult.data,company:companyResult.data,settings:settingsResult.data,jobs:jobs.map(j=>({...j,via_stops:stops.filter(x=>x.booking_id===j.id)})),unavailability:unavailableResult.data||[]});
+  const driverJobs=jobs.map(j=>{
+    const {price,job_price,driver_amount,...safeJob}=j;
+    const visibleAmount=driver_amount==null?(price??job_price??null):driver_amount;
+    return {...safeJob,price:visibleAmount,driver_amount:driver_amount??null,via_stops:stops.filter(x=>x.booking_id===j.id)};
+  });
+  return reply({ok:true,driver:driverResult.data,company:companyResult.data,settings:settingsResult.data,jobs:driverJobs,unavailability:unavailableResult.data||[]});
 }
 
 async function setOnline(s:DriverSession,online:boolean){const {error}=await db.from("drivers").update({online}).eq("company_id",s.company_id).eq("id",s.driver_id);if(error)throw error;return reply({ok:true,online});}
