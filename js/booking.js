@@ -173,7 +173,7 @@ async function loadPricingSettings(){
 
     const {data,error}=await bookingdb
         .from("settings")
-        .select("company_id,airportpricing,distancecalculator,maxadvancedays,minimumnotice,googlemapsapi,minimumfare,firstmile,mileband1,mileband2,mileband3,mileband4,mileband5,mileband6,bookingfee,returndiscount,currencysymbol,returnbookings,multiplestops,allowcash,allowcard,enablecash,enablestripe,requiredeposit,airportdepositrequired,depositpercent")
+        .select("company_id,airportpricing,distancecalculator,maxadvancedays,minimumnotice,googlemapsapi,minimumfare,firstmile,mileband1,mileband2,mileband3,mileband4,mileband5,mileband6,bookingfee,returndiscount,currencysymbol,returnbookings,multiplestops,allowcash,allowcard,enablecash,enablestripe,allowaccounts,enableaccounts,requiredeposit,airportdepositrequired,depositpercent")
         .eq("company_id",bookingCompany.id)
         .maybeSingle();
 
@@ -229,8 +229,10 @@ function applyBookingRules(){
         // Card is deliberately unavailable until a verified Stripe flow exists.
         const cardAllowed=false;
         const cashAllowed=pricingSettings.allowcash===true || pricingSettings.enablecash===true;
+        const accountAllowed=pricingSettings.allowaccounts===true || pricingSettings.enableaccounts===true;
         if(cardAllowed) choices.push(["Pay Now","Card / prepaid"]);
         if(cashAllowed) choices.push(["Pay in Car","Pay in Car"]);
+        if(accountAllowed) choices.push(["Account","Account / invoice"]);
         payment.replaceChildren(...choices.map(([value,label])=>{
             const option=document.createElement("option");
             option.value=value;
@@ -245,6 +247,8 @@ function applyBookingRules(){
                 :"Online booking unavailable — contact us";
             payment.appendChild(option);
         }
+        payment.addEventListener("change",updatePublicAccountFields);
+        updatePublicAccountFields();
     }
 
     // Show / hide booking types
@@ -396,6 +400,11 @@ function showStep(step){
 
 function bindControls(){
 
+    document.getElementById("validateAccount")?.addEventListener("click",validatePublicAccount);
+    for(const id of ["accountCode","accountVerification"]){
+        document.getElementById(id)?.addEventListener("input",()=>setAccountValidationStatus(""));
+    }
+
     document
         .querySelectorAll(".journey-choice")
         .forEach(button=>
@@ -516,6 +525,46 @@ function bindControls(){
 
 
     updateMode();
+}
+
+function updatePublicAccountFields(){
+    const selected=document.getElementById("paymentMethod")?.value==="Account";
+    const section=document.getElementById("accountValidation");
+    if(section) section.hidden=!selected;
+    for(const id of ["accountCode","accountVerification"]){
+        const field=document.getElementById(id);
+        if(field) field.required=selected;
+    }
+    setAccountValidationStatus("");
+}
+
+async function validatePublicAccount(){
+    const code=document.getElementById("accountCode")?.value.trim();
+    const verification=document.getElementById("accountVerification")?.value.trim();
+    if(!code || !verification){
+        setAccountValidationStatus("Enter the account code and verification detail.",true);
+        return;
+    }
+    setAccountValidationStatus("Checking account…");
+    const {data,error}=await bookingdb.functions.invoke("public-booking-create",{
+        body:{
+            action:"validate_account",
+            company_code:bookingCompany.company_code,
+            booking:{account_code:code,account_verification:verification,account_po_reference:document.getElementById("accountPoReference")?.value.trim()||null}
+        }
+    });
+    if(error || !data?.ok || !data?.valid){
+        setAccountValidationStatus(data?.error || "Account details are invalid or unavailable.",true);
+        return;
+    }
+    setAccountValidationStatus(`Validated: ${data.business_name}`);
+}
+
+function setAccountValidationStatus(message,error=false){
+    const status=document.getElementById("accountValidationStatus");
+    if(!status) return;
+    status.textContent=message;
+    status.style.color=error?"#b91c1c":"#166534";
 }
 
 
@@ -682,6 +731,12 @@ function validateStep(step){
         )
     ){
         alert("Please enter name and mobile number.");
+        return false;
+    }
+
+    if(step===4 && document.getElementById("paymentMethod")?.value==="Account" &&
+        (!document.getElementById("accountCode")?.value.trim() || !document.getElementById("accountVerification")?.value.trim())){
+        alert("Enter your account code and authorised email or billing postcode.");
         return false;
     }
 
@@ -1936,7 +1991,8 @@ async function saveBooking(event){
     const cashAllowed=pricingSettings.allowcash===true || pricingSettings.enablecash===true;
     // The server rejects Card until a verified payment flow is deployed.
     const cardAllowed=false;
-    if(!cashAllowed && !cardAllowed){
+    const accountAllowed=pricingSettings.allowaccounts===true || pricingSettings.enableaccounts===true;
+    if(!cashAllowed && !cardAllowed && !accountAllowed){
         alert("Online booking is unavailable because no payment method is enabled.");
         return;
     }
@@ -2060,6 +2116,10 @@ async function saveBooking(event){
 
             payment_method:
                 document.getElementById("paymentMethod").value,
+
+            account_code: document.getElementById("accountCode")?.value.trim() || null,
+            account_verification: document.getElementById("accountVerification")?.value.trim() || null,
+            account_po_reference: document.getElementById("accountPoReference")?.value.trim() || null,
 
             status:
                 "Waiting"

@@ -4,6 +4,7 @@ let invoices = [];
 let eligible = [];
 let invoiceStops = [];
 let invoiceSettings = {};
+let invoiceAccounts = [];
 
 document.addEventListener("DOMContentLoaded", async () => {
     const context = await getAdminCompanyContext();
@@ -13,27 +14,61 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("saveInvoice").onclick = createInvoice;
     document.getElementById("invoiceStatus").onchange = renderInvoices;
     document.getElementById("invoiceSearch").oninput = renderInvoices;
+    installInvoiceAccountSelector();
     await loadInvoicePage();
 });
 
+function installInvoiceAccountSelector() {
+    if (document.getElementById("invoiceAccountCustomer")) return;
+    const firstLabel = document.getElementById("invoiceCustomerName")?.closest("label");
+    if (!firstLabel) return;
+    const label = document.createElement("label");
+    label.innerHTML = 'Account customer<select id="invoiceAccountCustomer"><option value="">No account / manual invoice</option></select>';
+    firstLabel.before(label);
+    label.querySelector("select").onchange = applyInvoiceAccount;
+}
+
 async function loadInvoicePage() {
-    const [invoiceResult, bookingResult, stopResult, settingsResult] = await Promise.all([
+    const [invoiceResult, bookingResult, stopResult, settingsResult, accountResult] = await Promise.all([
         invoicesDb.from("invoices").select("*").eq("company_id", invoiceCompanyId).order("created_at", { ascending: false }),
-        invoicesDb.from("bookings").select("id,company_id,booking_reference,customer_id,customer_name,customer_email,email,journey_date,pickup_address,dropoff_address,price,job_price,payment_status,invoice_id").eq("company_id", invoiceCompanyId).ilike("status", "completed").is("invoice_id", null).order("journey_date", { ascending: false }),
+        invoicesDb.from("bookings").select("id,company_id,booking_reference,customer_id,account_customer_id,customer_name,customer_email,email,journey_date,pickup_address,dropoff_address,price,job_price,payment_method,payment_status,invoice_id").eq("company_id", invoiceCompanyId).ilike("status", "completed").is("invoice_id", null).order("journey_date", { ascending: false }),
         invoicesDb.from("booking_stops").select("booking_id,company_id,formatted_address,stop_order").eq("company_id", invoiceCompanyId).order("stop_order"),
-        invoicesDb.from("settings").select("company_id,invoiceprefix,paymentterms,vatrate,currencysymbol").eq("company_id", invoiceCompanyId).maybeSingle()
+        invoicesDb.from("settings").select("company_id,invoiceprefix,paymentterms,vatrate,currencysymbol").eq("company_id", invoiceCompanyId).maybeSingle(),
+        invoicesDb.from("account_customers").select("id,company_id,account_code,business_name,billing_email,billing_address,billing_postcode,invoice_contact_name,payment_terms_days,status").eq("company_id", invoiceCompanyId).order("business_name")
     ]);
-    const error = invoiceResult.error || bookingResult.error || stopResult.error || settingsResult.error;
+    const error = invoiceResult.error || bookingResult.error || stopResult.error || settingsResult.error || accountResult.error;
     if (error) return alert(error.message);
     invoices = invoiceResult.data || [];
     eligible = bookingResult.data || [];
     invoiceStops = stopResult.data || [];
     invoiceSettings = settingsResult.data || {};
+    invoiceAccounts = accountResult.data || [];
+    const accountSelect = document.getElementById("invoiceAccountCustomer");
+    if (accountSelect) accountSelect.innerHTML = '<option value="">No account / manual invoice</option>' + invoiceAccounts.map(account => `<option value="${esc(account.id)}">${esc(account.account_code)} — ${esc(account.business_name)}</option>`).join("");
     const due = new Date(); due.setDate(due.getDate() + Number(invoiceSettings.paymentterms || 30));
     document.getElementById("invoiceDueDate").value = due.toISOString().slice(0, 10);
     document.getElementById("invoiceTaxRate").value = Number(invoiceSettings.vatrate || 0);
-    document.getElementById("eligibleBookings").innerHTML = eligible.map(job => `<label><input type="checkbox" data-invoice-booking="${esc(job.id)}" style="width:auto"> ${esc(job.booking_reference || job.id)} — ${esc(job.customer_name || "Customer")} — ${money(fare(job))}</label>`).join("") || "No uninvoiced completed jobs available.";
+    renderEligibleBookings();
     renderInvoices();
+}
+
+function applyInvoiceAccount() {
+    const id = document.getElementById("invoiceAccountCustomer")?.value || "";
+    const account = invoiceAccounts.find(row => row.id === id);
+    if (account) {
+        document.getElementById("invoiceCustomerName").value = account.invoice_contact_name || account.business_name;
+        document.getElementById("invoiceCustomerEmail").value = account.billing_email || "";
+        document.getElementById("invoiceBillingAddress").value = [account.billing_address, account.billing_postcode].filter(Boolean).join("\n");
+        const due = new Date(); due.setDate(due.getDate() + Number(account.payment_terms_days || 0));
+        document.getElementById("invoiceDueDate").value = due.toISOString().slice(0, 10);
+    }
+    renderEligibleBookings();
+}
+
+function renderEligibleBookings() {
+    const accountId = document.getElementById("invoiceAccountCustomer")?.value || "";
+    const rows = accountId ? eligible.filter(job => String(job.account_customer_id || "") === accountId) : eligible;
+    document.getElementById("eligibleBookings").innerHTML = rows.map(job => `<label><input type="checkbox" data-invoice-booking="${esc(job.id)}" style="width:auto"> ${esc(job.booking_reference || job.id)} — ${esc(job.customer_name || "Customer")} — ${money(fare(job))}</label>`).join("") || "No uninvoiced completed jobs available for this account.";
 }
 
 function addManualItem() {
@@ -46,13 +81,15 @@ async function createInvoice() {
     const name = document.getElementById("invoiceCustomerName").value.trim();
     if (!name) return alert("Customer name is required.");
     const chosen = [...document.querySelectorAll("[data-invoice-booking]:checked")].map(el => eligible.find(job => job.id === el.dataset.invoiceBooking)).filter(Boolean);
+    const accountId = document.getElementById("invoiceAccountCustomer")?.value || null;
+    if (accountId && chosen.some(job => String(job.account_customer_id || "") !== accountId)) return alert("Every selected job must belong to the selected account.");
     const manual = [...document.querySelectorAll(".manual-item")].map(row => ({ description: row.querySelector(".item-description").value.trim(), amount: Number(row.querySelector(".item-price").value || 0) })).filter(item => item.description);
     if (!chosen.length && !manual.length) return alert("Select a booking or add a line item.");
     const number = await nextInvoiceNumber(); if (!number) return;
     const taxRate = Number(document.getElementById("invoiceTaxRate").value || 0);
     const subtotal = chosen.reduce((sum, job) => sum + fare(job), 0) + manual.reduce((sum, item) => sum + item.amount, 0);
     const taxTotal = subtotal * taxRate / 100;
-    const payload = { company_id: invoiceCompanyId, invoice_number: number, status: "draft", issue_date: new Date().toISOString().slice(0, 10), due_date: document.getElementById("invoiceDueDate").value, customer_id: chosen[0]?.customer_id || null, customer_name: name, customer_email: document.getElementById("invoiceCustomerEmail").value.trim() || null, billing_address: document.getElementById("invoiceBillingAddress").value.trim() || null, subtotal, tax_rate: taxRate, tax_total: taxTotal, total: subtotal + taxTotal };
+    const payload = { company_id: invoiceCompanyId, account_customer_id: accountId, invoice_number: number, status: "draft", issue_date: new Date().toISOString().slice(0, 10), due_date: document.getElementById("invoiceDueDate").value, customer_id: chosen[0]?.customer_id || null, customer_name: name, customer_email: document.getElementById("invoiceCustomerEmail").value.trim() || null, billing_address: document.getElementById("invoiceBillingAddress").value.trim() || null, subtotal, tax_rate: taxRate, tax_total: taxTotal, total: subtotal + taxTotal };
     const { data: invoice, error } = await invoicesDb.from("invoices").insert(payload).select("id").single();
     if (error) return alert(error.message);
     const items = chosen.map((job, index) => ({ company_id: invoiceCompanyId, invoice_id: invoice.id, booking_id: job.id, description: routeDescription(job), quantity: 1, unit_price: fare(job), line_total: fare(job), sort_order: index }));

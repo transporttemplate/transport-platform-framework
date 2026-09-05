@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Contracts / Account Customers</title>
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+<div class="admin-layout">
+<aside class="sidebar"><h2>Transport Admin</h2><a href="dashboard.html">🏠 Dashboard</a><a href="bookings.html">📖 Bookings</a><a href="customers.html">👥 Customers</a><a class="active" href="contracts.html">🏢 Contracts / Accounts</a><a href="drivers.html">🚖 Drivers</a><a href="availability.html">🟢 Availability</a><a href="accounts.html">💷 Finance</a><a href="invoices.html">🧾 Invoices</a><a href="calendar.html">📅 Calendar</a><a href="reports.html">📊 Reports</a><a href="email-templates.html">📧 Email Templates</a><a href="settings.html">⚙️ Settings</a><hr><a href="login.html">🚪 Logout</a></aside>
+<main class="main">
+<div class="topbar"><div><h2>Contracts / Account Customers</h2><small>Private business accounts and invoice details</small></div><button id="newAccount" type="button">+ New Account</button></div>
+<section class="card"><div class="grid-2"><label>Search<input id="accountSearch" type="search" placeholder="Account code, business or contact"></label><label>Status<select id="accountStatusFilter"><option value="">All statuses</option><option value="active">Active</option><option value="suspended">Suspended</option><option value="closed">Closed</option></select></label></div><div style="overflow-x:auto"><table><thead><tr><th>Code</th><th>Business</th><th>Contact</th><th>Billing email</th><th>Terms</th><th>Status</th><th></th></tr></thead><tbody id="accountRows"><tr><td colspan="7">Loading accounts…</td></tr></tbody></table></div></section>
+<section class="card" id="accountFormCard" hidden><div class="topbar"><div><h3 id="accountFormTitle">New Account Customer</h3><small>Account details are visible only to this company's authenticated admins.</small></div><button id="cancelAccount" type="button">Cancel</button></div>
+<form id="accountForm"><input id="accountId" type="hidden"><div class="grid-2">
+<label>Account code<input id="accountCode" required maxlength="40" placeholder="ET547"></label>
+<label>Business name<input id="businessName" required maxlength="160"></label>
+<label>Main contact name<input id="contactName" maxlength="160"></label>
+<label>Contact phone<input id="contactPhone" type="tel" maxlength="50"></label>
+<label>Authorised contact email<input id="contactEmail" type="email" maxlength="254"></label>
+<label>Billing email<input id="billingEmail" type="email" maxlength="254"></label>
+<label>Invoice contact/name<input id="invoiceContactName" maxlength="160"></label>
+<label>Billing postcode<input id="billingPostcode" maxlength="16"></label>
+<label>Payment terms (days)<input id="paymentTermsDays" type="number" min="0" max="365" value="30"></label>
+<label>Status<select id="accountStatus"><option value="active">Active</option><option value="suspended">Suspended</option><option value="closed">Closed</option></select></label>
+<label><input id="poRequired" type="checkbox" style="width:auto"> PO/reference required</label>
+<label>Default PO/reference<input id="defaultPoReference" maxlength="120"></label>
+<label style="grid-column:1/-1">Billing address<textarea id="billingAddress" rows="3"></textarea></label>
+<label style="grid-column:1/-1">Private admin notes<textarea id="accountNotes" rows="3"></textarea></label>
+</div><button type="submit" id="saveAccount">Save Account</button><span id="accountMessage" role="status"></span></form></section>
+</main></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/supabase.js"></script><script src="js/auth.js"></script><script src="js/admin.js"></script><script src="js/contracts.js"></script>
+</body></html>

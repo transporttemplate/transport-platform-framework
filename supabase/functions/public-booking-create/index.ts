@@ -58,7 +58,7 @@ Deno.serve(async (request) => {
       db.from("settings").select([
         "company_id", "businessstatus", "holidayfrom", "holidayfromtime", "holidayto", "holidaytotime",
         "acceptadvancebookings", "bookwhileclosed", "timezone", "maxadvancedays", "minimumnotice",
-        "returnbookings", "multiplestops", "allowcash", "enablecash", "allowcard", "enablestripe",
+        "returnbookings", "multiplestops", "allowcash", "enablecash", "allowcard", "enablestripe", "allowaccounts", "enableaccounts",
         "airportpricing", "distancecalculator", "allowairportoutsidearea", "minimumfare", "firstmile",
         "mileband1", "mileband2", "mileband3", "mileband4", "mileband5", "mileband6", "bookingfee",
         "returndiscount", "googleroutesapi",
@@ -69,6 +69,14 @@ Deno.serve(async (request) => {
     if (settingsError) throw settingsError;
     if (areasError) throw areasError;
     if (!settings) throw new ApiError(503, "Company booking settings are unavailable");
+
+    if (clean(body.action) === "validate_account") {
+      if (!bool(settings.allowaccounts) && !bool(settings.enableaccounts)) {
+        throw new ApiError(400, "Account payment is not enabled");
+      }
+      const account = await resolvePublicAccount(companyId, booking);
+      return respond({ ok: true, valid: true, business_name: account.business_name });
+    }
 
     validateBasicBooking(booking, stops, settings);
     const timezone = validTimeZone(settings.timezone) ? String(settings.timezone) : "Europe/London";
@@ -91,6 +99,9 @@ Deno.serve(async (request) => {
       throw new ApiError(400, "Distance bookings are not enabled");
     }
     const paymentMethod = validatePayment(booking.payment_method, settings);
+    const account = paymentMethod === "Account"
+      ? await resolvePublicAccount(companyId, booking)
+      : null;
 
     let airport: Row | null = null;
     if (mode === "airport") {
@@ -160,6 +171,9 @@ Deno.serve(async (request) => {
       route_distance_miles: route.miles,
       route_duration_minutes: route.minutes,
       pricing_method: pricing.method,
+      account_customer_id: account?.id || null,
+      account_po_reference: account ? clean(booking.account_po_reference) : null,
+      booking_source: "website",
       pickup_address: route.origin.formattedAddress,
       pickup_postcode: route.origin.postcode,
       pickup_place_id: route.origin.placeId,
@@ -228,6 +242,7 @@ Deno.serve(async (request) => {
       bookings: inserted.data,
       authoritative_price: pricing.total,
       pricing_method: pricing.method,
+      account: account ? { business_name: account.business_name, account_code: account.account_code } : null,
     });
   } catch (error) {
     const status = error instanceof ApiError ? error.status : 500;
@@ -272,7 +287,10 @@ function validateBookingTime(journey: Date, settings: Row, timezone: string) {
 
 function validatePayment(value: unknown, settings: Row) {
   const method = String(value || "").trim().toLowerCase();
-  if (["account", "invoice", "on account"].includes(method)) throw new ApiError(400, "Account payment is not available for public bookings");
+  if (["account", "invoice", "on account"].includes(method)) {
+    if (!bool(settings.allowaccounts) && !bool(settings.enableaccounts)) throw new ApiError(400, "Account payment is not enabled");
+    return "Account";
+  }
   if (["pay now", "card", "card / prepaid", "prepaid", "paid"].includes(method)) {
     if (!bool(settings.allowcard) && !bool(settings.enablestripe)) throw new ApiError(400, "Card payment is not enabled");
     throw new ApiError(503, "Card payment is not available online yet. Please choose Pay in Car or contact us.");
@@ -280,6 +298,26 @@ function validatePayment(value: unknown, settings: Row) {
   if (!["pay in car", "cash", "pay by cash"].includes(method)) throw new ApiError(400, "Invalid payment method");
   if (!bool(settings.allowcash) && !bool(settings.enablecash)) throw new ApiError(400, "Cash payment is not enabled");
   return "Pay in Car";
+}
+
+async function resolvePublicAccount(companyId: string, booking: Row) {
+  const code = String(booking.account_code || "").trim().toUpperCase();
+  const verification = String(booking.account_verification || "").trim().toLowerCase();
+  if (!code || !verification) throw new ApiError(400, "Account details are invalid or unavailable");
+  const { data, error } = await db.from("account_customers")
+    .select("id,company_id,account_code,business_name,contact_email,billing_email,billing_postcode,po_required,default_po_reference,status")
+    .eq("company_id", companyId).eq("account_code", code).maybeSingle();
+  if (error) throw error;
+  const emailMatch = verification.includes("@") && [data?.contact_email, data?.billing_email]
+    .some((value) => String(value || "").trim().toLowerCase() === verification);
+  const postcodeMatch = !verification.includes("@") && normalPostcode(data?.billing_postcode) === normalPostcode(verification);
+  if (!data || data.status !== "active" || (!emailMatch && !postcodeMatch)) {
+    throw new ApiError(400, "Account details are invalid or unavailable");
+  }
+  const poReference = clean(booking.account_po_reference) || clean(data.default_po_reference);
+  if (data.po_required && !poReference) throw new ApiError(400, "A PO/reference is required for this account");
+  booking.account_po_reference = poReference;
+  return data;
 }
 
 async function authoritativeRoute(booking: Row, stops: Row[], airport: Row | null, apiKey: string) {

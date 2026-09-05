@@ -8,6 +8,15 @@ function initialiseAdminNavigation() {
     if (!sidebar) return;
     sidebar.id ||= "adminSidebar";
 
+    if (!sidebar.querySelector('a[href="contracts.html"]')) {
+        const customersLink = sidebar.querySelector('a[href="customers.html"]');
+        const link = document.createElement("a");
+        link.href = "contracts.html";
+        link.textContent = "🏢 Contracts / Accounts";
+        if (location.pathname.endsWith("/contracts.html")) link.classList.add("active");
+        customersLink?.after(link);
+    }
+
     let menuButton = document.querySelector(".menu-toggle");
     const topbar = document.querySelector(".topbar");
     if (!menuButton) {

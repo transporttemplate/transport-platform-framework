@@ -112,6 +112,16 @@
 <div class="field full"><label for="customerEmail">Email address</label><input id="customerEmail" type="email" placeholder="Enter your email address"></div>
 <div class="field full"><label for="notes">Notes</label><textarea id="notes" rows="4" placeholder="Flight details, pickup instructions or anything else we should know"></textarea></div>
 <div class="field full"><label for="paymentMethod">Payment method</label><select id="paymentMethod"><option value="Pay Now">Pay Now</option><option value="Pay in Car">Pay in Car</option></select></div>
+<div class="field full notice-box" id="accountValidation" hidden>
+<strong>Account validation</strong>
+<p>Enter your account code and either the authorised email or billing postcode registered on the account.</p>
+<div class="field-grid">
+<div class="field"><label for="accountCode">Account code</label><input id="accountCode" maxlength="40" autocomplete="off"></div>
+<div class="field"><label for="accountVerification">Authorised email or billing postcode</label><input id="accountVerification" maxlength="254" autocomplete="off"></div>
+<div class="field full"><label for="accountPoReference">PO/reference (if required)</label><input id="accountPoReference" maxlength="120"></div>
+<div class="field full"><button type="button" class="secondary-btn" id="validateAccount">Validate account</button> <span id="accountValidationStatus" role="status"></span></div>
+</div>
+</div>
 </div>
 <div class="step-actions"><button type="button" class="secondary-btn" data-back="3">Back</button><button type="button" class="primary-btn" data-next="5">Review booking</button></div>
 </section>

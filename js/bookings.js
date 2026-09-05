@@ -2,6 +2,7 @@ const bookingsDb = getSupabase();
 
 let allBookings = [];
 let allDrivers = [];
+let allAccountCustomers = [];
 let currentTab = "bookings";
 let adminCompanyId = null;
 let adminViaCounter = 0;
@@ -31,7 +32,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         await Promise.all([
             loadDrivers(),
             loadBookings(),
-            loadQuotePricing()
+            loadQuotePricing(),
+            loadAccountCustomers()
         ]);
 
         await initialiseDispatchMap();
@@ -52,6 +54,8 @@ function bindBookingEvents() {
     document.getElementById("addAdminVia")?.addEventListener("click", () => addAdminViaStop());
     document.getElementById("saveBookingDriverAmount")?.addEventListener("click", saveBookingDriverAmount);
     document.getElementById("recalculateQuote")?.addEventListener("click", () => calculateRouteQuote(true));
+    document.getElementById("paymentMethod")?.addEventListener("change", updateAdminAccountSelector);
+    document.getElementById("editPaymentMethod")?.addEventListener("change", updateEditAccountSelector);
 
     ["pickupAddress", "dropoffAddress"].forEach(id => {
         document.getElementById(id)?.addEventListener("input", scheduleRouteQuote);
@@ -160,6 +164,37 @@ function bindBookingEvents() {
         );
 
     updateStatusFilterForTab();
+}
+
+async function loadAccountCustomers() {
+    const { data, error } = await bookingsDb.from("account_customers")
+        .select("id,company_id,account_code,business_name,status,po_required,default_po_reference")
+        .eq("company_id", adminCompanyId).order("business_name");
+    if (error) { console.error("Unable to load account customers:", error); return; }
+    allAccountCustomers = data || [];
+    for (const id of ["accountCustomerSelect", "editAccountCustomer"]) {
+        const select = document.getElementById(id);
+        if (!select) continue;
+        const choices = id === "accountCustomerSelect"
+            ? allAccountCustomers.filter(account => account.status === "active")
+            : allAccountCustomers;
+        select.innerHTML = '<option value="">Select account customer</option>' + choices.map(account => `<option value="${escapeHtml(account.id)}">${escapeHtml(account.account_code)} — ${escapeHtml(account.business_name)}${account.status === "active" ? "" : ` (${escapeHtml(account.status)})`}</option>`).join("");
+    }
+    updateAdminAccountSelector();
+    if (allBookings.length) renderBookings();
+}
+
+function updateAdminAccountSelector() {
+    const select = document.getElementById("accountCustomerSelect");
+    if (select) { select.hidden = canonicalPaymentMethod(document.getElementById("paymentMethod")?.value) !== "account"; select.required = !select.hidden; }
+    const po = document.getElementById("accountPoReference");
+    if (po) po.hidden = select?.hidden !== false;
+}
+function updateEditAccountSelector() {
+    const select = document.getElementById("editAccountCustomer");
+    if (select) { select.hidden = canonicalPaymentMethod(document.getElementById("editPaymentMethod")?.value) !== "account"; select.required = !select.hidden; }
+    const po = document.getElementById("editAccountPoReference");
+    if (po) po.hidden = select?.hidden !== false;
 }
 
 
@@ -756,6 +791,7 @@ function bookingRowHtml(booking) {
                     booking.full_name ||
                     "-"
                 )}
+                ${booking.account_customer_id ? `<br><small>${escapeHtml(accountBookingLabel(booking))}</small>` : ""}
             </td>
 
             <td>
@@ -934,6 +970,16 @@ async function createAdminBooking(event) {
             ?.value || "waiting";
 
     const newPaymentMethod = document.getElementById("paymentMethod")?.value || "cash";
+    const selectedAccountId = document.getElementById("accountCustomerSelect")?.value || null;
+    if (canonicalPaymentMethod(newPaymentMethod) === "account" && !selectedAccountId) {
+        if (message) message.textContent = "Select an account customer.";
+        return;
+    }
+    const selectedAccount = allAccountCustomers.find(row => row.id === selectedAccountId);
+    if (selectedAccount?.po_required && !document.getElementById("accountPoReference")?.value.trim() && !selectedAccount.default_po_reference) {
+        if (message) message.textContent = "This account requires a PO/reference.";
+        return;
+    }
     const newDriverAmountValue = document.getElementById("driverAmount")?.value ?? "";
     if (driverId && ["account", "card"].includes(canonicalPaymentMethod(newPaymentMethod)) && newDriverAmountValue === "") {
         if (message) message.textContent = "Enter a Driver Amount before assigning an account/prepaid job.";
@@ -1037,6 +1083,9 @@ async function createAdminBooking(event) {
                 : Number(document.getElementById("driverAmount")?.value),
 
         payment_method: newPaymentMethod,
+        payment_status: canonicalPaymentMethod(newPaymentMethod) === "account" ? "unpaid" : "unpaid",
+        account_customer_id: canonicalPaymentMethod(newPaymentMethod) === "account" ? selectedAccountId : null,
+        account_po_reference: canonicalPaymentMethod(newPaymentMethod) === "account" ? (document.getElementById("accountPoReference")?.value.trim() || selectedAccount?.default_po_reference || null) : null,
 
         driver_id:
             driverId,
@@ -1406,9 +1455,15 @@ function openBookingView(id) {
         booking.payment_status ||
         "-"
     );
+    setText("viewAccount", booking.account_customer_id ? accountBookingLabel(booking) : "—");
 
     const paymentSelect = document.getElementById("editPaymentMethod");
     if (paymentSelect) paymentSelect.value = canonicalPaymentMethod(booking.payment_method);
+    const accountSelect = document.getElementById("editAccountCustomer");
+    if (accountSelect) accountSelect.value = booking.account_customer_id || "";
+    const accountPo = document.getElementById("editAccountPoReference");
+    if (accountPo) accountPo.value = booking.account_po_reference || "";
+    updateEditAccountSelector();
     const paymentSave = document.getElementById("saveBookingPaymentMethod");
     if (paymentSave) paymentSave.dataset.bookingId = booking.id;
 
@@ -1503,7 +1558,11 @@ async function saveBookingPaymentMethod() {
     if (!bookingId || !["cash", "card", "account"].includes(paymentMethod)) return;
 
     const booking = allBookings.find(row => String(row.id) === String(bookingId));
-    const update = { payment_method: paymentMethod };
+    const selectedAccountId = document.getElementById("editAccountCustomer")?.value || null;
+    if (paymentMethod === "account" && !selectedAccountId) return alert("Select an account customer.");
+    const selectedAccount = allAccountCustomers.find(row => row.id === selectedAccountId);
+    if (paymentMethod === "account" && selectedAccount?.po_required && !document.getElementById("editAccountPoReference")?.value.trim() && !selectedAccount.default_po_reference) return alert("This account requires a PO/reference.");
+    const update = { payment_method: paymentMethod, account_customer_id: paymentMethod === "account" ? selectedAccountId : null, account_po_reference: paymentMethod === "account" ? (document.getElementById("editAccountPoReference")?.value.trim() || selectedAccount?.default_po_reference || null) : null };
     if (booking?.driver_id && ["account", "card"].includes(paymentMethod) && booking.driver_amount == null) {
         const entered = prompt("Driver Amount (£) for this assigned account/prepaid job:", "");
         if (entered === null) return;
@@ -1516,7 +1575,7 @@ async function saveBookingPaymentMethod() {
         .update(update)
         .eq("id", bookingId)
         .eq("company_id", adminCompanyId)
-        .select("id,company_id,payment_method,booking_source,driver_amount")
+        .select("id,company_id,payment_method,booking_source,driver_amount,account_customer_id")
         .maybeSingle();
     if (button) button.disabled = false;
 
@@ -2261,6 +2320,11 @@ function canonicalPaymentMethod(value) {
     if (method.includes("account") || method.includes("invoice")) return "account";
     if (method.includes("card") || method.includes("prepaid") || method.includes("pay now")) return "card";
     return "cash";
+}
+
+function accountBookingLabel(booking) {
+    const account = allAccountCustomers.find(row => String(row.id) === String(booking.account_customer_id));
+    return account ? `${account.account_code} — ${account.business_name}` : "Account customer";
 }
 
 function bookingPaymentClass(booking) {

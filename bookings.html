@@ -418,6 +418,11 @@ Drivers for this company only. Online drivers are marked ONLINE.
 <option value="account">Account</option>
 </select>
 
+<select id="accountCustomerSelect" hidden>
+<option value="">Select account customer</option>
+</select>
+<input id="accountPoReference" hidden placeholder="Account PO / reference">
+
 <select id="bookingStatus">
 <option value="waiting">Waiting</option>
 <option value="booked">Booked</option>
@@ -698,6 +703,11 @@ Loading bookings…
 <strong id="viewPayment">-</strong>
 </div>
 
+<div class="booking-detail-item">
+<small>Account</small>
+<strong id="viewAccount">—</strong>
+</div>
+
 <div class="booking-detail-item wide">
 <label for="editPaymentMethod"><small>Change payment method</small></label>
 <div class="two-col">
@@ -706,6 +716,8 @@ Loading bookings…
 <option value="card">Card / prepaid</option>
 <option value="account">Account</option>
 </select>
+<select id="editAccountCustomer" hidden><option value="">Select account customer</option></select>
+<input id="editAccountPoReference" hidden placeholder="Account PO / reference">
 <button id="saveBookingPaymentMethod" type="button">Save Payment Method</button>
 </div>
 </div>
