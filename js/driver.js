@@ -617,11 +617,15 @@ function closeSideMenu() {
 }
 
 function pickup(job) {
-    return job?.pickup_address ?? job?.pickup ?? "-";
+    return addressWithDetail(job?.pickup_name, job?.pickup_address ?? job?.pickup);
 }
 
 function destination(job) {
-    return job?.dropoff_address ?? job?.destination ?? job?.dropoff ?? "-";
+    return addressWithDetail(job?.dropoff_name, job?.dropoff_address ?? job?.destination ?? job?.dropoff);
+}
+
+function addressWithDetail(detail, address) {
+    return [detail, address].map(value => String(value || "").trim()).filter(Boolean).join(", ") || "-";
 }
 
 function jobPrice(job) {

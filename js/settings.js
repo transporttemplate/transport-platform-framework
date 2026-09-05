@@ -79,6 +79,7 @@ const fieldMap = {
     bankHoliday: "bankholiday",
     christmas: "christmas",
     bookingFee: "bookingfee",
+    airportViaSurcharge: "airportviasurcharge",
 
     useGoogleBoundary: "usegoogleboundary",
     allowAirportOutsideArea: "allowairportoutsidearea",

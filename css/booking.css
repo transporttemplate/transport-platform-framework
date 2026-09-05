@@ -29,14 +29,26 @@
 .field input,.field select,.field textarea,gmp-place-autocomplete{box-sizing:border-box;width:100%;min-height:49px;border:1px solid #ccd3db;border-radius:9px;background:#fff;font-size:16px}
 .field input,.field select,.field textarea{padding:11px}
 .field-hint{display:block;color:#667085;margin-top:5px}
+.booking-time-hint{grid-column:1/-1;margin-top:-7px}
 .hidden{display:none!important}
-.via-stop-row{display:grid;grid-template-columns:1fr 2fr 1fr auto;gap:8px;align-items:end;margin:10px 0;padding:12px;border:1px solid #ddd;border-radius:10px}
-.via-stop-row label{grid-column:1/-1;margin:0}
+.journey-fields{display:grid;gap:10px;margin-top:12px}
+.journey-location-group{min-width:0;padding:12px;border:1px solid #dce2e8;border-radius:11px;background:#f8fafc}
+.location-heading{margin-bottom:5px;font-size:16px}
+.journey-location-group label{margin:6px 0 4px}
+.journey-location-group input{box-sizing:border-box;width:100%;min-height:46px;margin:0 0 7px;padding:10px 11px;border:1px solid #ccd3db;border-radius:9px;background:#fff;font-size:16px}
+.journey-location-group .property-detail{min-height:40px;padding:8px 10px;font-size:14px}
+.add-location-stop{padding:8px 12px;font-size:13px}
+.additional-stops{width:100%;margin-top:7px}
+.journey-stop-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;align-items:end;width:100%;margin-top:7px;padding-top:7px;border-top:1px solid #e2e8f0}
+.journey-stop-row label{grid-column:1/-1;margin:0;font-size:13px}
+.journey-stop-row input{margin:0}
+.journey-stop-row .stop-remove{min-height:40px;padding:8px 10px;color:#9f1239;border-color:#fecdd3;background:#fff}
 
 .return-card{display:flex;gap:10px;margin:15px 0;padding:13px;border:1px solid #ddd;border-radius:10px}
 .return-card span{display:grid}
 
-.route-card{border:1px solid #ddd;border-radius:12px;overflow:hidden;margin-top:18px}
+.route-card{max-height:0;visibility:hidden;overflow:hidden;margin-top:0;border:0;border-radius:12px;opacity:0;transition:opacity .2s ease}
+.route-card.has-route{max-height:420px;visibility:visible;margin-top:12px;border:1px solid #ddd;opacity:1}
 .route-map{height:280px;background:#e5e7eb}
 .route-stats{display:grid;grid-template-columns:repeat(3,1fr)}
 .route-stats div{text-align:center;padding:12px}
@@ -119,11 +131,12 @@
 
 @media(min-width:700px){
     .journey-choice-grid,.vehicle-grid{grid-template-columns:1fr 1fr}
+    .journey-fields{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
     .field-grid{grid-template-columns:1fr 1fr}
     .field-grid.three{grid-template-columns:repeat(3,1fr)}
     .booking-step{padding:28px}
 }
-@media(max-width:699px){.via-stop-row{grid-template-columns:1fr}.via-stop-row label{grid-column:auto}}
+@media(max-width:699px){.journey-stop-row{grid-template-columns:minmax(0,1fr) auto}.journey-stop-row label{grid-column:1/-1}}
 @media(max-width:430px){
     .booking-page{padding-top:8px}.booking-step{padding:16px 12px}
     .booking-progress{justify-content:flex-start;padding-bottom:6px}.progress-line{width:20px;flex:0 0 20px}

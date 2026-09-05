@@ -5,7 +5,7 @@ let allDrivers = [];
 let allAccountCustomers = [];
 let currentTab = "bookings";
 let adminCompanyId = null;
-let adminViaCounter = 0;
+let adminStopCounters = { pickup: 0, dropoff: 0 };
 
 let dispatchMap = null;
 let driverMarkers = [];
@@ -51,16 +51,13 @@ function bindBookingEvents() {
     adminForm?.addEventListener("input", () => { adminBookingFormDirty = true; });
     adminForm?.addEventListener("change", () => { adminBookingFormDirty = true; });
 
-    document.getElementById("addAdminVia")?.addEventListener("click", () => addAdminViaStop());
+    document.getElementById("addAdminPickup")?.addEventListener("click", () => addAdminStop("pickup"));
+    document.getElementById("addAdminDropoff")?.addEventListener("click", () => addAdminStop("dropoff"));
     document.getElementById("saveBookingDriverAmount")?.addEventListener("click", saveBookingDriverAmount);
     document.getElementById("recalculateQuote")?.addEventListener("click", () => calculateRouteQuote(true));
     document.getElementById("paymentMethod")?.addEventListener("change", updateAdminAccountSelector);
     document.getElementById("editPaymentMethod")?.addEventListener("change", updateEditAccountSelector);
 
-    ["pickupAddress", "dropoffAddress"].forEach(id => {
-        document.getElementById(id)?.addEventListener("input", scheduleRouteQuote);
-        document.getElementById(id)?.addEventListener("change", scheduleRouteQuote);
-    });
     document.getElementById("passengers")?.addEventListener("change", () => calculateRouteQuote(false));
     document.getElementById("jobPrice")?.addEventListener("input", () => {
         if (!settingCustomerPrice) customerPriceManual = true;
@@ -383,7 +380,7 @@ function populateDriverDropdown() {
 async function loadQuotePricing() {
     const [settingsResult, airportsResult] = await Promise.all([
         bookingsDb.from("settings")
-            .select("company_id,airportpricing,distancecalculator,minimumfare,firstmile,mileband1,mileband2,mileband3,mileband4,mileband5,mileband6,bookingfee,currencysymbol")
+            .select("company_id,airportpricing,distancecalculator,minimumfare,firstmile,mileband1,mileband2,mileband3,mileband4,mileband5,mileband6,bookingfee,airportviasurcharge,currencysymbol")
             .eq("company_id", adminCompanyId)
             .maybeSingle(),
         bookingsDb.from("airports")
@@ -764,13 +761,13 @@ function bookingRowHtml(booking) {
     return `
         <tr class="${paymentClass}">
 
-            <td>
+            <td data-label="Date">
                 ${escapeHtml(
                     booking.journey_date || ""
                 )}
             </td>
 
-            <td>
+            <td data-label="Time">
                 ${escapeHtml(
                     formatTime(
                         booking.journey_time
@@ -778,14 +775,14 @@ function bookingRowHtml(booking) {
                 )}
             </td>
 
-            <td>
+            <td data-label="Reference">
                 ${escapeHtml(
                     booking.booking_reference ||
                     shortId(booking.id)
                 )}
             </td>
 
-            <td>
+            <td data-label="Customer">
                 ${escapeHtml(
                     booking.customer_name ||
                     booking.full_name ||
@@ -794,7 +791,7 @@ function bookingRowHtml(booking) {
                 ${booking.account_customer_id ? `<br><small>${escapeHtml(accountBookingLabel(booking))}</small>` : ""}
             </td>
 
-            <td>
+            <td data-label="Pickup">
                 ${escapeHtml(
                     booking.pickup_address ||
                     booking.pickup ||
@@ -802,7 +799,7 @@ function bookingRowHtml(booking) {
                 )}
             </td>
 
-            <td>
+            <td data-label="Destination">
                 ${escapeHtml(
                     booking.dropoff_address ||
                     booking.destination ||
@@ -810,22 +807,22 @@ function bookingRowHtml(booking) {
                 )}
             </td>
 
-            <td>
+            <td data-label="Driver">
                 ${driverCell}
             </td>
 
-            <td>
+            <td data-label="Price">
                 ${money(
                     booking.price ??
                     booking.job_price
                 )}
             </td>
 
-            <td>
+            <td data-label="Driver Amount">
                 ${booking.driver_amount == null ? "—" : money(booking.driver_amount)}
             </td>
 
-            <td>
+            <td data-label="Payment">
                 ${escapeHtml(
                     booking.payment_method ||
                     booking.payment_status ||
@@ -833,7 +830,7 @@ function bookingRowHtml(booking) {
                 )}
             </td>
 
-            <td>
+            <td data-label="Source">
                 <span class="source-pill">
                     ${escapeHtml(
                         booking.booking_source ||
@@ -842,7 +839,7 @@ function bookingRowHtml(booking) {
                 </span>
             </td>
 
-            <td>
+            <td data-label="Status">
                 <span class="status-pill">
                     ${escapeHtml(
                         prettyStatus(status)
@@ -850,14 +847,8 @@ function bookingRowHtml(booking) {
                 </span>
             </td>
 
-            <td>
-                <div
-                    style="
-                        display:flex;
-                        gap:6px;
-                        flex-wrap:wrap;
-                    "
-                >
+            <td data-label="Actions">
+                <div class="booking-actions">
                     ${actionButtons}
                 </div>
             </td>
@@ -990,6 +981,8 @@ async function createAdminBooking(event) {
     const customerName = document.getElementById("customerName")?.value.trim() || "";
     const customerEmail = document.getElementById("customerEmail")?.value.trim() || null;
     const customerPhone = document.getElementById("customerPhone")?.value.trim() || null;
+    const pickupAddress = window.TransportAddressAutocomplete.metadata("pickupAddress");
+    const dropoffAddress = window.TransportAddressAutocomplete.metadata("dropoffAddress");
     const [customerResult, referenceResult] = await Promise.all([
         bookingsDb.rpc("find_or_create_admin_customer", {
             target_company_id: adminCompanyId,
@@ -1032,10 +1025,10 @@ async function createAdminBooking(event) {
                 .trim() || "",
 
         pickup_name: document.getElementById("pickupName")?.value.trim() || null,
-        pickup_postcode: document.getElementById("pickupPostcode")?.value.trim() || null,
-        pickup_place_id: document.getElementById("pickupAddress")?.dataset.placeId || null,
-        pickup_lat: document.getElementById("pickupAddress")?.dataset.lat ? Number(document.getElementById("pickupAddress").dataset.lat) : null,
-        pickup_lng: document.getElementById("pickupAddress")?.dataset.lng ? Number(document.getElementById("pickupAddress").dataset.lng) : null,
+        pickup_postcode: pickupAddress.postcode,
+        pickup_place_id: pickupAddress.placeId,
+        pickup_lat: pickupAddress.latitude,
+        pickup_lng: pickupAddress.longitude,
 
         dropoff_address:
             document
@@ -1044,10 +1037,10 @@ async function createAdminBooking(event) {
                 .trim() || "",
 
         dropoff_name: document.getElementById("dropoffName")?.value.trim() || null,
-        dropoff_postcode: document.getElementById("dropoffPostcode")?.value.trim() || null,
-        dropoff_place_id: document.getElementById("dropoffAddress")?.dataset.placeId || null,
-        dropoff_lat: document.getElementById("dropoffAddress")?.dataset.lat ? Number(document.getElementById("dropoffAddress").dataset.lat) : null,
-        dropoff_lng: document.getElementById("dropoffAddress")?.dataset.lng ? Number(document.getElementById("dropoffAddress").dataset.lng) : null,
+        dropoff_postcode: dropoffAddress.postcode,
+        dropoff_place_id: dropoffAddress.placeId,
+        dropoff_lat: dropoffAddress.latitude,
+        dropoff_lng: dropoffAddress.longitude,
 
         journey_date:
             document
@@ -1160,7 +1153,9 @@ async function createAdminBooking(event) {
     adminBookingFormDirty = false;
     customerPriceManual = false;
     clearRouteQuote();
-    document.getElementById("adminViaStops").innerHTML = "";
+    document.getElementById("adminPickupStops").innerHTML = "";
+    document.getElementById("adminDropoffStops").innerHTML = "";
+    adminStopCounters = { pickup: 0, dropoff: 0 };
 
     setActiveDateRange();
 
@@ -1383,16 +1378,12 @@ function openBookingView(id) {
 
     setText(
         "viewPickup",
-        booking.pickup_address ||
-        booking.pickup ||
-        "-"
+        bookingAddressDisplay(booking.pickup_name, booking.pickup_address || booking.pickup)
     );
 
     setText(
         "viewDestination",
-        booking.dropoff_address ||
-        booking.destination ||
-        "-"
+        bookingAddressDisplay(booking.dropoff_name, booking.dropoff_address || booking.destination)
     );
 
     setText("viewViaStops", (booking.via_stops || []).map(stop => `${stop.stop_order}. ${stop.formatted_address}`).join("\n") || "-");
@@ -1879,7 +1870,7 @@ async function initialiseDispatchMap() {
             return;
         }
 
-        await loadGoogleMaps(
+        await window.TransportAddressAutocomplete.loadGoogleMaps(
             data.googlemapsapi
         );
 
@@ -1890,6 +1881,10 @@ async function initialiseDispatchMap() {
         setupAdminAutocomplete(
             "dropoffAddress"
         );
+
+        document.querySelectorAll(".admin-stop-row .admin-stop-address").forEach(input => {
+            window.TransportAddressAutocomplete.attach(input,{onSelect:()=>calculateRouteQuote(false),onInput:scheduleRouteQuote});
+        });
 
         dispatchMap =
             new google.maps.Map(
@@ -1943,148 +1938,40 @@ async function initialiseDispatchMap() {
 }
 
 
-function loadGoogleMaps(apiKey) {
-
-    if (
-        window.google
-            ?.maps
-            ?.places
-            ?.Autocomplete
-    ) {
-        return Promise.resolve();
-    }
-
-    return new Promise(
-        (
-            resolve,
-            reject
-        ) => {
-
-            const callbackName =
-                "__bookingsGoogleMapsLoaded";
-
-            window[callbackName] =
-                () => {
-
-                    resolve();
-
-                    delete window[
-                        callbackName
-                    ];
-                };
-
-            const script =
-                document.createElement(
-                    "script"
-                );
-
-            script.src =
-                "https://maps.googleapis.com/maps/api/js" +
-                "?key=" +
-                encodeURIComponent(
-                    apiKey
-                ) +
-                "&libraries=places" +
-                "&loading=async" +
-                "&callback=" +
-                callbackName;
-
-            script.async =
-                true;
-
-            script.onerror =
-                () =>
-                    reject(
-                        new Error(
-                            "Google Maps JavaScript API failed to load."
-                        )
-                    );
-
-            document
-                .head
-                .appendChild(
-                    script
-                );
-        }
-    );
-}
-
-
 function setupAdminAutocomplete(id) {
-
-    const input =
-        document.getElementById(id);
-
-    if (!input) return;
-
-    const autocomplete =
-        new google.maps.places.Autocomplete(
-            input,
-            {
-                componentRestrictions: {
-                    country: "gb"
-                },
-
-                fields: [
-                    "formatted_address",
-                    "geometry",
-                    "name",
-                    "place_id",
-                    "address_components"
-                ]
-            }
-        );
-
-    autocomplete.addListener(
-        "place_changed",
-        () => {
-
-            const place =
-                autocomplete.getPlace();
-
-            if (
-                !place
-                    ?.geometry
-                    ?.location
-            ) {
-                return;
-            }
-
-            input.value =
-                place.formatted_address ||
-                place.name ||
-                "";
-
-            input.dataset.lat =
-                place.geometry.location.lat();
-
-            input.dataset.lng =
-                place.geometry.location.lng();
-            input.dataset.placeId = place.place_id || "";
-            const postcode = (place.address_components || []).find(component => component.types.includes("postal_code"))?.long_name || "";
-            const postcodeInput = document.getElementById(id === "pickupAddress" ? "pickupPostcode" : "dropoffPostcode");
-            if (postcodeInput && postcode) postcodeInput.value = postcode;
-            calculateRouteQuote(false);
-        }
-    );
+    window.TransportAddressAutocomplete.attach(id,{
+        placeholder:"Search address, postcode or place",
+        onSelect:()=>calculateRouteQuote(false),
+        onInput:scheduleRouteQuote
+    });
 }
 
-function addAdminViaStop() {
-    adminViaCounter += 1;
+function addAdminStop(kind) {
+    adminStopCounters[kind] += 1;
     const row = document.createElement("div");
-    row.className = "admin-via-row";
-    row.innerHTML = `<input class="admin-via-address" placeholder="Via stop ${adminViaCounter}" autocomplete="off"><button type="button">Remove</button>`;
-    row.querySelector("button").onclick = () => { row.remove(); calculateRouteQuote(false); };
-    document.getElementById("adminViaStops").appendChild(row);
+    row.className = "admin-stop-row";
+    row.dataset.stopKind = kind;
+    row.innerHTML = `<label>${kind === "pickup" ? "Additional Pickup" : "Additional Drop-off"} ${adminStopCounters[kind]}</label><input class="admin-stop-address" placeholder="Search address, postcode or place" autocomplete="off"><button type="button">Remove</button>`;
+    row.querySelector("button").onclick = () => { row.remove(); relabelAdminStops(kind); calculateRouteQuote(false); };
+    document.getElementById(kind === "pickup" ? "adminPickupStops" : "adminDropoffStops").appendChild(row);
+    relabelAdminStops(kind);
     if (window.google?.maps?.places) {
         const input = row.querySelector("input");
-        const autocomplete = new google.maps.places.Autocomplete(input, { componentRestrictions: { country: "gb" }, fields: ["formatted_address", "geometry", "place_id", "address_components"] });
-        autocomplete.addListener("place_changed", () => { const place = autocomplete.getPlace(); if (!place?.geometry?.location) return; input.value = place.formatted_address || ""; input.dataset.lat = place.geometry.location.lat(); input.dataset.lng = place.geometry.location.lng(); input.dataset.placeId = place.place_id || ""; input.dataset.postcode = (place.address_components || []).find(c => c.types.includes("postal_code"))?.long_name || ""; calculateRouteQuote(false); });
+        window.TransportAddressAutocomplete.attach(input,{onSelect:()=>calculateRouteQuote(false),onInput:scheduleRouteQuote});
     }
+}
+
+function relabelAdminStops(kind) {
+    const container = document.getElementById(kind === "pickup" ? "adminPickupStops" : "adminDropoffStops");
+    container?.querySelectorAll(".admin-stop-row").forEach((row,index) => {
+        const label=row.querySelector("label");
+        if(label) label.textContent=`${kind === "pickup" ? "Additional Pickup" : "Additional Drop-off"} ${index+1}`;
+    });
 }
 
 function collectAdminViaStops() {
-    return [...document.querySelectorAll("#adminViaStops .admin-via-address")].map((input, index) => ({ stop_order: index + 1, label: "Via", formatted_address: input.value.trim(), postcode: input.dataset.postcode || null, latitude: input.dataset.lat ? Number(input.dataset.lat) : null, longitude: input.dataset.lng ? Number(input.dataset.lng) : null, place_id: input.dataset.placeId || null })).filter(stop => stop.formatted_address);
+    const inputs = [...document.querySelectorAll("#adminPickupStops .admin-stop-address"), ...document.querySelectorAll("#adminDropoffStops .admin-stop-address")];
+    return inputs.map((input, index) => { const address=window.TransportAddressAutocomplete.metadata(input); const kind=input.closest(".admin-stop-row")?.dataset.stopKind; return { stop_order: index + 1, label: kind === "pickup" ? "Additional Pickup" : "Additional Drop-off", formatted_address: address.formattedAddress, postcode: address.postcode, latitude: address.latitude, longitude: address.longitude, place_id: address.placeId }; }).filter(stop => stop.formatted_address);
 }
 
 function scheduleRouteQuote() {
@@ -2137,7 +2024,8 @@ function estimateAdminFare(miles, origin, destination) {
         : null;
     if (airport) {
         const base = Number(passengers >= 5 ? airport.price_5_7_oneway : airport.price_1_4_oneway);
-        if (Number.isFinite(base)) return { fare: Math.round((base + settingNumber("bookingfee")) * 100) / 100, method: "Airport fixed" };
+        const viaTotal = collectAdminViaStops().length * Math.max(0, settingNumber("airportviasurcharge"));
+        if (Number.isFinite(base)) return { fare: Math.round((base + settingNumber("bookingfee") + viaTotal) * 100) / 100, method: "Airport fixed" };
     }
     if (quoteSettings.distancecalculator !== true) return { fare: null, method: "Pricing disabled" };
     const rates = [1,2,3,4,5,6].map(index => settingNumber(`mileband${index}`));
@@ -2325,6 +2213,10 @@ function canonicalPaymentMethod(value) {
 function accountBookingLabel(booking) {
     const account = allAccountCustomers.find(row => String(row.id) === String(booking.account_customer_id));
     return account ? `${account.account_code} — ${account.business_name}` : "Account customer";
+}
+
+function bookingAddressDisplay(detail,address) {
+    return [detail,address].map(value => String(value || "").trim()).filter(Boolean).join("\n") || "-";
 }
 
 function bookingPaymentClass(booking) {

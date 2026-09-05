@@ -223,10 +223,101 @@
 .google-calendar-banner a{
     white-space:nowrap;
 }
+.mobile-calendar{
+    display:none;
+}
+.mobile-calendar-weekdays,
+.mobile-calendar-grid{
+    display:grid;
+    grid-template-columns:repeat(7,minmax(0,1fr));
+}
+.mobile-calendar-weekdays span{
+    padding:4px 0 7px;
+    color:#64748b;
+    text-align:center;
+    font-size:11px;
+    font-weight:700;
+}
+.mobile-calendar-day{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-width:0;
+    min-height:0;
+    aspect-ratio:1;
+    padding:3px;
+    border:1px solid #e5e7eb;
+    border-radius:0;
+    background:#fff;
+    color:#1f2937;
+    font-size:13px;
+}
+.mobile-calendar-day.other-month{color:#94a3b8;background:#f8fafc}
+.mobile-calendar-day.today{box-shadow:inset 0 0 0 2px #2563eb}
+.mobile-calendar-day.selected{background:#334155;color:#fff;box-shadow:inset 0 0 0 2px #334155}
+.mobile-calendar-count{
+    position:absolute;
+    right:2px;
+    bottom:2px;
+    min-width:15px;
+    height:15px;
+    padding:0 3px;
+    border-radius:8px;
+    background:#2563eb;
+    color:#fff;
+    font-size:9px;
+    line-height:15px;
+    text-align:center;
+}
+.mobile-calendar-day.selected .mobile-calendar-count{background:#fff;color:#334155}
+.mobile-selected-jobs{margin-top:14px;border-top:1px solid #e5e7eb;padding-top:12px}
+.mobile-selected-jobs h3{margin:0 0 9px;font-size:15px}
+.mobile-calendar-job{
+    display:grid;
+    grid-template-columns:52px minmax(0,1fr);
+    width:100%;
+    min-height:0;
+    margin:0 0 7px;
+    padding:9px 10px;
+    border:1px solid #dbe3ec;
+    border-radius:9px;
+    background:#f8fafc;
+    color:#1f2937;
+    text-align:left;
+}
+.mobile-calendar-job-time{font-weight:800;color:#1d4ed8}
+.mobile-calendar-job-main{min-width:0}
+.mobile-calendar-route{display:block;overflow-wrap:anywhere;font-size:12px;line-height:1.35}
+.mobile-calendar-meta{display:block;margin-top:4px;color:#64748b;font-size:11px;line-height:1.3}
+.mobile-calendar-empty{margin:0;color:#64748b;font-size:13px}
 
 @media(max-width:700px){
     .detail-grid{grid-template-columns:1fr}
     .detail-item.wide{grid-column:auto}
+    .calendar-page-stats,.desktop-calendar-support{display:none}
+    .calendar-card{padding:10px;overflow:hidden}
+    .calendar-toolbar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:8px;gap:6px}
+    .calendar-toolbar-left,.calendar-toolbar-right{display:contents}
+    .calendar-toolbar h2{grid-column:1/-1;grid-row:1;min-width:0;font-size:17px;line-height:1.2;text-align:center}
+    #previousMonth{grid-column:1;grid-row:2}
+    #todayButton{grid-column:2;grid-row:2}
+    #nextMonth{grid-column:3;grid-row:2}
+    .calendar-toolbar button{width:100%;min-width:0;min-height:36px;padding:6px 4px;font-size:12px;white-space:nowrap}
+    .calendar-wrap{display:none}
+    .mobile-calendar{display:block;width:100%;min-width:0;overflow:hidden}
+    .mobile-calendar-weekdays,.mobile-calendar-grid{display:grid!important;grid-template-columns:repeat(7,minmax(0,44px))!important;justify-content:center;width:100%;min-width:0}
+    .mobile-calendar-weekdays span{padding:3px 0 5px;font-size:10px}
+    .mobile-calendar-day{display:flex!important;width:auto!important;max-width:none!important;min-width:0!important;min-height:0!important;aspect-ratio:1;padding:1px!important;border-color:#e8edf3;border-radius:4px;font-size:12px;line-height:1}
+    .mobile-calendar-count{right:2px;bottom:2px;min-width:13px;height:13px;padding:0 2px;font-size:8px;line-height:13px}
+    .mobile-selected-jobs{margin-top:9px;padding-top:9px}
+    .mobile-selected-jobs h3{margin-bottom:7px;font-size:14px}
+    .mobile-calendar-job{grid-template-columns:45px minmax(0,1fr);min-height:0!important;margin-bottom:6px;padding:7px 8px;font-size:12px}
+    .mobile-calendar-route{font-size:12px;line-height:1.25}
+    .mobile-calendar-meta{margin-top:3px;font-size:10px}
+    .google-calendar-banner{margin-top:14px;padding:11px 12px}
+    .google-calendar-banner a{white-space:normal}
+    .calendar-modal-header,.calendar-modal-body{padding:14px}
 }
 </style>
 </head>
@@ -261,14 +352,14 @@
 <button id="newBookingButton" type="button">+ New Booking</button>
 </div>
 
-<div class="stats">
+<div class="stats calendar-page-stats">
 <div class="card blue"><h3>Today's Jobs</h3><div class="stat" id="todayJobs">0</div></div>
 <div class="card green"><h3>Drivers Working</h3><div class="stat" id="driversWorking">0</div></div>
 <div class="card orange"><h3>Airport Runs</h3><div class="stat" id="airportRuns">0</div></div>
 <div class="card red"><h3>Unassigned</h3><div class="stat" id="unassignedJobs">0</div></div>
 </div>
 
-<div class="card">
+<div class="card calendar-card">
 <div class="calendar-toolbar">
 <div class="calendar-toolbar-left">
 <button id="previousMonth" type="button">◀ Previous</button>
@@ -299,6 +390,12 @@
 </table>
 </div>
 
+<div class="mobile-calendar" id="mobileCalendar">
+<div class="mobile-calendar-weekdays" aria-hidden="true"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+<div class="mobile-calendar-grid" id="mobileCalendarGrid"></div>
+<div class="mobile-selected-jobs"><h3 id="mobileSelectedDate">Selected date</h3><div id="mobileSelectedJobs"></div></div>
+</div>
+
 <div class="google-calendar-banner">
 <div>
 <strong>Google Calendar</strong>
@@ -308,7 +405,7 @@
 </div>
 </div>
 
-<div class="grid-2" style="margin-top:25px;">
+<div class="grid-2 desktop-calendar-support" style="margin-top:25px;">
 
 <div class="card">
 <h3>Today's Schedule</h3>

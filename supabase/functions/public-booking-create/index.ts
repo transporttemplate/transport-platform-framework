@@ -60,7 +60,7 @@ Deno.serve(async (request) => {
         "acceptadvancebookings", "bookwhileclosed", "timezone", "maxadvancedays", "minimumnotice",
         "returnbookings", "multiplestops", "allowcash", "enablecash", "allowcard", "enablestripe", "allowaccounts", "enableaccounts",
         "airportpricing", "distancecalculator", "allowairportoutsidearea", "minimumfare", "firstmile",
-        "mileband1", "mileband2", "mileband3", "mileband4", "mileband5", "mileband6", "bookingfee",
+        "mileband1", "mileband2", "mileband3", "mileband4", "mileband5", "mileband6", "bookingfee", "airportviasurcharge",
         "returndiscount", "googleroutesapi",
       ].join(",")).eq("company_id", companyId).maybeSingle(),
       db.from("service_areas").select("id,company_id,postcode_prefix,radius_miles,active")
@@ -138,7 +138,7 @@ Deno.serve(async (request) => {
       enforceAirportServiceArea(booking, airport!, areas || [], route);
     }
 
-    const pricing = calculatePrice({ settings, airport, mode, passengers: integer(booking.passengers), miles: route.miles, isReturn });
+    const pricing = calculatePrice({ settings, airport, mode, passengers: integer(booking.passengers), miles: route.miles, isReturn, viaCount: route.stops.length });
     const prices = splitPrice(pricing.total, isReturn);
 
     const name = clean(booking.customer_name);
@@ -398,15 +398,16 @@ async function verifiedLocation(source: Row | null, address: unknown, apiKey: st
   };
 }
 
-function calculatePrice(input: { settings: Row; airport: Row | null; mode: string; passengers: number; miles: number; isReturn: boolean }) {
-  const { settings, airport, mode, passengers, miles, isReturn } = input;
+function calculatePrice(input: { settings: Row; airport: Row | null; mode: string; passengers: number; miles: number; isReturn: boolean; viaCount: number }) {
+  const { settings, airport, mode, passengers, miles, isReturn, viaCount } = input;
   const uplift = passengers >= 5 ? Math.max(0, number(settings.bookingfee)) : 0;
   if (mode === "airport") {
     const size = passengers >= 5 ? "5_7" : "1_4";
     const trip = isReturn ? "return" : "oneway";
     const configured = number(airport?.[`price_${size}_${trip}`], NaN);
     if (!Number.isFinite(configured) || configured <= 0) throw new ApiError(400, "No fixed price is configured for this airport journey");
-    return { total: round2(configured * (1 + uplift / 100)), method: "Airport fixed price" };
+    const viaSurcharge = Math.max(0, number(settings.airportviasurcharge));
+    return { total: round2(configured * (1 + uplift / 100) + Math.max(0, viaCount) * viaSurcharge), method: "Airport fixed price" };
   }
 
   if (!Number.isFinite(miles) || miles <= 0) throw new ApiError(400, "A valid route distance is required");

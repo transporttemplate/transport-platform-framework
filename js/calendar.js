@@ -5,6 +5,7 @@ let calendarBookings = [];
 let calendarDrivers = [];
 let calendarSettings = {};
 let calendarCursor = new Date();
+let calendarSelectedDate = localDateKey(new Date());
 
 document.addEventListener("DOMContentLoaded", async () => {
     try {
@@ -33,6 +34,7 @@ function bindCalendarEvents() {
             calendarCursor.getMonth() - 1,
             1
         );
+        calendarSelectedDate = localDateKey(calendarCursor);
         await loadCalendarBookings();
         renderCalendarPage();
     });
@@ -43,12 +45,14 @@ function bindCalendarEvents() {
             calendarCursor.getMonth() + 1,
             1
         );
+        calendarSelectedDate = localDateKey(calendarCursor);
         await loadCalendarBookings();
         renderCalendarPage();
     });
 
     document.getElementById("todayButton")?.addEventListener("click", async () => {
         calendarCursor = new Date();
+        calendarSelectedDate = localDateKey(calendarCursor);
         await loadCalendarBookings();
         renderCalendarPage();
     });
@@ -136,9 +140,71 @@ async function loadCalendarBookings() {
 function renderCalendarPage() {
     renderMonthTitle();
     renderMonthGrid();
+    renderMobileCalendar();
     renderStats();
     renderTodaySchedule();
     renderUpcoming();
+}
+
+function renderMobileCalendar() {
+    const grid = document.getElementById("mobileCalendarGrid");
+    if (!grid) return;
+    const monthStart = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(), 1);
+    const gridStart = startOfCalendarGrid(monthStart);
+    const todayKey = localDateKey(new Date());
+    let html = "";
+
+    const monthEnd = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + 1, 0);
+    const occupiedDays = Math.round((new Date(monthEnd.getFullYear(), monthEnd.getMonth(), monthEnd.getDate() + 1) - gridStart) / 86400000);
+    const visibleDays = Math.ceil(occupiedDays / 7) * 7;
+
+    for (let offset = 0; offset < visibleDays; offset++) {
+        const date = new Date(gridStart);
+        date.setDate(gridStart.getDate() + offset);
+        const key = localDateKey(date);
+        const count = calendarBookings.filter(booking => booking.journey_date === key).length;
+        const classes = ["mobile-calendar-day"];
+        if (date.getMonth() !== calendarCursor.getMonth()) classes.push("other-month");
+        if (key === todayKey) classes.push("today");
+        if (key === calendarSelectedDate) classes.push("selected");
+        html += `<button type="button" class="${classes.join(" ")}" data-mobile-calendar-date="${key}" aria-label="${escapeHtml(formatDate(key))}${count ? `, ${count} job${count === 1 ? "" : "s"}` : ""}"><span>${date.getDate()}</span>${count ? `<span class="mobile-calendar-count">${count}</span>` : ""}</button>`;
+    }
+
+    grid.innerHTML = html;
+    grid.querySelectorAll("[data-mobile-calendar-date]").forEach(button => {
+        button.addEventListener("click", () => {
+            calendarSelectedDate = button.dataset.mobileCalendarDate;
+            renderMobileCalendar();
+        });
+    });
+    renderMobileSelectedJobs();
+}
+
+function renderMobileSelectedJobs() {
+    const title = document.getElementById("mobileSelectedDate");
+    const area = document.getElementById("mobileSelectedJobs");
+    if (!title || !area) return;
+    title.textContent = new Date(`${calendarSelectedDate}T12:00:00`).toLocaleDateString("en-GB", {
+        weekday: "long", day: "numeric", month: "long"
+    });
+    const rows = calendarBookings.filter(booking => booking.journey_date === calendarSelectedDate).sort(compareBookings);
+    if (!rows.length) {
+        area.innerHTML = '<p class="mobile-calendar-empty">No jobs for this date.</p>';
+        return;
+    }
+    area.innerHTML = rows.map(booking => `
+        <button type="button" class="mobile-calendar-job" data-calendar-booking="${escapeHtml(booking.id)}">
+            <span class="mobile-calendar-job-time">${escapeHtml(formatTime(booking.journey_time))}</span>
+            <span class="mobile-calendar-job-main">
+                <strong class="mobile-calendar-route">${escapeHtml(booking.pickup_address || booking.pickup || "-")} → ${escapeHtml(booking.dropoff_address || booking.destination || "-")}</strong>
+                <span class="mobile-calendar-meta">${escapeHtml(booking.customer_name || booking.full_name || "Customer")} · ${escapeHtml(driverLabel(booking.driver_id))}</span>
+                <span class="mobile-calendar-meta">${escapeHtml(prettyStatus(booking.status || "waiting"))}${booking.booking_reference ? ` · ${escapeHtml(booking.booking_reference)}` : ""}</span>
+            </span>
+        </button>
+    `).join("");
+    area.querySelectorAll("[data-calendar-booking]").forEach(button => {
+        button.addEventListener("click", () => openCalendarBooking(button.dataset.calendarBooking));
+    });
 }
 
 function renderMonthTitle() {

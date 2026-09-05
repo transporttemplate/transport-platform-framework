@@ -29,7 +29,7 @@
 .bookings-page .main{min-width:0}
 .dispatch-grid{
     display:grid;
-    grid-template-columns:370px minmax(0,1fr);
+    grid-template-columns:390px minmax(0,1fr);
     gap:12px;
 }
 .dispatch-panel,
@@ -39,18 +39,18 @@
     border:1px solid #d9dee7;
     border-radius:10px;
 }
-.dispatch-panel{padding:12px;background:#e2e6eb;border-color:#c5ccd5}
+.dispatch-panel{padding:10px;background:#e2e6eb;border-color:#c5ccd5}
 .map-panel{background:#dde2e7;border-color:#c5ccd5;overflow:hidden}
 
-.job-form{display:grid;gap:6px}
+.job-form{display:grid;gap:5px}
 .job-form input,
 .job-form select,
 .job-form textarea{
     width:100%;
     box-sizing:border-box;
-    min-height:38px;
+    min-height:36px;
     margin:0;
-    padding:8px 9px;
+    padding:7px 8px;
     border:1px solid #cdd5df;
     border-radius:6px;
 }
@@ -65,6 +65,17 @@
     color:#64748b;
     margin-top:3px;
 }
+.admin-location-group{padding:8px;border:1px solid #c8d0da;border-radius:7px;background:#edf0f3}
+.admin-location-title{margin-bottom:4px;font-size:12px;font-weight:800;color:#475569}
+.admin-location-group label{display:block;margin:3px 0;font-size:11px;color:#475569}
+.admin-location-group input{margin-bottom:5px}
+.admin-location-group .admin-property-detail{min-height:32px;font-size:12px}
+.admin-add-stop{min-height:32px;padding:5px 8px;font-size:12px}
+.admin-extra-stops{margin-top:4px}
+.admin-stop-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px;align-items:end;padding-top:5px;margin-top:5px;border-top:1px solid #cbd5e1}
+.admin-stop-row label{grid-column:1/-1;margin:0}
+.admin-stop-row input{margin:0}
+.admin-stop-row button{min-height:32px;padding:5px 7px;font-size:11px;background:#fff;color:#b91c1c;border:1px solid #fecaca}
 
 #dispatchMap{
     width:100%;
@@ -105,7 +116,7 @@
     width:100%;
     font-size:13px;
 }
-.jobs-panel th,.jobs-panel td{padding:6px 8px;line-height:1.25}
+.jobs-panel th,.jobs-panel td{padding:4px 6px;line-height:1.18}
 .jobs-panel tbody tr{transition:filter .15s ease,box-shadow .15s ease}
 .jobs-panel tbody tr:hover{filter:brightness(.96);box-shadow:inset 0 1px rgba(15,23,42,.12),inset 0 -1px rgba(15,23,42,.12)}
 .jobs-panel tr.payment-account,.jobs-panel tr.payment-account td:last-child{background:#f1e9ff}
@@ -164,11 +175,14 @@
 }
 .booking-driver-select{
     min-width:180px;
-    padding:7px;
+    min-height:30px;
+    padding:4px 5px;
     border:1px solid #cdd5df;
     border-radius:6px;
     background:#fff;
 }
+.booking-actions{display:flex;gap:4px;flex-wrap:nowrap}
+.booking-actions button{min-height:29px;padding:4px 7px;border-radius:5px;font-size:11px}
 .route-quote{
     display:grid;
     grid-template-columns:repeat(3,minmax(0,1fr)) auto;
@@ -302,11 +316,24 @@
 @media(max-width:700px){
     .two-col{grid-template-columns:1fr}
     .dispatch-panel{padding:10px}
+    .admin-stop-row{grid-template-columns:minmax(0,1fr) auto}
     #dispatchMap{height:210px}
     .route-quote{grid-template-columns:1fr 1fr}.route-quote button{width:100%}
     .booking-toolbar{align-items:stretch}.booking-toolbar label{flex:1 1 140px}.booking-toolbar button{width:100%}
     .booking-detail-grid{grid-template-columns:1fr}
     .booking-detail-item.wide{grid-column:auto}
+    .jobs-table-scroll{overflow:visible}
+    .jobs-panel table,.jobs-panel tbody,.jobs-panel tr,.jobs-panel td{display:block;width:100%;min-width:0}
+    .jobs-panel thead{display:none}
+    .jobs-panel tbody{padding:8px}
+    .jobs-panel tbody tr{margin-bottom:9px;padding:8px;border:1px solid #d8dee7;border-radius:8px;box-shadow:0 2px 7px rgba(15,23,42,.06)}
+    .jobs-panel td{position:static!important;display:grid!important;grid-template-columns:92px minmax(0,1fr);gap:7px;padding:4px!important;border:0!important;background:transparent!important;box-shadow:none!important;white-space:normal}
+    .jobs-panel td::before{content:attr(data-label);font-size:11px;font-weight:700;color:#64748b}
+    .booking-driver-select{width:100%;min-width:0}
+    .booking-actions{flex-wrap:wrap}
+    .booking-actions button{flex:1 1 70px;min-height:36px}
+    .jobs-panel td.empty-row{display:block!important;padding:18px!important}
+    .jobs-panel td.empty-row::before{content:none!important}
 }
 </style>
 </head>
@@ -373,18 +400,8 @@
 
 <div class="form-heading">JOURNEY</div>
 
-<div class="two-col">
-<input id="pickupName" placeholder="Pickup name (optional)">
-<input id="pickupPostcode" placeholder="Pickup postcode (optional)">
-</div>
-<input id="pickupAddress" required placeholder="Pickup address" autocomplete="off">
-<div class="two-col">
-<input id="dropoffName" placeholder="Destination name (optional)">
-<input id="dropoffPostcode" placeholder="Destination postcode (optional)">
-</div>
-<input id="dropoffAddress" required placeholder="Destination" autocomplete="off">
-<div id="adminViaStops"></div>
-<button id="addAdminVia" type="button">+ Add Via</button>
+<div class="admin-location-group"><div class="admin-location-title">PICKUP</div><label for="pickupName">Property/detail <small>(optional)</small></label><input id="pickupName" class="admin-property-detail" placeholder="House, flat, unit or reception"><label for="pickupAddress">Pickup address</label><input id="pickupAddress" required placeholder="Search address, postcode or place" autocomplete="off"><button id="addAdminPickup" class="admin-add-stop" type="button">+ Add pickup</button><div id="adminPickupStops" class="admin-extra-stops"></div></div>
+<div class="admin-location-group"><div class="admin-location-title">DROP-OFF</div><label for="dropoffName">Property/detail <small>(optional)</small></label><input id="dropoffName" class="admin-property-detail" placeholder="House, flat, unit or reception"><label for="dropoffAddress">Drop-off address</label><input id="dropoffAddress" required placeholder="Search address, postcode or place" autocomplete="off"><button id="addAdminDropoff" class="admin-add-stop" type="button">+ Add drop-off</button><div id="adminDropoffStops" class="admin-extra-stops"></div></div>
 
 <div class="two-col">
 <input id="journeyDate" type="date" required>
@@ -803,6 +820,7 @@ Loading bookings…
 <script src="js/supabase.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/admin.js"></script>
+<script src="js/address-autocomplete.js"></script>
 <script src="js/bookings.js"></script>
 
 </body>
