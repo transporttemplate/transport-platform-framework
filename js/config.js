@@ -1,9 +1,19 @@
 (function initialisePublicCompanyConfig() {
     const existingConfig = window.PUBLIC_COMPANY_CONFIG || {};
 
+    const defaultHostnameCompanyCodes = {
+        "transport-platform-framework.vercel.app": "0001",
+        "etbm.co.uk": "0002",
+        "www.etbm.co.uk": "0002"
+    };
+
     window.PUBLIC_COMPANY_CONFIG = {
         defaultCompanyCode: "0001",
-        ...existingConfig
+        ...existingConfig,
+        hostnameCompanyCodes: {
+            ...defaultHostnameCompanyCodes,
+            ...(existingConfig.hostnameCompanyCodes || {})
+        }
     };
 
     window.APP_CONFIG = window.APP_CONFIG || {
@@ -36,28 +46,30 @@
         return "";
     }
 
-    function codeFromHostname() {
-        const hostname = window.location.hostname.toLowerCase();
+    function normalHostname(value) {
+        return String(value || "").trim().toLowerCase().replace(/\.$/, "");
+    }
 
+    function codeFromHostname() {
+        const hostname = normalHostname(window.location.hostname);
+        const configured = window.PUBLIC_COMPANY_CONFIG.hostnameCompanyCodes || {};
+        const mappedCode = cleanCompanyCode(configured[hostname]);
+        if (mappedCode) return mappedCode;
         if (!hostname || hostname === "localhost" || hostname.endsWith(".localhost") ||
             hostname.endsWith(".github.io") || /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)) {
-            return "";
+            return cleanCompanyCode(window.PUBLIC_COMPANY_CONFIG.defaultCompanyCode);
         }
-
-        const labels = hostname.split(".");
-        if (labels.length < 3 || labels[0] === "www") return "";
-        return cleanCompanyCode(labels[0]);
+        return "";
     }
 
     function resolvePublicCompanyCode() {
         const params = new URLSearchParams(window.location.search);
         const candidates = [
-            [window.PUBLIC_COMPANY_CONFIG.companyCode, "runtime config"],
-            [document.querySelector('meta[name="public-company-code"]')?.content, "page config"],
             [params.get("company") || params.get("company_code"), "URL query"],
             [codeFromPath(), "URL slug"],
-            [codeFromHostname(), "hostname"],
-            [window.PUBLIC_COMPANY_CONFIG.defaultCompanyCode, "default fallback"]
+            [window.PUBLIC_COMPANY_CONFIG.companyCode, "runtime config"],
+            [document.querySelector('meta[name="public-company-code"]')?.content, "page config"],
+            [codeFromHostname(), "hostname"]
         ];
 
         for (const [candidate, source] of candidates) {
@@ -68,17 +80,36 @@
         return { companyCode: "", source: "unresolved" };
     }
 
+    async function codeFromDomainMapping(db) {
+        const hostname = normalHostname(window.location.hostname);
+        if (!hostname) return "";
+        const { data, error } = await db.from("company_domains")
+            .select("company_id,companies!inner(company_code)")
+            .eq("hostname", hostname)
+            .eq("active", true)
+            .maybeSingle();
+        if (error) {
+            console.warn("Company domain mapping is unavailable for this hostname.", { code: error.code || "unknown" });
+            return "";
+        }
+        return cleanCompanyCode(data?.companies?.company_code);
+    }
+
     async function loadCompanyConfig() {
         if (companyPromise) return companyPromise;
 
         companyPromise = (async () => {
-            const resolution = resolvePublicCompanyCode();
+            let resolution = resolvePublicCompanyCode();
+            const db = getSupabase();
+            if (!resolution.companyCode) {
+                const mappedCode = await codeFromDomainMapping(db);
+                if (mappedCode) resolution = { companyCode: mappedCode, source: "domain mapping" };
+            }
             if (!resolution.companyCode) {
                 console.error("No public company code could be resolved.");
                 return null;
             }
 
-            const db = getSupabase();
             const { data, error } = await db
                 .from("companies")
                 .select("id, company_code, name, trading_name")

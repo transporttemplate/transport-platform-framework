@@ -25,7 +25,10 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        window.location.href = "dashboard.html";
+        const requestedCompany=String(new URLSearchParams(window.location.search).get("company")||"").trim();
+        const destination=new URL("dashboard.html",window.location.href);
+        if(/^[a-z0-9_-]+$/i.test(requestedCompany))destination.searchParams.set("company",requestedCompany);
+        window.location.href=`dashboard.html${destination.search}${destination.hash}`;
 
     });
 

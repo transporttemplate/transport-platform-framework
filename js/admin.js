@@ -1,7 +1,66 @@
 document.addEventListener("DOMContentLoaded", async () => {
     initialiseAdminNavigation();
+    const context = await window.getAdminCompanyContext?.();
+    if (context) {
+        ensureAdminCompanyQuery(context.company?.company_code);
+        preserveAdminCompanyLinks(context.company?.company_code);
+        initialiseAdminCompanySwitcher(context);
+    }
     await loadAdminCompanyTheme();
 });
+
+function ensureAdminCompanyQuery(companyCode) {
+    if (!companyCode || new URLSearchParams(location.search).get("company")) return;
+    const url = new URL(location.href);
+    url.searchParams.set("company", companyCode);
+    history.replaceState(null, "", url);
+}
+
+function preserveAdminCompanyLinks(companyCode) {
+    if (!companyCode) return;
+    const updateLink = link => {
+        const href = link.getAttribute("href") || "";
+        if (!href || href.startsWith("#") || /^(mailto:|tel:|javascript:)/i.test(href)) return;
+        const url = new URL(href, location.href);
+        if (url.origin !== location.origin || !/\.html$/i.test(url.pathname)) return;
+        url.searchParams.set("company", companyCode);
+        link.href = `${url.pathname.split("/").pop()}${url.search}${url.hash}`;
+    };
+    document.querySelectorAll("a[href]").forEach(updateLink);
+    document.addEventListener("click", event => {
+        const link = event.target.closest?.("a[href]");
+        if (link) updateLink(link);
+    }, true);
+}
+
+function initialiseAdminCompanySwitcher(context) {
+    const topbar = document.querySelector(".topbar, .invoice-actions");
+    const memberships = context.memberships || [];
+    if (!topbar || !memberships.length || document.getElementById("adminCompanySwitcher")) return;
+    const wrapper = document.createElement("label");
+    wrapper.className = "admin-company-switcher";
+    wrapper.textContent = "Company";
+    const select = document.createElement("select");
+    select.id = "adminCompanySwitcher";
+    select.setAttribute("aria-label", "Active company");
+    for (const membership of memberships) {
+        const company = membership.companies || {};
+        const option = document.createElement("option");
+        option.value = company.company_code;
+        option.textContent = company.company_code === "0001"
+            ? "Template / 0001"
+            : `${company.trading_name || company.name || "Company"} / ${company.company_code}`;
+        option.selected = String(membership.company_id) === String(context.companyId);
+        select.appendChild(option);
+    }
+    select.addEventListener("change", () => {
+        const url = new URL(location.href);
+        url.searchParams.set("company", select.value);
+        location.href = url.href;
+    });
+    wrapper.appendChild(select);
+    topbar.appendChild(wrapper);
+}
 
 function initialiseAdminNavigation() {
     const sidebar = document.querySelector(".sidebar");

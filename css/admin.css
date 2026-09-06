@@ -148,6 +148,8 @@ button{
 
 .menu-toggle{display:none;font-size:22px;padding:8px 13px;flex:0 0 auto}
 .topbar-left{display:flex;align-items:center;gap:14px;min-width:0}
+.admin-company-switcher{display:grid;gap:4px;min-width:220px;color:#475569;font-size:12px;font-weight:700}
+.admin-company-switcher select{min-height:42px;margin:0;padding:8px 34px 8px 10px;background:#fff;color:var(--text);font-size:14px}
 .overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:999}
 .table-wrap,.table-responsive{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
 .card{min-width:0;overflow-wrap:anywhere}
@@ -233,6 +235,7 @@ input,select,textarea{
     .topbar{padding:14px;gap:12px;align-items:stretch;flex-direction:column}
     .topbar-left{align-items:flex-start}
     .topbar h2{font-size:1.25rem;line-height:1.25}
+    .admin-company-switcher{width:100%;min-width:0}
     .card{padding:16px;border-radius:11px}
     .grid-2,.theme-settings-grid{grid-template-columns:minmax(0,1fr)}
     input,select,textarea,button{font-size:16px;min-height:44px}
