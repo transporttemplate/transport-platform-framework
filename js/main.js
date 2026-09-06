@@ -54,12 +54,37 @@ function applyCompanyInformation({ company, settings }) {
     setTextIfValue("footerCompany", displayName);
 
     renderCompanyLogo(settings.companylogo, displayName);
+    applyCompanyPublicImages(settings);
 
     setCssVariableIfValue("--primary", settings.primarycolour || settings.primary_color);
     setCssVariableIfValue("--secondary", settings.secondarycolour || settings.secondary_color);
     setCssVariableIfValue("--accent", settings.accentcolour || settings.accent_color);
     setCssVariableIfValue("--button", settings.buttoncolour || settings.button_color);
     setCssVariableIfValue("--button-text", settings.buttontextcolour || settings.button_text_color);
+}
+
+function applyCompanyPublicImages(settings) {
+    setPublicHeroImage("homeHero", settings.homeheroimage);
+    const bookingHero = document.getElementById("bookingHero");
+    if (setPublicHeroImage("bookingHero", settings.bookingheroimage) && bookingHero) bookingHero.classList.add("has-company-image");
+    const fleet = document.getElementById("fleetImage");
+    const fleetUrl = safePublicImageUrl(settings.fleetimage);
+    if (fleet && fleetUrl) fleet.src = fleetUrl;
+}
+
+function setPublicHeroImage(id, value) {
+    const element = document.getElementById(id);
+    const url = safePublicImageUrl(value);
+    if (!element || !url) return false;
+    element.style.backgroundImage = `linear-gradient(rgba(0,0,0,.48),rgba(0,0,0,.48)),url("${url.replaceAll('"', '%22')}")`;
+    return true;
+}
+
+function safePublicImageUrl(value) {
+    try {
+        const url = new URL(String(value || ""), window.location.href);
+        return ["https:", "http:"].includes(url.protocol) ? url.href : "";
+    } catch { return ""; }
 }
 
 function renderCompanyLogo(logoUrl, displayName) {

@@ -1,6 +1,8 @@
 /* Booking page */
 .booking-page{padding:20px 0 60px}
 .booking-hero{text-align:center;padding:32px 0 15px}
+.booking-hero.has-company-image{padding:54px 0;background-position:center;background-size:cover;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7)}
+.booking-hero.has-company-image h2,.booking-hero.has-company-image p{color:#fff}
 .booking-shell{max-width:940px;margin:auto}
 
 .booking-progress{display:flex;align-items:center;justify-content:center;margin-bottom:18px;overflow:auto}

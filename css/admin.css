@@ -155,6 +155,16 @@ button{
 .card{min-width:0;overflow-wrap:anywhere}
 
 .company-theme-card{margin-top:25px}
+.company-media-settings{display:grid;gap:6px;margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
+.company-media-settings h3{margin:0 0 6px}
+.company-media-preview{display:flex;align-items:center;justify-content:center;min-height:100px;padding:8px;border:1px dashed var(--border);border-radius:10px;background:#f8fafc;color:#64748b;text-align:center}
+.company-media-preview img{display:block;max-width:100%;max-height:130px;object-fit:cover;border-radius:7px}
+.dashboard-update-notice{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:20px;border-left:5px solid var(--admin-primary)}
+.dashboard-update-notice p{margin-top:4px;color:#64748b}
+.dashboard-update-link{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:8px 15px;border-radius:9px;background:var(--admin-button);color:var(--admin-button-text);font-weight:700;text-decoration:none;white-space:nowrap}
+.dashboard-map{width:100%;height:260px;border-radius:10px;background:#e2e8f0}
+.dashboard-map-message,.dashboard-table-message{padding:20px;text-align:center;color:#64748b}
+.dashboard-journey{max-width:420px;white-space:normal;overflow-wrap:anywhere}
 .theme-settings-grid{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:12px 20px}
 .theme-settings-grid input[type="color"]{height:48px;padding:4px;cursor:pointer}
 .company-theme-preview{--preview-primary:#37d4d4;--preview-secondary:#111111;--preview-accent:#d71a1a;--preview-button:#37d4d4;--preview-button-text:#111111;--preview-sidebar:#1f2937;display:grid;grid-template-columns:130px 1fr;min-height:150px;margin-top:12px;border:1px solid var(--border);border-top:6px solid var(--preview-accent);border-radius:12px;overflow:hidden;background:var(--preview-secondary)}
@@ -236,6 +246,9 @@ input,select,textarea{
     .topbar-left{align-items:flex-start}
     .topbar h2{font-size:1.25rem;line-height:1.25}
     .admin-company-switcher{width:100%;min-width:0}
+    .dashboard-update-notice{align-items:stretch;flex-direction:column}
+    .dashboard-update-link{width:100%}
+    .dashboard-map{height:220px}
     .card{padding:16px;border-radius:11px}
     .grid-2,.theme-settings-grid{grid-template-columns:minmax(0,1fr)}
     input,select,textarea,button{font-size:16px;min-height:44px}

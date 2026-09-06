@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Platform Updates</title>
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+<div class="overlay" id="overlay"></div>
+<div class="admin-layout">
+<aside class="sidebar" id="sidebar">
+<h2>Transport Admin</h2>
+<a href="dashboard.html">🏠 Dashboard</a>
+<a href="bookings.html">📖 Bookings</a>
+<a href="customers.html">👥 Customers</a>
+<a href="drivers.html">🚖 Drivers</a>
+<a href="availability.html">🟢 Availability</a>
+<a href="accounts.html">💷 Finance</a>
+<a href="calendar.html">📅 Calendar</a>
+<a href="reports.html">📊 Reports</a>
+<a href="email-templates.html">📧 Email Templates</a>
+<a href="settings.html">⚙️ Settings</a>
+</aside>
+<main class="main">
+<div class="topbar"><div class="topbar-left"><button class="menu-toggle" id="menuToggle" type="button">☰</button><div><h2>Platform Updates</h2><small>Latest improvements and operational notes</small></div></div></div>
+<p style="margin-bottom:20px"><a href="dashboard.html">← Back to Dashboard</a></p>
+<article class="card">
+<p class="muted">6 September 2026</p>
+<h3>Multi-company platform update</h3>
+<p>Company switching, custom-domain preparation, transactional booking emails and company media controls are being prepared for the next platform release.</p>
+<p style="margin-top:12px">No action is required unless the platform builder has contacted your company with specific setup steps.</p>
+</article>
+</main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>

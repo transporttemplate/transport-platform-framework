@@ -105,6 +105,11 @@
 
 </div>
 
+<div class="card dashboard-update-notice">
+<div><strong>New platform update available</strong><p>Review the latest platform improvements and operational notes.</p></div>
+<a class="dashboard-update-link" href="platform-updates.html">View update</a>
+</div>
+
 <div class="grid-2">
 
 <div class="card">
@@ -143,6 +148,12 @@ Loading...
 </div>
 
 <div>
+
+<div class="card dashboard-map-card" style="margin-bottom:20px;">
+<h3>Driver Map</h3>
+<div id="dashboardMap" class="dashboard-map" hidden></div>
+<p id="dashboardMapMessage" class="dashboard-map-message">Loading map configuration…</p>
+</div>
 
 <div class="card" style="margin-bottom:20px;">
 
@@ -191,6 +202,7 @@ Loading...
 <script src="js/supabase.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/admin.js"></script>
+<script src="js/address-autocomplete.js"></script>
 <script src="js/dashboard.js"></script>
 
 </body>
