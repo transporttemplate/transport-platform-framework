@@ -75,6 +75,20 @@
 
 .final-price-card{background:var(--secondary);color:#fff;padding:18px;border-radius:12px;margin-top:14px;border-top:4px solid var(--accent)}
 .final-price-card strong{display:block;font-size:34px;margin:5px 0}
+.stripe-payment-panel{margin-top:14px;padding:14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff}
+#stripePaymentMessage{margin-top:9px;color:#b91c1c;font-size:13px}
+.payment-confirmation{max-width:680px;margin:0 auto;padding:30px;text-align:center;border:1px solid color-mix(in srgb,var(--primary) 45%,#d1d5db);border-radius:16px;background:linear-gradient(180deg,color-mix(in srgb,var(--primary) 9%,#fff),#fff 42%);box-shadow:0 14px 38px rgba(15,23,42,.1)}
+.payment-success-icon{display:grid;place-items:center;width:72px;height:72px;margin:0 auto 16px;border-radius:50%;background:var(--primary);color:var(--button-text)!important;font-size:42px;font-weight:900;line-height:1}
+.payment-confirmation h2{margin:4px 0 8px;font-size:clamp(1.55rem,5vw,2.15rem)}
+.payment-confirmation-lead{margin:0 0 20px;font-size:1.08rem;font-weight:700}
+.payment-confirmation-details{margin:0;text-align:left;border:1px solid #e2e8f0;border-radius:12px;background:#fff;overflow:hidden}
+.payment-confirmation-details div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;padding:12px 14px;border-bottom:1px solid #e2e8f0}
+.payment-confirmation-details div:last-child{border-bottom:0}
+.payment-confirmation-details dt{color:#64748b;font-weight:600;overflow-wrap:anywhere}
+.payment-confirmation-details dd{margin:0;color:#111827;font-weight:800;text-align:right;overflow-wrap:anywhere}
+.payment-confirmation-note{max-width:52ch;margin:18px auto 0;color:#475569;line-height:1.55}
+.payment-confirmation-actions{display:flex;justify-content:center;gap:10px;margin-top:22px}
+.payment-confirmation-actions a{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;min-height:46px;text-decoration:none}
 
 /* VISIBILITY FIXES */
 .booking-step,
@@ -146,4 +160,5 @@
     .route-map{height:210px}.route-stats{grid-template-columns:1fr}.route-stats div{border-bottom:1px solid #ddd}
     .step-actions{flex-direction:column-reverse}.step-actions>button{width:100%}.step-actions>span{display:none}
     .review-row{grid-template-columns:1fr;gap:2px}.final-price-card strong{font-size:28px}
+    .payment-confirmation{padding:24px 14px}.payment-success-icon{width:62px;height:62px;font-size:36px}.payment-confirmation-details div{grid-template-columns:1fr;gap:3px}.payment-confirmation-details dd{text-align:left}.payment-confirmation-actions{flex-direction:column}.payment-confirmation-actions a{width:100%}
 }

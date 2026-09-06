@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/booking.css">
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="https://js.stripe.com/v3/"></script>
 <script defer src="js/supabase.js"></script>
 <script defer src="js/config.js"></script>
 <script defer src="js/google-tags.js"></script>
@@ -114,6 +115,7 @@
 <div class="field full"><label for="customerEmail">Email address</label><input id="customerEmail" type="email" placeholder="Enter your email address"></div>
 <div class="field full"><label for="notes">Notes</label><textarea id="notes" rows="4" placeholder="Flight details, pickup instructions or anything else we should know"></textarea></div>
 <div class="field full"><label for="paymentMethod">Payment method</label><select id="paymentMethod"><option value="Pay Now">Pay Now</option><option value="Pay in Car">Pay in Car</option></select></div>
+<div id="airportPaymentNotice" class="field full notice-box" hidden>Online payment is required for this airport pickup.</div>
 <div class="field full notice-box" id="accountValidation" hidden>
 <strong>Account validation</strong>
 <p>Enter your account code and either the authorised email or billing postcode registered on the account.</p>
@@ -129,10 +131,32 @@
 </section>
 
 <section class="booking-step" data-step="5">
+<div id="bookingCheckoutContent">
 <div class="step-heading"><p class="eyebrow">Step 5 of 5</p><h2>Review & book</h2><p>Check everything before confirming.</p></div>
 <div id="bookingSummary" class="review-card"></div>
 <div class="final-price-card"><span>Total fare</span><strong id="finalPrice">—</strong><small>Price based on the journey details provided.</small></div>
-<div class="step-actions"><button type="button" class="secondary-btn" data-back="4">Back</button><button type="submit" class="primary-btn">Confirm Booking</button></div>
+<div id="paymentBreakdown" class="notice-box" hidden></div>
+<div id="stripePaymentPanel" class="stripe-payment-panel" hidden><div id="stripePaymentElement"></div><div id="stripePaymentMessage" role="status"></div></div>
+<div class="step-actions"><button type="button" class="secondary-btn" data-back="4">Back</button><button id="confirmBookingButton" type="submit" class="primary-btn">Confirm Booking</button></div>
+</div>
+<section id="bookingPaymentConfirmation" class="payment-confirmation" aria-live="polite" hidden>
+<div class="payment-success-icon" aria-hidden="true">✓</div>
+<p class="eyebrow">Booking received</p>
+<h2>Thank you for your booking</h2>
+<p id="paymentConfirmationLead" class="payment-confirmation-lead">Your payment was successful.</p>
+<dl class="payment-confirmation-details">
+<div><dt>Booking reference</dt><dd id="confirmationReference">—</dd></div>
+<div><dt>Journey total</dt><dd id="confirmationJourneyTotal">—</dd></div>
+<div><dt id="confirmationPaidLabel">Amount paid</dt><dd id="confirmationAmountPaid">—</dd></div>
+<div><dt>Balance remaining</dt><dd id="confirmationBalance">—</dd></div>
+<div id="confirmationEmailRow"><dt>Confirmation email</dt><dd id="confirmationEmail">—</dd></div>
+</dl>
+<p class="payment-confirmation-note">Your secure payment has been submitted. Your booking confirmation will be sent separately.</p>
+<div class="payment-confirmation-actions">
+<a id="confirmationHomeLink" class="primary-btn" href="index.html">Return Home</a>
+<a id="confirmationAnotherLink" class="secondary-btn" href="booking.html">Make another booking</a>
+</div>
+</section>
 </section>
 </form>
 </div></div></main>

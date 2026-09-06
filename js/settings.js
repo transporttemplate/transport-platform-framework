@@ -278,6 +278,18 @@ async function saveSettings() {
         }
     });
 
+    const stripeEnabledInput = document.getElementById("enableStripe");
+    const stripePublishableInput = document.getElementById("stripePublishableKey");
+    if (stripeEnabledInput && stripePublishableInput) {
+        const publishableKey = stripePublishableInput.value.trim();
+        if (stripeEnabledInput.checked && !publishableKey.startsWith("pk_test_")) {
+            alert("Enable Stripe requires a valid Stripe test publishable key beginning pk_test_.");
+            stripePublishableInput.focus();
+            return;
+        }
+        settings.stripepublishablekey = publishableKey || null;
+    }
+
     const closureCheckbox = document.getElementById("acceptAdvanceBookings") || document.getElementById("bookWhileClosed");
     if (closureCheckbox) {
         settings.acceptadvancebookings = closureCheckbox.checked;
@@ -295,12 +307,13 @@ async function saveSettings() {
         return;
     }
 
+    const savedColumns = ["id", "company_id", ...Object.keys(settings)];
     const result = await db
         .from("settings")
         .update(settings)
         .eq("id", settingsRowId)
         .eq("company_id", settingsCompanyId)
-        .select("id,company_id,companyname,tradingname,companyphone,companyemail,companyaddress,companylogo")
+        .select([...new Set(savedColumns)].join(","))
         .maybeSingle();
 
     if (result.error) {
@@ -315,6 +328,14 @@ async function saveSettings() {
             returned_company_id: result.data?.company_id || null
         });
         alert("Settings were not saved. Your account may not have permission to update this company.");
+        return;
+    }
+
+    if (stripeEnabledInput && (
+        result.data.enablestripe !== settings.enablestripe ||
+        (result.data.stripepublishablekey || null) !== settings.stripepublishablekey
+    )) {
+        alert("Stripe settings were not saved as entered. Please refresh and try again.");
         return;
     }
 

@@ -61,7 +61,7 @@ Deno.serve(async (request) => {
         "returnbookings", "multiplestops", "allowcash", "enablecash", "allowcard", "enablestripe", "allowaccounts", "enableaccounts",
         "airportpricing", "distancecalculator", "allowairportoutsidearea", "minimumfare", "firstmile",
         "mileband1", "mileband2", "mileband3", "mileband4", "mileband5", "mileband6", "bookingfee", "airportviasurcharge",
-        "returndiscount", "googleroutesapi",
+        "returndiscount", "requiredeposit", "airportdepositrequired", "depositpercent", "stripepublishablekey", "googleroutesapi",
       ].join(",")).eq("company_id", companyId).maybeSingle(),
       db.from("service_areas").select("id,company_id,postcode_prefix,radius_miles,active")
         .eq("company_id", companyId).eq("active", true),
@@ -108,13 +108,13 @@ Deno.serve(async (request) => {
       const airportName = clean(booking.airport);
       if (!airportName) throw new ApiError(400, "A valid airport is required");
       let { data, error } = await db.from("airports")
-        .select("id,company_id,name,code,active,price_1_4_oneway,price_1_4_return,price_5_7_oneway,price_5_7_return")
+        .select("id,company_id,name,code,active,price_1_4_oneway,price_1_4_return,price_5_7_oneway,price_5_7_return,deposit_percent")
         .eq("company_id", companyId).eq("active", true).eq("name", airportName)
         .maybeSingle();
       if (error) throw error;
       if (!data) {
         const byCode = await db.from("airports")
-          .select("id,company_id,name,code,active,price_1_4_oneway,price_1_4_return,price_5_7_oneway,price_5_7_return")
+          .select("id,company_id,name,code,active,price_1_4_oneway,price_1_4_return,price_5_7_oneway,price_5_7_return,deposit_percent")
           .eq("company_id", companyId).eq("active", true).eq("code", airportName)
           .maybeSingle();
         if (byCode.error) throw byCode.error;
@@ -140,6 +140,20 @@ Deno.serve(async (request) => {
 
     const pricing = calculatePrice({ settings, airport, mode, passengers: integer(booking.passengers), miles: route.miles, isReturn, viaCount: route.stops.length });
     const prices = splitPrice(pricing.total, isReturn);
+    const onlinePayment=paymentMethod==="Card"||paymentMethod==="Deposit";
+    const airportPickup=mode==="airport" && String(booking.pickup_address||"").trim().toLowerCase()===String(airport?.name||"").trim().toLowerCase();
+    if(airportPickup && bool(settings.airportdepositrequired) && paymentMethod==="Pay in Car") throw new ApiError(400,"Online payment is required for this airport pickup");
+    const depositRequired=bool(settings.requiredeposit)||(airportPickup&&bool(settings.airportdepositrequired));
+    if(depositRequired&&paymentMethod==="Pay in Car") throw new ApiError(400,"Online payment is required for this journey");
+    if(paymentMethod==="Deposit"&&!depositRequired) throw new ApiError(400,"Deposit payment is not enabled for this journey");
+    const depositPercent=Math.min(100,Math.max(0,number(airportPickup?airport?.deposit_percent:settings.depositpercent)||number(settings.depositpercent)));
+    if(paymentMethod==="Deposit"&&depositPercent<=0) throw new ApiError(503,"Deposit percentage is not configured");
+    const amountDue=paymentMethod==="Deposit"?round2(pricing.total*depositPercent/100):onlinePayment?pricing.total:0;
+    const stripeSecret=onlinePayment?clean(Deno.env.get("STRIPE_SECRET_KEY")):null;
+    const stripePublishableKey=onlinePayment?clean(settings.stripepublishablekey):null;
+    if(onlinePayment&&!bool(settings.enablestripe)) throw new ApiError(503,"Stripe test payments are not enabled for this company");
+    if(onlinePayment&&(!stripeSecret||!stripeSecret.startsWith("sk_test_"))) throw new ApiError(503,"Stripe test payments are not configured on the server");
+    if(onlinePayment&&(!stripePublishableKey||!stripePublishableKey.startsWith("pk_test_"))) throw new ApiError(503,"Stripe test publishable key is not configured for this company");
 
     const name = clean(booking.customer_name);
     const email = clean(booking.email);
@@ -166,7 +180,10 @@ Deno.serve(async (request) => {
       booking_reference: reference,
       status: "Waiting",
       payment_method: paymentMethod,
-      payment_status: "unpaid",
+      payment_status: onlinePayment?"pending_payment":"unpaid",
+      payment_type: paymentMethod==="Deposit"?"deposit":paymentMethod==="Card"?"full":"pay_in_car",
+      amount_paid: 0,
+      balance_due: pricing.total,
       price: prices.outbound,
       route_distance_miles: route.miles,
       route_duration_minutes: route.minutes,
@@ -210,6 +227,9 @@ Deno.serve(async (request) => {
         return_time: null,
         price: prices.return,
         journey_type: "return",
+        payment_type: "linked_return",
+        amount_paid: 0,
+        balance_due: 0,
       });
     }
 
@@ -235,6 +255,15 @@ Deno.serve(async (request) => {
       if (stopResult.error) throw stopResult.error;
     }
 
+    let stripe:Row|null=null;
+    if(onlinePayment){
+      const primaryBooking=inserted.data?.[0];
+      const intent=await createStripeIntent(stripeSecret!,amountDue,companyId,String(primaryBooking.id),String(reference),paymentMethod);
+      const paymentInsert=await db.from("payments").insert({company_id:companyId,booking_id:primaryBooking.id,amount:amountDue,method:"stripe",status:"pending",reference:intent.id});
+      if(paymentInsert.error) throw paymentInsert.error;
+      stripe={client_secret:intent.client_secret,publishable_key:stripePublishableKey,amount_due:amountDue,balance_due:round2(pricing.total-amountDue),payment_type:paymentMethod==="Deposit"?"deposit":"full"};
+    }
+
     return respond({
       ok: true,
       customer_id: customerId,
@@ -242,6 +271,7 @@ Deno.serve(async (request) => {
       bookings: inserted.data,
       authoritative_price: pricing.total,
       pricing_method: pricing.method,
+      stripe,
       account: account ? { business_name: account.business_name, account_code: account.account_code } : null,
     });
   } catch (error) {
@@ -293,11 +323,27 @@ function validatePayment(value: unknown, settings: Row) {
   }
   if (["pay now", "card", "card / prepaid", "prepaid", "paid"].includes(method)) {
     if (!bool(settings.allowcard) && !bool(settings.enablestripe)) throw new ApiError(400, "Card payment is not enabled");
-    throw new ApiError(503, "Card payment is not available online yet. Please choose Pay in Car or contact us.");
+    return "Card";
+  }
+  if(method==="deposit"){
+    if (!bool(settings.allowcard) && !bool(settings.enablestripe)) throw new ApiError(400, "Card payment is not enabled");
+    return "Deposit";
   }
   if (!["pay in car", "cash", "pay by cash"].includes(method)) throw new ApiError(400, "Invalid payment method");
   if (!bool(settings.allowcash) && !bool(settings.enablecash)) throw new ApiError(400, "Cash payment is not enabled");
   return "Pay in Car";
+}
+
+async function createStripeIntent(secret:string,amount:number,companyId:string,bookingId:string,reference:string,paymentMethod:string){
+  const minor=Math.round(amount*100);
+  if(minor<50) throw new ApiError(400,"Payment amount is too small");
+  const form=new URLSearchParams();
+  form.set("amount",String(minor)); form.set("currency","gbp"); form.set("automatic_payment_methods[enabled]","true");
+  form.set("metadata[company_id]",companyId); form.set("metadata[booking_id]",bookingId); form.set("metadata[booking_reference]",reference); form.set("metadata[payment_type]",paymentMethod.toLowerCase());
+  const response=await fetch("https://api.stripe.com/v1/payment_intents",{method:"POST",headers:{Authorization:`Bearer ${secret}`,"Content-Type":"application/x-www-form-urlencoded"},body:form});
+  const result=await response.json();
+  if(!response.ok||!result?.client_secret) throw new ApiError(502,"Unable to start Stripe payment");
+  return result;
 }
 
 async function resolvePublicAccount(companyId: string, booking: Row) {

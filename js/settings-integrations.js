@@ -32,7 +32,7 @@ async function loadIntegrationSettings() {
     // Deliberately excludes all server-secret and deployment credential columns.
     const { data, error } = await integrationsDb
         .from("settings")
-        .select("id,company_id,googlemapsapi,googlecalendarid")
+        .select("id,company_id,googlemapsapi,googlecalendarid,enablestripe,stripepublishablekey")
         .eq("company_id", integrationCompanyId)
         .maybeSingle();
 
@@ -52,7 +52,14 @@ async function loadIntegrationSettings() {
 
     setText("googleMapsStatus", configuredStatus(data.googlemapsapi));
     setText("googleCalendarStatus", configuredStatus(data.googlecalendarid));
-    setText("stripeStatus", "Not configured");
+    const stripeConfigured = data.enablestripe === true && isStripeTestPublishableKey(data.stripepublishablekey);
+    setText("stripeStatus", stripeConfigured ? "Configured (test mode)" : "Not configured");
+    setText(
+        "stripeConfigurationNote",
+        stripeConfigured
+            ? "Stripe test payments are enabled for this company. Secret keys remain stored server-side."
+            : "Stripe test payments are not configured. Enable Stripe and save a valid pk_test_ publishable key in Payment Settings; secret keys remain server-side."
+    );
     showIntegrationStatus("");
 }
 
@@ -109,6 +116,10 @@ async function saveIntegrationSettings() {
 
 function configuredStatus(value) {
     return String(value || "").trim() ? "Configured" : "Not configured";
+}
+
+function isStripeTestPublishableKey(value) {
+    return String(value || "").trim().startsWith("pk_test_");
 }
 
 function setText(id, value) {

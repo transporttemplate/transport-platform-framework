@@ -1289,7 +1289,7 @@ async function cycleBookingStatus(
    FULL BOOKING VIEW
    ========================================================= */
 
-function openBookingView(id) {
+async function openBookingView(id) {
 
     const booking =
         allBookings.find(
@@ -1446,6 +1446,12 @@ function openBookingView(id) {
         booking.payment_status ||
         "-"
     );
+    setText("viewPaymentStatus",prettyStatus(booking.payment_status||"unpaid"));
+    setText("viewAmountPaid",money(Number(booking.amount_paid||0)));
+    setText("viewBalanceDue",money(Number(booking.balance_due??booking.price??booking.job_price??0)));
+    setText("viewStripeReference","—");
+    const paymentResult=await bookingsDb.from("payments").select("reference").eq("company_id",adminCompanyId).eq("booking_id",booking.id).eq("method","stripe").order("created_at",{ascending:false}).limit(1).maybeSingle();
+    if(!paymentResult.error&&paymentResult.data?.reference) setText("viewStripeReference",paymentResult.data.reference);
     setText("viewAccount", booking.account_customer_id ? accountBookingLabel(booking) : "—");
 
     const paymentSelect = document.getElementById("editPaymentMethod");

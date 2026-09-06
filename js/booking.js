@@ -11,6 +11,10 @@ let routeService=null;
 
 let currentStep=1;
 let liveRouteTimer=null;
+let stripeClient=null;
+let stripeElements=null;
+let stripePaymentElement=null;
+let pendingStripeBooking=null;
 
 let currentRoute={
     miles:null,
@@ -205,33 +209,7 @@ function applyBookingRules(){
         document.getElementById("publicDropoffStops")?.replaceChildren();
     }
 
-    const payment=document.getElementById("paymentMethod");
-    if(payment){
-        const choices=[];
-        // Card is deliberately unavailable until a verified Stripe flow exists.
-        const cardAllowed=false;
-        const cashAllowed=pricingSettings.allowcash===true || pricingSettings.enablecash===true;
-        const accountAllowed=pricingSettings.allowaccounts===true || pricingSettings.enableaccounts===true;
-        if(cardAllowed) choices.push(["Pay Now","Card / prepaid"]);
-        if(cashAllowed) choices.push(["Pay in Car","Pay in Car"]);
-        if(accountAllowed) choices.push(["Account","Account / invoice"]);
-        payment.replaceChildren(...choices.map(([value,label])=>{
-            const option=document.createElement("option");
-            option.value=value;
-            option.textContent=label;
-            return option;
-        }));
-        payment.disabled=choices.length===0;
-        if(!choices.length){
-            const option=document.createElement("option");
-            option.textContent=(pricingSettings.allowcard===true || pricingSettings.enablestripe===true)
-                ?"Card payments are not available online yet — contact us"
-                :"Online booking unavailable — contact us";
-            payment.appendChild(option);
-        }
-        payment.addEventListener("change",updatePublicAccountFields);
-        updatePublicAccountFields();
-    }
+    renderPublicPaymentOptions();
 
     // Show / hide booking types
     if(airportButton){
@@ -520,6 +498,53 @@ function updatePublicAccountFields(){
     setAccountValidationStatus("");
 }
 
+function renderPublicPaymentOptions(){
+    const payment=document.getElementById("paymentMethod");
+    if(!payment) return;
+    const previous=payment.value;
+    const cardAllowed=pricingSettings.allowcard===true||pricingSettings.enablestripe===true;
+    const cashAllowed=pricingSettings.allowcash===true||pricingSettings.enablecash===true;
+    const accountAllowed=pricingSettings.allowaccounts===true||pricingSettings.enableaccounts===true;
+    const airportPickup=document.getElementById("journeyMode")?.value==="airport"&&document.getElementById("airportDirection")?.value==="from_airport";
+    const depositRequired=pricingSettings.requiredeposit===true||(airportPickup&&pricingSettings.airportdepositrequired===true);
+    const airportNotice=document.getElementById("airportPaymentNotice");
+    if(airportNotice) airportNotice.hidden=!(airportPickup&&pricingSettings.airportdepositrequired===true);
+    const choices=[];
+    if(cashAllowed&&!depositRequired) choices.push(["Pay in Car","Pay in Car"]);
+    if(cardAllowed) choices.push(["Pay Now","Pay full amount now"]);
+    if(cardAllowed&&depositRequired) choices.push(["Deposit",`Pay deposit (${publicDepositPercent()}%)`]);
+    if(accountAllowed) choices.push(["Account","Account / invoice"]);
+    payment.replaceChildren(...choices.map(([value,label])=>Object.assign(document.createElement("option"),{value,textContent:label})));
+    payment.disabled=!choices.length;
+    if(!choices.length) payment.appendChild(Object.assign(document.createElement("option"),{textContent:"Online booking unavailable — contact us"}));
+    if(choices.some(([value])=>value===previous)) payment.value=previous;
+    if(payment.dataset.paymentBound!=="true"){
+        payment.dataset.paymentBound="true";
+        payment.addEventListener("change",()=>{updatePublicAccountFields();updatePaymentBreakdown();});
+    }
+    updatePublicAccountFields();
+    updatePaymentBreakdown();
+}
+
+function updatePaymentBreakdown(){
+    const box=document.getElementById("paymentBreakdown");
+    if(!box) return;
+    const total=Number(currentPrices.selected);
+    const method=document.getElementById("paymentMethod")?.value;
+    if(!Number.isFinite(total)||!["Pay Now","Deposit"].includes(method)){box.hidden=true;box.textContent="";return;}
+    const percent=publicDepositPercent();
+    const due=method==="Deposit"?Math.round(total*percent)/100:total;
+    box.hidden=false;
+    box.innerHTML=`<strong>Journey total: ${esc(money(total))}</strong><br>Due now: ${esc(money(due))}${method==="Deposit"?`<br>Remaining balance: ${esc(money(Math.max(0,total-due)))}`:""}`;
+}
+
+function publicDepositPercent(){
+    const airportPickup=document.getElementById("journeyMode")?.value==="airport"&&document.getElementById("airportDirection")?.value==="from_airport";
+    const airportPercent=airportPickup?Number(findAirport()?.deposit_percent):NaN;
+    const configured=Number.isFinite(airportPercent)&&airportPercent>0?airportPercent:Number(pricingSettings.depositpercent)||0;
+    return Math.min(100,Math.max(0,configured));
+}
+
 async function validatePublicAccount(){
     const code=document.getElementById("accountCode")?.value.trim();
     const verification=document.getElementById("accountVerification")?.value.trim();
@@ -591,6 +616,8 @@ function updateMode(){
             mode==="airport" &&
             direction==="to_airport"
         );
+
+    renderPublicPaymentOptions();
 }
 
 
@@ -1724,6 +1751,8 @@ function updateLiveFare(){
     if(routeFare){
         routeFare.textContent=display;
     }
+
+    updatePaymentBreakdown();
 }
 
 
@@ -1952,9 +1981,13 @@ async function saveBooking(event){
 
     event.preventDefault();
 
+    if(pendingStripeBooking){
+        await confirmPendingStripePayment();
+        return;
+    }
+
     const cashAllowed=pricingSettings.allowcash===true || pricingSettings.enablecash===true;
-    // The server rejects Card until a verified payment flow is deployed.
-    const cardAllowed=false;
+    const cardAllowed=pricingSettings.allowcard===true || pricingSettings.enablestripe===true;
     const accountAllowed=pricingSettings.allowaccounts===true || pricingSettings.enableaccounts===true;
     if(!cashAllowed && !cardAllowed && !accountAllowed){
         alert("Online booking is unavailable because no payment method is enabled.");
@@ -2097,6 +2130,11 @@ async function saveBooking(event){
         });
         if(error||!created?.ok) throw new Error(await publicBookingErrorMessage(error,created));
 
+        if(created.stripe){
+            await prepareStripePayment(created);
+            return;
+        }
+
         await Promise.all((created.bookings||[]).map(booking => requestPublicGoogleCalendarSync(company.id, booking.id)));
 
         const firstBooking=created.bookings?.[0];
@@ -2117,6 +2155,84 @@ async function saveBooking(event){
             error.message
         );
     }
+}
+
+async function prepareStripePayment(created){
+    if(!window.Stripe) throw new Error("Stripe payment controls could not be loaded.");
+    stripeClient=window.Stripe(created.stripe.publishable_key);
+    stripeElements=stripeClient.elements({clientSecret:created.stripe.client_secret,appearance:{theme:"stripe"}});
+    stripePaymentElement=stripeElements.create("payment",{layout:"tabs"});
+    stripePaymentElement.mount("#stripePaymentElement");
+    pendingStripeBooking=created;
+    const panel=document.getElementById("stripePaymentPanel");
+    if(panel) panel.hidden=false;
+    const breakdown=document.getElementById("paymentBreakdown");
+    if(breakdown){breakdown.hidden=false;breakdown.innerHTML=`<strong>Journey total: ${esc(money(created.authoritative_price))}</strong><br>Due now: ${esc(money(created.stripe.amount_due))}${created.stripe.payment_type==="deposit"?`<br>Remaining balance: ${esc(money(created.stripe.balance_due))}`:""}`;}
+    const button=document.getElementById("confirmBookingButton");
+    if(button) button.textContent="Complete secure payment";
+    document.querySelector('[data-back="4"]')?.setAttribute("disabled","");
+    document.getElementById("paymentMethod")?.setAttribute("disabled","");
+    document.getElementById("stripePaymentPanel")?.scrollIntoView({behavior:"smooth",block:"center"});
+}
+
+async function confirmPendingStripePayment(){
+    const button=document.getElementById("confirmBookingButton");
+    const message=document.getElementById("stripePaymentMessage");
+    if(button) button.disabled=true;
+    if(message) message.textContent="Processing payment…";
+    const result=await stripeClient.confirmPayment({elements:stripeElements,redirect:"if_required",confirmParams:{return_url:window.location.href}});
+    if(button) button.disabled=false;
+    if(result.error){if(message) message.textContent=result.error.message||"Payment was not completed.";return;}
+    const status=String(result.paymentIntent?.status||"");
+    if(status && !["succeeded","processing"].includes(status)){
+        if(message) message.textContent="Your payment needs further action. Please follow the payment instructions above.";
+        return;
+    }
+    showStripePaymentConfirmation(pendingStripeBooking,status);
+}
+
+function showStripePaymentConfirmation(created,paymentIntentStatus){
+    const isDeposit=created.stripe?.payment_type==="deposit";
+    const email=document.getElementById("customerEmail")?.value.trim()||"";
+    const processing=paymentIntentStatus==="processing";
+
+    stripePaymentElement?.unmount();
+    stripePaymentElement=null;
+    stripeElements=null;
+    stripeClient=null;
+
+    const checkout=document.getElementById("bookingCheckoutContent");
+    const confirmation=document.getElementById("bookingPaymentConfirmation");
+    if(checkout) checkout.hidden=true;
+    if(confirmation) confirmation.hidden=false;
+    document.querySelector(".booking-progress")?.setAttribute("hidden","");
+
+    setConfirmationText("paymentConfirmationLead",processing
+        ?"Your payment was submitted successfully and is processing."
+        :isDeposit?"Your deposit payment was successful.":"Your payment was successful.");
+    setConfirmationText("confirmationReference",created.reference||"—");
+    setConfirmationText("confirmationJourneyTotal",money(created.authoritative_price));
+    setConfirmationText("confirmationPaidLabel",isDeposit?"Deposit paid":"Amount paid");
+    setConfirmationText("confirmationAmountPaid",money(created.stripe?.amount_due));
+    setConfirmationText("confirmationBalance",money(created.stripe?.balance_due||0));
+    setConfirmationText("confirmationEmail",email);
+    const emailRow=document.getElementById("confirmationEmailRow");
+    if(emailRow) emailRow.hidden=!email;
+
+    const companyCode=bookingCompany?.company_code;
+    const companyQuery=companyCode?`?company=${encodeURIComponent(companyCode)}`:"";
+    const homeLink=document.getElementById("confirmationHomeLink");
+    const anotherLink=document.getElementById("confirmationAnotherLink");
+    if(homeLink) homeLink.href=`index.html${companyQuery}`;
+    if(anotherLink) anotherLink.href=`booking.html${companyQuery}`;
+
+    pendingStripeBooking=null;
+    confirmation?.scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+function setConfirmationText(id,value){
+    const element=document.getElementById(id);
+    if(element) element.textContent=value;
 }
 
 async function publicBookingErrorMessage(error,data){
