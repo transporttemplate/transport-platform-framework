@@ -634,6 +634,7 @@ function updateMode(){
 function validateStep(step){
 
     if(step===1){
+        logPublicDateTimeValidation("pickup","journeyDate","journeyTime");
         const outbound=readPublicDateTime("journeyDate","journeyTime");
         if(!outbound){
             alert("Please choose a valid pickup date and time.");
@@ -874,7 +875,34 @@ function validNativeDate(value){
 function validNativeTime(value){
     if(!/^\d{2}:\d{2}$/.test(value)) return false;
     const [hour,minute]=value.split(":").map(Number);
-    return hour>=0&&hour<=23&&minute>=0&&minute<=59&&minute%5===0;
+    return hour>=0&&hour<=23&&minute>=0&&minute<=59;
+}
+
+function logPublicDateTimeValidation(label,dateId,timeId){
+    const dateInput=document.getElementById(dateId);
+    const timeInput=document.getElementById(timeId);
+    const pickupDateInputValue=dateInput?.value||"";
+    const pickupTimeInputValue=timeInput?.value||"";
+    const dateFormatValid=validNativeDate(pickupDateInputValue);
+    const timeFormatValid=validNativeTime(pickupTimeInputValue);
+    const limit=publicBookingLimits();
+    const minimumNoticePassed=dateFormatValid&&timeFormatValid
+        ?publicJourneyMeetsNotice(pickupDateInputValue,pickupTimeInputValue)
+        :false;
+    console.info("Public booking date/time validation",{
+        field:label,
+        pickupDateInputValue,
+        pickupTimeInputValue,
+        combinedCompanyLocalValue:dateFormatValid&&timeFormatValid?`${pickupDateInputValue}T${pickupTimeInputValue}`:"invalid",
+        companyTimezone:companyBookingTimezone(),
+        minimumNoticeBoundary:`${limit.earliestDate}T${limit.earliestTime}`,
+        dateFormatValid,
+        timeFormatValid,
+        nativeDateBadInput:Boolean(dateInput?.validity?.badInput),
+        nativeTimeBadInput:Boolean(timeInput?.validity?.badInput),
+        nativeTimeStepMismatch:Boolean(timeInput?.validity?.stepMismatch),
+        minimumNoticePassed
+    });
 }
 
 function minimumNoticeMessage(prefix){
@@ -2008,6 +2036,7 @@ function buildSummary(){
 async function saveBooking(event){
 
     event.preventDefault();
+    logPublicDateTimeValidation("pickup-submit","journeyDate","journeyTime");
 
     if(pendingStripeBooking){
         await confirmPendingStripePayment();
