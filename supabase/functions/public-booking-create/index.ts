@@ -61,7 +61,7 @@ Deno.serve(async (request) => {
         "returnbookings", "multiplestops", "allowcash", "enablecash", "allowcard", "enablestripe", "allowaccounts", "enableaccounts",
         "airportpricing", "distancecalculator", "allowairportoutsidearea", "minimumfare", "firstmile",
         "mileband1", "mileband2", "mileband3", "mileband4", "mileband5", "mileband6", "bookingfee", "airportviasurcharge",
-        "returndiscount", "requiredeposit", "airportdepositrequired", "depositpercent", "stripepublishablekey", "googleroutesapi",
+        "returndiscount", "requiredeposit", "airportdepositrequired", "depositpercent", "stripepublishablekey",
       ].join(",")).eq("company_id", companyId).maybeSingle(),
       db.from("service_areas").select("id,company_id,postcode_prefix,radius_miles,active")
         .eq("company_id", companyId).eq("active", true),
@@ -130,8 +130,8 @@ Deno.serve(async (request) => {
       }
     }
 
-    const routeKey = clean(Deno.env.get("GOOGLE_ROUTES_API_KEY")) || clean(settings.googleroutesapi);
-    if (!routeKey) throw new ApiError(503, "Online route verification is not configured");
+    const routeKey = routeApiKeyForCompany(String(company.company_code));
+    if (!routeKey) throw new ApiError(503, "Route pricing is not configured for this company.");
     const route = await authoritativeRoute(booking, stops, airport, routeKey);
 
     if (mode === "airport" && !bool(settings.allowairportoutsidearea)) {
@@ -544,6 +544,18 @@ function normalPostcode(value: unknown) { return String(value || "").toUpperCase
 function bool(value: unknown) { return value === true || value === "true" || value === 1 || value === "1"; }
 function integer(value: unknown) { const parsed = Number(value); return Number.isInteger(parsed) ? parsed : -1; }
 function number(value: unknown, fallback = 0) { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : fallback; }
+function routeApiKeyForCompany(companyCode: string) {
+  const companySecret = companyCode === "0001"
+    ? Deno.env.get("GOOGLE_ROUTES_API_KEY_0001")
+    : companyCode === "0002"
+    ? Deno.env.get("GOOGLE_ROUTES_API_KEY_0002")
+    : companyCode === "0003"
+    ? Deno.env.get("GOOGLE_ROUTES_API_KEY_0003")
+    : null;
+
+  return clean(companySecret) || clean(Deno.env.get("GOOGLE_ROUTES_API_KEY"));
+}
+
 function clean(value: unknown) { return String(value ?? "").trim() || null; }
 function numberOrNull(value: unknown) { const parsed = Number(value); return value === "" || value == null || !Number.isFinite(parsed) ? null : parsed; }
 function round2(value: number) { return Math.round(value * 100) / 100; }
