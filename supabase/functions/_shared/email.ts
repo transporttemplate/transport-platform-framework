@@ -25,6 +25,27 @@ export function render(template: string, values: Record<string, unknown>) {
   return Object.entries(values).reduce((text, [key, value]) => text.replaceAll(`{{${key}}}`, String(value ?? "")), template);
 }
 
+export function formatCompanyLocalDateTime(dateValue: unknown, timeValue: unknown, timezoneValue: unknown) {
+  const date = String(dateValue || "").trim();
+  const time = String(timeValue || "").trim();
+  const shortTime = /^\d{2}:\d{2}/.test(time) ? time.slice(0, 5) : time;
+  const fallback = { date, time: shortTime, dateTime: [date, shortTime].filter(Boolean).join(" at ") };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}(:\d{2})?$/.test(time)) return fallback;
+
+  const timezone = validTimeZone(timezoneValue) ? String(timezoneValue) : "Europe/London";
+  const instant = companyLocalInstant(date, time, timezone);
+  if (!instant) return fallback;
+  const dateFormatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone, weekday: "long", day: "numeric", month: "long", year: "numeric",
+  });
+  const timeFormatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  });
+  const formattedDate = dateFormatter.format(instant).replace(/^([^,]+),/, "$1");
+  const formattedTime = timeFormatter.format(instant);
+  return { date: formattedDate, time: formattedTime, dateTime: `${formattedDate} at ${formattedTime}` };
+}
+
 export type EmailOptions = { html?: string; replyTo?: string; senderName?: string };
 
 export async function deliverEmail(to: string, subject: string, text: string, options: EmailOptions = {}) {
@@ -102,6 +123,24 @@ export function escapeHtml(value: unknown) {
 function safeColour(value: unknown) { const colour = String(value || ""); return /^#[0-9a-f]{6}$/i.test(colour) ? colour : ""; }
 function safeUrl(value: unknown) { const url = String(value || ""); return /^https:\/\//i.test(url) ? escapeHtml(url) : ""; }
 function safeHeader(value: unknown) { return String(value || "").replace(/[\r\n<>]/g, "").trim(); }
+function companyLocalInstant(date: string, time: string, timezone: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute, second = 0] = time.split(":").map(Number);
+  const target = Date.UTC(year, month - 1, day, hour, minute, second);
+  let guess = target;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+    }).formatToParts(new Date(guess));
+    const values = Object.fromEntries(parts.filter(part => part.type !== "literal").map(part => [part.type, Number(part.value)]));
+    const represented = Date.UTC(values.year, values.month - 1, values.day, values.hour, values.minute, values.second);
+    guess += target - represented;
+  }
+  const result = new Date(guess);
+  return Number.isNaN(result.getTime()) ? null : result;
+}
+function validTimeZone(value: unknown) { try { new Intl.DateTimeFormat("en-GB", { timeZone: String(value || "") }); return Boolean(value); } catch { return false; } }
 function emailAddress(value: unknown) {
   const raw = String(value ?? "").trim();
   if (!raw) return "";

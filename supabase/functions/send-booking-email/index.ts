@@ -1,5 +1,5 @@
 import {
-  adminClient, brandedEmail, cors, deliverEmail, escapeHtml, json, logDelivery,
+  adminClient, brandedEmail, cors, deliverEmail, escapeHtml, formatCompanyLocalDateTime, json, logDelivery,
   render, requireInternalOrCompanyAdmin, textToHtml,
 } from "../_shared/email.ts";
 
@@ -73,8 +73,12 @@ Deno.serve(async (request) => {
       const recipientValues = { ...values, driver_name: recipient.driver?.full_name || values.driver_name };
       const defaults = defaultTemplate(recipient.template);
       const subject = render(template?.subject || defaults.subject, recipientValues);
-      const text = render(template?.body || defaults.body, recipientValues);
-      const html = brandedEmail(settings, `<div style="font-size:16px">${textToHtml(text)}</div>${journeyHtml(booking, stopsResult.data || [], settings)}${paymentHtml(booking, settings)}`);
+      const templateBody = template?.body || defaults.body;
+      const text = render(templateBody, recipientValues);
+      const htmlText = recipient.type === "customer"
+        ? render(templateBody, { ...recipientValues, journey_summary: "", payment_summary: "" }).replace(/\n{3,}/g, "\n\n").trim()
+        : text;
+      const html = brandedEmail(settings, `<div style="font-size:16px">${textToHtml(htmlText)}</div>${journeyHtml(booking, stopsResult.data || [], settings, String(recipientValues.journey_datetime || ""))}${paymentHtml(booking, settings)}`);
       try {
         const result = await logDelivery(companyId, recipient.template, recipient.email, {
           booking_id: bookingId,
@@ -180,18 +184,20 @@ function valuesFor(booking: Row, settings: Row, company: Row, stops: Row[], driv
   const total = Number(booking.price ?? booking.job_price ?? 0);
   const paid = Number(booking.amount_paid || 0);
   const balance = Number(booking.balance_due ?? Math.max(0, total - paid));
+  const journeyWhen = formatCompanyLocalDateTime(booking.journey_date, booking.journey_time, settings.timezone);
   return {
     company_name: settings.tradingname || company.trading_name || settings.companyname || company.name || "Transport Company",
     customer_name: booking.customer_name || booking.full_name || "Customer",
     customer_phone: booking.customer_phone || booking.phone || "—",
     customer_email: booking.customer_email || booking.email || "—",
     booking_reference: booking.booking_reference || booking.id,
-    journey_date: booking.journey_date || "",
-    journey_time: booking.journey_time || "",
+    journey_date: journeyWhen.date,
+    journey_time: journeyWhen.time,
+    journey_datetime: journeyWhen.dateTime,
     pickup_address: pickup,
     via_stops: vias.join(" → "),
     dropoff_address: dropoff,
-    journey_summary: `${booking.journey_date || ""} ${booking.journey_time || ""}\n${route}`,
+    journey_summary: `${journeyWhen.dateTime}\n${route}`,
     passengers: booking.passengers ?? "—",
     suitcases: booking.suitcases ?? 0,
     hand_luggage: booking.hand_luggage ?? 0,
@@ -210,14 +216,14 @@ function valuesFor(booking: Row, settings: Row, company: Row, stops: Row[], driv
   };
 }
 
-function journeyHtml(booking: Row, stops: Row[], settings: Row) {
+function journeyHtml(booking: Row, stops: Row[], settings: Row, journeyDateTime: string) {
   const locations = [
     ["Pickup", [booking.pickup_name, booking.pickup_address].filter(Boolean).join(", ")],
     ...stops.map((stop, index) => [`Stop ${index + 1}`, [stop.address_name, stop.formatted_address].filter(Boolean).join(", ")]),
     ["Drop-off", [booking.dropoff_name, booking.dropoff_address].filter(Boolean).join(", ")],
   ];
   const accent = /^#[0-9a-f]{6}$/i.test(String(settings.primarycolour || "")) ? settings.primarycolour : "#14b8a6";
-  return `<div style="margin:22px 0;border-left:4px solid ${accent};padding-left:16px"><strong style="font-size:18px">${escapeHtml(booking.booking_reference)}</strong><div style="margin:6px 0 14px">${escapeHtml(booking.journey_date)} at ${escapeHtml(booking.journey_time)}</div>${locations.map(([label, address]) => `<div style="margin:9px 0"><span style="color:#64748b;font-size:12px;text-transform:uppercase">${escapeHtml(label)}</span><br><strong>${escapeHtml(address)}</strong></div>`).join("")}</div>`;
+  return `<div style="margin:22px 0;border-left:4px solid ${accent};padding-left:16px"><strong style="font-size:18px">${escapeHtml(booking.booking_reference)}</strong><div style="margin:6px 0 14px">${escapeHtml(journeyDateTime)}</div>${locations.map(([label, address]) => `<div style="margin:9px 0"><span style="color:#64748b;font-size:12px;text-transform:uppercase">${escapeHtml(label)}</span><br><strong>${escapeHtml(address)}</strong></div>`).join("")}</div>`;
 }
 
 function paymentHtml(booking: Row, settings: Row) {
