@@ -33,6 +33,7 @@ let currentPrices={
 
 document.addEventListener("DOMContentLoaded",async()=>{
 
+    resetPublicDateTimeState();
     bindPublicStopButtons();
 
     bookingCompany=await loadCompanyConfig();
@@ -60,6 +61,15 @@ document.addEventListener("DOMContentLoaded",async()=>{
 
     updateLiveJourneyTitle();
 });
+
+window.addEventListener("pageshow",resetPublicDateTimeState);
+
+function resetPublicDateTimeState(){
+    for(const id of ["journeyDate","journeyTime","returnDate","returnTime"]){
+        const input=document.getElementById(id);
+        if(input) input.value="";
+    }
+}
 
 
 function bindPublicStopButtons(){
@@ -624,18 +634,15 @@ function updateMode(){
 function validateStep(step){
 
     if(step===1){
-
-        if(
-            !document.getElementById("journeyDate").value ||
-            !document.getElementById("journeyTime").value
-        ){
-            alert("Please enter date and time.");
+        const outbound=readPublicDateTime("journeyDate","journeyTime");
+        if(!outbound){
+            alert("Please choose a valid pickup date and time.");
             return false;
         }
 
         refreshPublicDateTimeLimits();
-        if(!publicJourneyMeetsNotice(document.getElementById("journeyDate").value,document.getElementById("journeyTime").value)){
-            alert("This journey needs more notice. Please choose a later date or time.");
+        if(!publicJourneyMeetsNotice(outbound.date,outbound.time)){
+            alert(minimumNoticeMessage("Please choose a pickup time"));
             return false;
         }
 
@@ -687,20 +694,16 @@ function validateStep(step){
         }
 
 
-        if(
-            document.getElementById("returnJourney").checked &&
-            (
-                !document.getElementById("returnDate").value ||
-                !document.getElementById("returnTime").value
-            )
-        ){
-            alert("Please enter return date and time.");
-            return false;
-        }
-
-        if(document.getElementById("returnJourney").checked && !publicJourneyMeetsNotice(document.getElementById("returnDate").value,document.getElementById("returnTime").value)){
-            alert("The return journey needs more notice. Please choose a later date or time.");
-            return false;
+        if(document.getElementById("returnJourney").checked){
+            const returnJourney=readPublicDateTime("returnDate","returnTime");
+            if(!returnJourney){
+                alert("Please choose a valid return date and time.");
+                return false;
+            }
+            if(!publicJourneyMeetsNotice(returnJourney.date,returnJourney.time)){
+                alert(minimumNoticeMessage("Please choose a return time"));
+                return false;
+            }
         }
 
         if (document.getElementById("returnJourney").checked &&
@@ -804,8 +807,6 @@ function refreshPublicDateTimeLimits(){
     if(returnDate.value && returnDate.value<returnDate.min){returnDate.value="";returnTime.value="";}
     if(returnDate.value===limit.earliestDate && returnTime.value && returnTime.value<limit.earliestTime) returnTime.value="";
 
-    const hint=document.getElementById("earliestBookingHint");
-    if(hint) hint.textContent=`Earliest available: ${formatCompanyDate(limit.earliest)} at ${limit.earliestTime}`;
 }
 
 function publicBookingLimits(){
@@ -848,14 +849,41 @@ function companyTimeKey(date,timezone){
     return `${parts.hour}:${parts.minute}`;
 }
 
-function formatCompanyDate(date){
-    return new Intl.DateTimeFormat("en-GB",{timeZone:companyBookingTimezone(),day:"numeric",month:"short"}).format(date);
-}
-
 function publicJourneyMeetsNotice(dateValue,timeValue){
-    if(!dateValue || !timeValue) return false;
+    if(!validNativeDate(dateValue)||!validNativeTime(timeValue)) return false;
     const limit=publicBookingLimits();
     return dateValue>limit.earliestDate || (dateValue===limit.earliestDate && timeValue>=limit.earliestTime);
+}
+
+function readPublicDateTime(dateId,timeId){
+    const dateInput=document.getElementById(dateId);
+    const timeInput=document.getElementById(timeId);
+    const date=dateInput?.value||"";
+    const time=timeInput?.value||"";
+    if(!dateInput||!timeInput||!validNativeDate(date)||!validNativeTime(time)) return null;
+    return{date,time};
+}
+
+function validNativeDate(value){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const [year,month,day]=value.split("-").map(Number);
+    const date=new Date(Date.UTC(year,month-1,day));
+    return date.getUTCFullYear()===year&&date.getUTCMonth()===month-1&&date.getUTCDate()===day;
+}
+
+function validNativeTime(value){
+    if(!/^\d{2}:\d{2}$/.test(value)) return false;
+    const [hour,minute]=value.split(":").map(Number);
+    return hour>=0&&hour<=23&&minute>=0&&minute<=59&&minute%5===0;
+}
+
+function minimumNoticeMessage(prefix){
+    const minutes=Math.max(0,Number(pricingSettings.minimumnotice)||0);
+    if(!minutes) return `${prefix} in the future.`;
+    const hours=Math.floor(minutes/60);
+    const remainder=minutes%60;
+    const period=[hours?`${hours} hour${hours===1?"":"s"}`:"",remainder?`${remainder} minute${remainder===1?"":"s"}`:""].filter(Boolean).join(" and ");
+    return `${prefix} at least ${period} in advance.`;
 }
 
 

@@ -42,7 +42,7 @@
 <button type="button" class="progress-step" data-step-button="5"><span>5</span><small>Review</small></button>
 </div>
 
-<form id="bookingForm" novalidate>
+<form id="bookingForm" novalidate autocomplete="off">
 <section class="booking-step active" data-step="1">
 <div class="step-heading"><p class="eyebrow">Step 1 of 5</p><h2>Your journey</h2><p>Choose airport pricing or a standard journey using the mileage calculator.</p></div>
 <div class="journey-choice-grid">
@@ -63,15 +63,14 @@
 <section class="journey-location-group" id="dropoffWrap"><div class="location-heading"><strong>Drop-off</strong></div><div id="dropoffAddressFields"><label for="dropoffName">Property / house name / number <small>(optional)</small></label><input id="dropoffName" class="property-detail" type="text" placeholder="Flat, house name, unit or reception"><label for="dropoffAddress">Drop-off address</label><input id="dropoffAddress" type="text" placeholder="Search address, postcode or place" autocomplete="off"></div><button id="addPublicDropoff" type="button" class="secondary-btn add-location-stop">+ Add drop-off</button><div id="publicDropoffStops" class="additional-stops"></div></section>
 </div>
 <div class="field-grid date-time-grid">
-<div class="field"><label for="journeyDate">Date</label><input id="journeyDate" type="date"></div>
-<div class="field"><label for="journeyTime">Time</label><input id="journeyTime" type="time" step="300"><small class="field-hint">24-hour time</small></div>
-<small id="earliestBookingHint" class="field-hint full booking-time-hint" aria-live="polite"></small>
+<div class="field"><label for="journeyDate">Date</label><input id="journeyDate" name="journey-date" type="date" autocomplete="off" required></div>
+<div class="field"><label for="journeyTime">Time</label><input id="journeyTime" name="journey-time" type="time" step="300" autocomplete="off" required><small class="field-hint">24-hour time</small></div>
 </div>
 
 <label class="return-card"><input id="returnJourney" type="checkbox"><span><strong>Book a return journey</strong><small>Add return date and time</small></span></label>
 <div id="returnFields" class="field-grid hidden">
-<div class="field"><label for="returnDate">Return date</label><input id="returnDate" type="date"></div>
-<div class="field"><label for="returnTime">Return time</label><input id="returnTime" type="time" step="300"></div>
+<div class="field"><label for="returnDate">Return date</label><input id="returnDate" name="return-date" type="date" autocomplete="off"></div>
+<div class="field"><label for="returnTime">Return time</label><input id="returnTime" name="return-time" type="time" step="300" autocomplete="off"></div>
 </div>
 
 <div class="route-card" id="routeCard">

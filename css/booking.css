@@ -29,7 +29,6 @@
 .field input,.field select,.field textarea,gmp-place-autocomplete{box-sizing:border-box;width:100%;min-height:49px;border:1px solid #ccd3db;border-radius:9px;background:#fff;font-size:16px}
 .field input,.field select,.field textarea{padding:11px}
 .field-hint{display:block;color:#667085;margin-top:5px}
-.booking-time-hint{grid-column:1/-1;margin-top:-7px}
 .hidden{display:none!important}
 .journey-fields{display:grid;gap:10px;margin-top:12px}
 .journey-location-group{min-width:0;padding:12px;border:1px solid #dce2e8;border-radius:11px;background:#f8fafc}
