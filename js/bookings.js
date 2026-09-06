@@ -872,6 +872,7 @@ async function assignBookingDriver(
 
     if (!booking) return;
 
+    const previousDriverId = booking.driver_id || null;
     const update = {
 
         driver_id:
@@ -931,6 +932,8 @@ async function assignBookingDriver(
     }
 
     await requestGoogleCalendarSync(bookingId);
+
+    await requestBookingEmailEvent(bookingId, "driver_assignment", { previous_driver_id: previousDriverId, event_id: `assignment:${Date.now()}` });
 
     await loadBookings();
 }
@@ -1141,7 +1144,7 @@ async function createAdminBooking(event) {
 
     await requestGoogleCalendarSync(payload.id);
 
-    await requestBookingConfirmation(payload.id, false);
+    await requestBookingEmailEvent(payload.id, "new_booking");
 
     if (message) {
 
@@ -1206,6 +1209,8 @@ async function cancelBooking(id) {
     }
 
     await requestGoogleCalendarSync(id);
+
+    await requestBookingEmailEvent(id, "booking_cancelled");
 
     await loadBookings();
 }
@@ -1580,6 +1585,7 @@ async function saveBookingPaymentMethod() {
         return alert(error?.message || "No matching company booking was updated.");
     }
 
+    await requestBookingEmailEvent(bookingId, "booking_changed", { event_id: `payment-method:${Date.now()}` });
     await loadBookings();
     openBookingView(bookingId);
 }
@@ -1606,13 +1612,21 @@ async function saveBookingDriverAmount() {
 }
 
 async function requestBookingConfirmation(bookingId, notify) {
-    const { data, error } = await bookingsDb.functions.invoke("send-booking-email", { body: { company_id: adminCompanyId, booking_id: bookingId, template_key: "booking_confirmation" } });
+    const { data, error } = await bookingsDb.functions.invoke("send-booking-email", { body: { company_id: adminCompanyId, booking_id: bookingId, event: "new_booking", audience: "customer", resend: true } });
     if (error || !data?.ok) {
         console.error("Booking email:", error || data?.error);
         if (notify) alert(data?.error || error?.message || "Unable to send confirmation.");
         return;
     }
     if (notify) alert("Confirmation email sent.");
+}
+
+async function requestBookingEmailEvent(bookingId, event, details = {}) {
+    const { data, error } = await bookingsDb.functions.invoke("send-booking-email", {
+        body: { company_id: adminCompanyId, booking_id: bookingId, event, ...details }
+    });
+    if (error || !data?.ok) console.error("Booking email event failed", event, error || data?.error);
+    return Boolean(!error && data?.ok);
 }
 
 async function requestGoogleCalendarSync(bookingId) {

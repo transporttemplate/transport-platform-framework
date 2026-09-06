@@ -16,6 +16,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const context = await window.getAdminCompanyContext();
         integrationCompanyId = context.companyId;
         await loadIntegrationSettings();
+        await loadEmailProviderStatus();
         if (saveButton) {
             saveButton.disabled = false;
             saveButton.addEventListener("click", saveIntegrationSettings);
@@ -61,6 +62,13 @@ async function loadIntegrationSettings() {
             : "Stripe test payments are not configured. Enable Stripe and save a valid pk_test_ publishable key in Payment Settings; secret keys remain server-side."
     );
     showIntegrationStatus("");
+}
+
+async function loadEmailProviderStatus() {
+    const { data, error } = await integrationsDb.functions.invoke("send-booking-email", {
+        body: { company_id: integrationCompanyId, event: "provider_status" }
+    });
+    setText("emailProviderStatus", !error && data?.configured ? "Configured" : "Not configured");
 }
 
 async function saveIntegrationSettings() {

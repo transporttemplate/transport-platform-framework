@@ -30,7 +30,7 @@ Deno.serve(async request=>{
     const bookingUpdate=await db.from("bookings").update({payment_status:paymentStatus,amount_paid:paid,balance_due:balance,paid_at:paidAt}).eq("id",booking.id).eq("company_id",payment.company_id);
     if(bookingUpdate.error) return json({ok:false},500);
     const linked=await db.from("bookings").update({payment_status:paymentStatus,paid_at:paidAt}).eq("company_id",payment.company_id).eq("booking_reference",`${booking.booking_reference}-R`).eq("payment_type","linked_return").select("id");
-    await notifyPaidBooking(payment.company_id,[booking.id,...(linked.data||[]).map((row:any)=>row.id)],booking.id);
+    await notifyPaidBooking(payment.company_id,[booking.id,...(linked.data||[]).map((row:any)=>row.id)],booking.id,intent.id);
   }else if(["payment_intent.payment_failed","payment_intent.canceled"].includes(event.type)){
     await db.from("payments").update({status:"failed"}).eq("id",payment.id).eq("company_id",payment.company_id).neq("status","paid");
     await db.from("bookings").update({payment_status:event.type.endsWith("canceled")?"payment_cancelled":"payment_failed"}).eq("id",payment.booking_id).eq("company_id",payment.company_id).neq("payment_status","paid");
@@ -38,11 +38,11 @@ Deno.serve(async request=>{
   return json({ok:true});
 });
 
-async function notifyPaidBooking(companyId:string,bookingIds:string[],emailBookingId:string){
+async function notifyPaidBooking(companyId:string,bookingIds:string[],emailBookingId:string,paymentIntentId:string){
   const base=Deno.env.get("SUPABASE_URL")||""; const serviceKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||"";
   const headers={"Content-Type":"application/json",apikey:serviceKey,Authorization:`Bearer ${serviceKey}`};
   const requests=bookingIds.map(bookingId=>fetch(`${base}/functions/v1/google-calendar-sync`,{method:"POST",headers,body:JSON.stringify({company_id:companyId,booking_id:bookingId})}));
-  requests.push(fetch(`${base}/functions/v1/send-booking-email`,{method:"POST",headers,body:JSON.stringify({company_id:companyId,booking_id:emailBookingId,template_key:"booking_confirmation"})}));
+  requests.push(fetch(`${base}/functions/v1/send-booking-email`,{method:"POST",headers,body:JSON.stringify({company_id:companyId,booking_id:emailBookingId,event:"payment_received",event_id:`stripe:${paymentIntentId}`})}));
   const results=await Promise.allSettled(requests);
   for(const result of results){
     if(result.status==="rejected") console.error("Post-payment notification failed",result.reason);

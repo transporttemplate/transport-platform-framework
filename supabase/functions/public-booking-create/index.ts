@@ -264,6 +264,8 @@ Deno.serve(async (request) => {
       stripe={client_secret:intent.client_secret,publishable_key:stripePublishableKey,amount_due:amountDue,balance_due:round2(pricing.total-amountDue),payment_type:paymentMethod==="Deposit"?"deposit":"full"};
     }
 
+    await notifyBookingEmail(companyId, String(inserted.data?.[0]?.id || id), "new_booking");
+
     return respond({
       ok: true,
       customer_id: customerId,
@@ -344,6 +346,18 @@ async function createStripeIntent(secret:string,amount:number,companyId:string,b
   const result=await response.json();
   if(!response.ok||!result?.client_secret) throw new ApiError(502,"Unable to start Stripe payment");
   return result;
+}
+
+async function notifyBookingEmail(companyId:string,bookingId:string,event:string){
+  const base=clean(Deno.env.get("SUPABASE_URL"));
+  const serviceKey=clean(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
+  if(!base||!serviceKey)return;
+  try{
+    const response=await fetch(`${base}/functions/v1/send-booking-email`,{method:"POST",headers:{"Content-Type":"application/json",apikey:serviceKey,Authorization:`Bearer ${serviceKey}`},body:JSON.stringify({company_id:companyId,booking_id:bookingId,event})});
+    const result=await response.json().catch(()=>({ok:false,error:"Invalid email function response"}));
+    if(!response.ok||!result?.ok)console.error("Booking email notification failed",{status:response.status,error:result?.error||result?.skipped||"Email was not accepted"});
+    else if(!result.sent)console.info("Booking email notification not sent",{reason:result.skipped||"duplicate"});
+  }catch(error){console.error("Booking email notification failed",error instanceof Error?error.message:error);}
 }
 
 async function resolvePublicAccount(companyId: string, booking: Row) {

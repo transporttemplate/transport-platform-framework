@@ -2136,15 +2136,11 @@ async function saveBooking(event){
         }
 
         await Promise.all((created.bookings||[]).map(booking => requestPublicGoogleCalendarSync(company.id, booking.id)));
-
-        const firstBooking=created.bookings?.[0];
-        const emailResult=firstBooking?await bookingdb.functions.invoke("send-booking-email",{body:{company_id:company.id,booking_id:firstBooking.id,template_key:"booking_confirmation"}}):{error:null};
-        if(emailResult.error) console.error("Booking saved but confirmation email could not be sent:",emailResult.error);
-
-
-        alert(
-            `Booking created successfully!\n\nReference: ${created.reference}`
-        );
+        showBookingConfirmation(created,{
+            paymentMethod:record.payment_method,
+            amountPaid:0,
+            balance:created.authoritative_price
+        });
 
     }catch(error){
 
@@ -2188,13 +2184,22 @@ async function confirmPendingStripePayment(){
         if(message) message.textContent="Your payment needs further action. Please follow the payment instructions above.";
         return;
     }
-    showStripePaymentConfirmation(pendingStripeBooking,status);
+    showBookingConfirmation(pendingStripeBooking,{
+        paymentMethod:document.getElementById("paymentMethod")?.value||"Pay Now",
+        amountPaid:pendingStripeBooking.stripe?.amount_due,
+        balance:pendingStripeBooking.stripe?.balance_due||0,
+        paymentIntentStatus:status,
+        isDeposit:pendingStripeBooking.stripe?.payment_type==="deposit"
+    });
 }
 
-function showStripePaymentConfirmation(created,paymentIntentStatus){
-    const isDeposit=created.stripe?.payment_type==="deposit";
+function showBookingConfirmation(created,options={}){
+    const paymentMethod=String(options.paymentMethod||"").trim()||"—";
+    const isDeposit=options.isDeposit===true;
     const email=document.getElementById("customerEmail")?.value.trim()||"";
-    const processing=paymentIntentStatus==="processing";
+    const processing=options.paymentIntentStatus==="processing";
+    const isAccount=/account|invoice/i.test(paymentMethod);
+    const isPayInCar=/cash|pay\s*in\s*(car|vehicle)/i.test(paymentMethod);
 
     stripePaymentElement?.unmount();
     stripePaymentElement=null;
@@ -2209,13 +2214,21 @@ function showStripePaymentConfirmation(created,paymentIntentStatus){
 
     setConfirmationText("paymentConfirmationLead",processing
         ?"Your payment was submitted successfully and is processing."
-        :isDeposit?"Your deposit payment was successful.":"Your payment was successful.");
+        :isDeposit?"Your deposit payment was successful."
+        :isPayInCar?"Your booking has been received. Payment is due in the vehicle."
+        :isAccount?"Your booking has been received and will be charged to your account."
+        :options.paymentIntentStatus?"Your payment was successful."
+        :"Your booking has been received.");
     setConfirmationText("confirmationReference",created.reference||"—");
     setConfirmationText("confirmationJourneyTotal",money(created.authoritative_price));
+    setConfirmationText("confirmationPaymentMethod",paymentMethod);
     setConfirmationText("confirmationPaidLabel",isDeposit?"Deposit paid":"Amount paid");
-    setConfirmationText("confirmationAmountPaid",money(created.stripe?.amount_due));
-    setConfirmationText("confirmationBalance",money(created.stripe?.balance_due||0));
+    setConfirmationText("confirmationAmountPaid",money(options.amountPaid||0));
+    setConfirmationText("confirmationBalance",money(options.balance||0));
     setConfirmationText("confirmationEmail",email);
+    setConfirmationText("paymentConfirmationNote",options.paymentIntentStatus
+        ?"Your secure payment has been submitted. Your booking confirmation will be sent separately."
+        :"Your booking confirmation will be sent separately.");
     const emailRow=document.getElementById("confirmationEmailRow");
     if(emailRow) emailRow.hidden=!email;
 
