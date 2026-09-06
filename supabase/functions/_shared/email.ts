@@ -46,29 +46,32 @@ export function formatCompanyLocalDateTime(dateValue: unknown, timeValue: unknow
   return { date: formattedDate, time: formattedTime, dateTime: `${formattedDate} at ${formattedTime}` };
 }
 
-export type EmailOptions = { html?: string; replyTo?: string; senderName?: string };
+export type EmailOptions = { html?: string; replyTo?: string; senderName?: string; senderEmail?: string };
 
 export async function deliverEmail(to: string, subject: string, text: string, options: EmailOptions = {}) {
   const apiKey = Deno.env.get("EMAIL_PROVIDER_API_KEY");
   const configuredFrom = Deno.env.get("EMAIL_FROM_ADDRESS");
   const endpoint = Deno.env.get("EMAIL_PROVIDER_URL") || "https://api.resend.com/emails";
   if (!apiKey || !configuredFrom) throw new Error("EMAIL_PROVIDER_API_KEY and EMAIL_FROM_ADDRESS must be configured.");
-  const from = options.senderName && !configuredFrom.includes("<")
-    ? `${safeHeader(options.senderName)} <${configuredFrom}>`
-    : configuredFrom;
+  const companySenderEmail = emailAddress(options.senderEmail);
+  const fallbackSenderEmail = emailAddress(configuredFrom);
+  const senderEmail = companySenderEmail || fallbackSenderEmail;
+  if (!senderEmail) throw new Error("No valid email sender address is configured.");
+  const senderName = safeHeader(options.senderName);
+  const from = senderName ? `${senderName} <${senderEmail}>` : senderEmail;
   const payload: Record<string, unknown> = { from, to: [to], subject, text, html: options.html };
   const requestedReplyTo = emailAddress(options.replyTo);
-  const senderReplyTo = emailAddress(configuredFrom);
-  const replyTo = requestedReplyTo || senderReplyTo;
+  const replyTo = requestedReplyTo || senderEmail;
   const replyToResolution = requestedReplyTo
     ? "company_valid"
     : options.replyTo
-      ? senderReplyTo ? "sender_fallback" : "omitted_invalid"
-      : senderReplyTo ? "sender_fallback" : "omitted";
+      ? "sender_fallback_invalid_company_value"
+      : "sender_fallback";
   if (replyTo) payload.reply_to = replyTo;
   console.info("Submitting email to provider", {
     provider: providerName(endpoint),
     recipient_count: 1,
+    sender: companySenderEmail ? "company_valid" : "global_fallback",
     reply_to: replyToResolution,
   });
   const response = await fetch(endpoint, { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) });

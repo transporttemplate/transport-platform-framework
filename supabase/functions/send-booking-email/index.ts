@@ -79,6 +79,7 @@ Deno.serve(async (request) => {
         ? render(templateBody, { ...recipientValues, journey_summary: "", payment_summary: "" }).replace(/\n{3,}/g, "\n\n").trim()
         : text;
       const html = brandedEmail(settings, `<div style="font-size:16px">${textToHtml(htmlText)}</div>${journeyHtml(booking, stopsResult.data || [], settings, String(recipientValues.journey_datetime || ""))}${paymentHtml(booking, settings)}`);
+      const companyEmail = companyEmailAddress(settings);
       try {
         const result = await logDelivery(companyId, recipient.template, recipient.email, {
           booking_id: bookingId,
@@ -88,8 +89,9 @@ Deno.serve(async (request) => {
           metadata: { event },
         }, () => deliverEmail(recipient.email, subject, text, {
           html,
-          replyTo: clean(settings.email_reply_to) || clean(settings.officeemail) || clean(settings.companyemail) || undefined,
-          senderName: clean(settings.email_sender_name) || clean(settings.tradingname) || clean(settings.companyname) || undefined,
+          replyTo: companyReplyToAddress(settings) || undefined,
+          senderEmail: companyEmail || undefined,
+          senderName: clean(settings.email_sender_name) || clean(settings.tradingname) || clean(settings.companyname) || clean(company.trading_name) || clean(company.name) || undefined,
         }));
         console.info("Email delivery completed", { event, company_id: companyId, recipient_type: recipient.type, result: result === "duplicate" ? "deduplicated" : "provider_accepted" });
         sent.push({ recipient_type: recipient.type, status: result === "duplicate" ? "duplicate" : "sent" });
@@ -126,8 +128,9 @@ async function sendTestEmail(request: Request, companyId: string, body: Row) {
     subject, recipient_type: "admin_test", event_key: `test:${auth.user?.id || recipient}:${clean(body.event_id) || crypto.randomUUID()}`,
   }, () => deliverEmail(recipient, subject, text, {
     html: brandedEmail(settings || {}, textToHtml(text)),
-    replyTo: clean(settings?.email_reply_to) || clean(settings?.officeemail) || undefined,
-    senderName: clean(settings?.email_sender_name) || clean(settings?.tradingname) || undefined,
+    replyTo: companyReplyToAddress(settings || {}) || undefined,
+    senderEmail: companyEmailAddress(settings || {}) || undefined,
+    senderName: clean(settings?.email_sender_name) || clean(settings?.tradingname) || clean(settings?.companyname) || clean(company?.trading_name) || clean(company?.name) || undefined,
   }));
   return json({ ok: true, sent: result !== "duplicate", deduplicated: result === "duplicate", status: result === "duplicate" ? "duplicate" : "sent" });
 }
@@ -254,9 +257,19 @@ function defaultTemplate(key: string) {
 }
 
 function officeRecipients(settings: Row) {
-  const values = [settings.office_notification_email, settings.officeemail, settings.companyemail, settings.additional_office_recipients]
+  const primary = clean(settings.office_notification_email) || clean(settings.officeemail) || clean(settings.companyemail);
+  const values = [primary, settings.additional_office_recipients]
     .flatMap(value => String(value || "").split(/[;,\n]/)).map(value => value.trim().toLowerCase()).filter(validEmail);
   return [...new Set(values)];
+}
+function companyEmailAddress(settings: Row) {
+  return firstValidEmail(settings.email_reply_to, settings.office_notification_email, settings.officeemail, settings.companyemail);
+}
+function companyReplyToAddress(settings: Row) {
+  return firstValidEmail(settings.email_reply_to, settings.office_notification_email, settings.officeemail, settings.companyemail);
+}
+function firstValidEmail(...values: unknown[]) {
+  return values.map(value => String(value || "").trim().toLowerCase()).find(validEmail) || null;
 }
 function canonicalEvent(value: unknown) { const key = String(value || "new_booking").toLowerCase(); const map: Record<string, string> = { booking_confirmation: "new_booking", booking_amended: "booking_changed", booking_cancelled: "booking_cancelled", driver_assigned: "driver_assignment", payment_confirmation: "payment_received" }; return map[key] || key; }
 function eventIdentity(event: string, booking: Row, body: Row) { if (event === "payment_received") return `payment:${booking.payment_status}:${booking.amount_paid}`; if (event === "unallocated_reminder") return `unallocated:${Number(body.threshold_minutes || 0)}`; return event; }
