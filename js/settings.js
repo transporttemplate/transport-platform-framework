@@ -140,9 +140,11 @@ const fieldMap = {
 };
 
 let settingsCompanyId = null;
+let settingsCompanyCode = null;
 let settingsRowId = null;
 let settingsLoaded = false;
 let savedCompanyLogo = "";
+let pendingCompanyLogoFile = null;
 let pendingCompanyLogoPreviewUrl = "";
 
 const COMPANY_LOGO_BUCKET = "company-logos";
@@ -167,6 +169,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
         const context = await window.getAdminCompanyContext();
         settingsCompanyId = context.companyId;
+        settingsCompanyCode = context.company?.company_code || null;
 
         await loadSettings();
 
@@ -343,6 +346,11 @@ async function saveSettings() {
     if (savedCompanyLogo) {
         const logoInput = document.getElementById("companyLogo");
         if (logoInput) logoInput.value = "";
+        pendingCompanyLogoFile = null;
+        if (pendingCompanyLogoPreviewUrl) {
+            URL.revokeObjectURL(pendingCompanyLogoPreviewUrl);
+            pendingCompanyLogoPreviewUrl = "";
+        }
         renderCompanyLogoPreview(savedCompanyLogo);
     }
 
@@ -353,6 +361,11 @@ function previewSelectedCompanyLogo(event) {
     const file = event.target.files?.[0];
 
     if (!file) {
+        pendingCompanyLogoFile = null;
+        if (pendingCompanyLogoPreviewUrl) {
+            URL.revokeObjectURL(pendingCompanyLogoPreviewUrl);
+            pendingCompanyLogoPreviewUrl = "";
+        }
         renderCompanyLogoPreview(savedCompanyLogo);
         return;
     }
@@ -360,11 +373,20 @@ function previewSelectedCompanyLogo(event) {
     try {
         validateCompanyLogo(file);
     } catch (error) {
+        pendingCompanyLogoFile = null;
         event.target.value = "";
         renderCompanyLogoPreview(savedCompanyLogo);
         alert(error.message);
         return;
     }
+
+    pendingCompanyLogoFile = file;
+    console.info("Company logo selected", {
+        company_code: settingsCompanyCode,
+        file_name: file.name,
+        file_size: file.size,
+        file_type: file.type
+    });
 
     if (pendingCompanyLogoPreviewUrl) {
         URL.revokeObjectURL(pendingCompanyLogoPreviewUrl);
@@ -375,6 +397,10 @@ function previewSelectedCompanyLogo(event) {
 }
 
 function validateCompanyLogo(file) {
+    if (!(file instanceof File) || file.size <= 0 || !file.type.startsWith("image/")) {
+        throw new Error("Please choose a valid logo image.");
+    }
+
     if (!COMPANY_LOGO_TYPES[file.type]) {
         throw new Error("Choose a PNG, JPG, WebP or GIF image.");
     }
@@ -385,14 +411,27 @@ function validateCompanyLogo(file) {
 }
 
 async function uploadSelectedCompanyLogo() {
-    const logoInput = document.getElementById("companyLogo");
-    const file = logoInput?.files?.[0];
-    if (!file) return "";
+    const file = pendingCompanyLogoFile;
+    if (!file) {
+        console.info("Company logo upload skipped", {
+            company_code: settingsCompanyCode,
+            reason: "no_new_file"
+        });
+        return "";
+    }
 
     validateCompanyLogo(file);
 
     const extension = COMPANY_LOGO_TYPES[file.type];
-    const storagePath = `${settingsCompanyId}/logo-${Date.now()}.${extension}`;
+    const originalStem = file.name.replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "logo";
+    const storagePath = `${settingsCompanyId}/${Date.now()}-${originalStem}.${extension}`;
+    console.info("Uploading company logo", {
+        company_code: settingsCompanyCode,
+        file_name: file.name,
+        file_size: file.size,
+        file_type: file.type,
+        upload_path: storagePath
+    });
     const { error } = await db.storage
         .from(COMPANY_LOGO_BUCKET)
         .upload(storagePath, file, {
