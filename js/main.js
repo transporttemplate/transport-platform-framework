@@ -233,7 +233,7 @@ function renderServiceAreas({ serviceAreas, settings }) {
     }).map(publicAreaName);
     if (!names.length) return;
 
-    setTextIfValue("serviceArea", names.join(", "));
+    setTextIfValue("serviceArea", names.join(" • "));
 
     const bookingMessage = document.getElementById("airportServiceAreaMessage");
     if (bookingMessage) {

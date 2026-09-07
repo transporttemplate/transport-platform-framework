@@ -164,6 +164,16 @@ let savedCompanyLogo = "";
 let pendingCompanyLogoFile = null;
 let pendingCompanyLogoPreviewUrl = "";
 let fleetItemsLoaded = false;
+let fleetItemsAvailable = false;
+const availableOptionalSettingColumns = new Set();
+
+const OPTIONAL_SETTING_COLUMNS = new Set([
+    "contactheroimage",
+    "publicbackgroundcolour", "publiccardcolour", "publicheadercolour",
+    "publictextcolour", "publicmutedcolour", "publicfootercolour",
+    "mon24hours", "tue24hours", "wed24hours", "thu24hours",
+    "fri24hours", "sat24hours", "sun24hours"
+]);
 const pendingCompanyMediaFiles = {};
 const pendingCompanyMediaPreviewUrls = {};
 
@@ -235,14 +245,14 @@ async function loadSettings() {
 
     const pageColumns = new Set(["id", "company_id"]);
     Object.entries(fieldMap).forEach(([htmlId, dbColumn]) => {
-        if (document.getElementById(htmlId)) pageColumns.add(dbColumn);
+        if (document.getElementById(htmlId) && !OPTIONAL_SETTING_COLUMNS.has(dbColumn)) pageColumns.add(dbColumn);
     });
     if (document.getElementById("acceptAdvanceBookings") || document.getElementById("bookWhileClosed")) {
         pageColumns.add("acceptadvancebookings");
         pageColumns.add("bookwhileclosed");
     }
 
-    const { data, error } = await db
+    const { data: coreData, error } = await db
         .from("settings")
         .select([...pageColumns].join(","))
         .eq("company_id", settingsCompanyId)
@@ -253,8 +263,28 @@ async function loadSettings() {
         throw error;
     }
 
-    if (!data || String(data.company_id) !== String(settingsCompanyId)) {
+    if (!coreData || String(coreData.company_id) !== String(settingsCompanyId)) {
         throw new Error("The settings row for your authenticated company is not accessible. Saving has been disabled.");
+    }
+
+    let data = { ...coreData };
+    const requestedOptionalColumns = [...OPTIONAL_SETTING_COLUMNS].filter(column =>
+        Object.entries(fieldMap).some(([htmlId, dbColumn]) => dbColumn === column && document.getElementById(htmlId))
+    );
+    if (requestedOptionalColumns.length) {
+        const optionalResult = await db.from("settings")
+            .select(["id", "company_id", ...requestedOptionalColumns].join(","))
+            .eq("company_id", settingsCompanyId)
+            .maybeSingle();
+        if (!optionalResult.error && optionalResult.data) {
+            Object.assign(data, optionalResult.data);
+            requestedOptionalColumns.forEach(column => availableOptionalSettingColumns.add(column));
+        } else {
+            console.info("Optional public-site settings are not installed yet; established settings remain available.", {
+                code: optionalResult.error?.code || "unknown"
+            });
+            setOptionalSettingsAvailability(false);
+        }
     }
 
     settingsRowId = data.id;
@@ -274,7 +304,7 @@ async function loadSettings() {
     Object.entries(fieldMap).forEach(([htmlId, dbColumn]) => {
         const el = document.getElementById(htmlId);
 
-        if (!el) return;
+        if (!el || (OPTIONAL_SETTING_COLUMNS.has(dbColumn) && !availableOptionalSettingColumns.has(dbColumn))) return;
 
         if (el.type === "checkbox") {
             el.checked = !!loadedData[dbColumn];
@@ -306,7 +336,7 @@ async function saveSettings() {
     Object.entries(fieldMap).forEach(([htmlId, dbColumn]) => {
         const el = document.getElementById(htmlId);
 
-        if (!el) return;
+        if (!el || (OPTIONAL_SETTING_COLUMNS.has(dbColumn) && !availableOptionalSettingColumns.has(dbColumn))) return;
         if (el.type === "file") return;
 
         if (el.type === "checkbox") {
@@ -347,6 +377,7 @@ async function saveSettings() {
             settings.companylogo = uploadedLogoUrl;
         }
         for (const [id, config] of Object.entries(COMPANY_MEDIA_FIELDS)) {
+            if (OPTIONAL_SETTING_COLUMNS.has(config.column) && !availableOptionalSettingColumns.has(config.column)) continue;
             const uploadedUrl = await uploadSelectedCompanyMedia(id, config);
             if (uploadedUrl) settings[config.column] = uploadedUrl;
         }
@@ -371,16 +402,6 @@ async function saveSettings() {
         return;
     }
 
-    if (document.getElementById("fleetItems")) {
-        try {
-            await saveFleetItems();
-        } catch (error) {
-            console.error("Fleet settings save error:", error);
-            alert(error.message || "Fleet settings could not be saved.");
-            return;
-        }
-    }
-
     if (!result.data || String(result.data.id) !== String(settingsRowId) || String(result.data.company_id) !== String(settingsCompanyId)) {
         console.error("Settings save returned no matching company row.", {
             expected_company_id: settingsCompanyId,
@@ -396,6 +417,16 @@ async function saveSettings() {
     )) {
         alert("Stripe settings were not saved as entered. Please refresh and try again.");
         return;
+    }
+
+    if (document.getElementById("fleetItems") && fleetItemsAvailable) {
+        try {
+            await saveFleetItems();
+        } catch (error) {
+            console.error("Fleet settings save error:", error);
+            alert(error.message || "Fleet settings could not be saved.");
+            return;
+        }
     }
 
     savedCompanyLogo = result.data.companylogo || savedCompanyLogo;
@@ -640,12 +671,26 @@ async function loadFleetItems() {
     if (error) {
         list.innerHTML = `<p>Fleet controls require migration 202609070002.</p>`;
         console.info("Fleet settings are not available yet.");
+        document.getElementById("addFleetItem")?.setAttribute("disabled", "disabled");
         return;
     }
     list.replaceChildren();
     (data || []).forEach(addFleetItemRow);
     if (!data?.length) addFleetItemRow();
     fleetItemsLoaded = true;
+    fleetItemsAvailable = true;
+}
+
+function setOptionalSettingsAvailability(available) {
+    for (const [htmlId, column] of Object.entries(fieldMap)) {
+        if (!OPTIONAL_SETTING_COLUMNS.has(column)) continue;
+        const input = document.getElementById(htmlId);
+        if (input) input.disabled = !available;
+    }
+    if (!available) {
+        const contactStatus = document.getElementById("contactHeroImageStatus");
+        if (contactStatus) contactStatus.textContent = "Apply migration 202609070002 to enable this setting.";
+    }
 }
 
 function addFleetItemRow(item = {}) {
