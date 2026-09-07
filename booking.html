@@ -15,6 +15,7 @@
 <script defer src="js/main.js"></script>
 <script defer src="js/address-autocomplete.js"></script>
 <script defer src="js/booking.js"></script>
+<script defer src="js/vehicle-capacity-pricing.js"></script>
 </head>
 <body>
 <header>
@@ -87,7 +88,7 @@
 <section class="booking-step" data-step="2">
 <div class="step-heading"><p class="eyebrow">Step 2 of 5</p><h2>Passengers & luggage</h2><p>This helps us offer the correct vehicle and fare.</p></div>
 <div class="field-grid three">
-<div class="field"><label for="passengers">Passengers</label><input id="passengers" type="number" min="1" max="7" value="1" placeholder="Passengers"></div>
+<div class="field"><label for="passengers">Passengers</label><input id="passengers" type="number" min="1" max="52" value="1" placeholder="Passengers"></div>
 <div class="field"><label for="suitcases">Suitcases</label><input id="suitcases" type="number" min="0" value="0" placeholder="Suitcases"></div>
 <div class="field"><label for="handLuggage">Hand luggage</label><input id="handLuggage" type="number" min="0" value="0" placeholder="Hand luggage"></div>
 </div>
@@ -97,11 +98,9 @@
 
 <section class="booking-step" data-step="3">
 <div class="step-heading"><p class="eyebrow">Step 3 of 5</p><h2>Choose your vehicle</h2><p>Select the vehicle that suits your group.</p></div>
-<div class="vehicle-grid">
-<button type="button" class="vehicle-card active" data-vehicle="car"><div class="vehicle-art">CAR</div><div class="vehicle-copy"><strong>Car</strong><span>Up to 4 passengers</span></div><div class="vehicle-price" id="carPrice">—</div></button>
-<button type="button" class="vehicle-card" data-vehicle="mpv"><div class="vehicle-art">MPV</div><div class="vehicle-copy"><strong>MPV</strong><span>Up to 7 passengers</span></div><div class="vehicle-price" id="mpvPrice">—</div></button>
+<div class="vehicle-grid" id="vehicleTierGrid">
 </div>
-<input id="vehicleType" type="hidden" value="car">
+<input id="vehicleType" type="hidden" value="standard">
 <div id="vehiclePriceNote" class="notice-box">Complete the journey details to calculate your fare.</div>
 <div class="step-actions"><button type="button" class="secondary-btn" data-back="2">Back</button><button type="button" class="primary-btn" data-next="4">Continue</button></div>
 </section>

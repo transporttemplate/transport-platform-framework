@@ -732,9 +732,9 @@ function validateStep(step){
 
         if(
             passengers<1 ||
-            passengers>7
+            passengers>52
         ){
-            alert("Passengers must be between 1 and 7.");
+            alert("Passengers must be between 1 and 52.");
             return false;
         }
     }
@@ -1896,10 +1896,8 @@ function buildSummary(){
         document.getElementById("flightNumber").value.trim();
 
 
-    const vehicle=
-        document.getElementById("vehicleType").value==="mpv"
-            ?"MPV"
-            :"Car";
+    const selectedTier=document.getElementById("vehicleType").value;
+    const vehicle=({standard:"Car","5_8":"5–8 Seater","9_16":"9–16 Seater","17_23":"17–23 Seater","24_52":"24–52 Seater"})[selectedTier]||selectedTier;
 
 
     const returnJourney=
@@ -2170,6 +2168,9 @@ async function saveBooking(event){
                 ),
 
             vehicle_type:
+                document.getElementById("vehicleType").value,
+
+            vehicle_tier:
                 document.getElementById("vehicleType").value,
 
             notes:

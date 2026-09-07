@@ -112,6 +112,10 @@ const fieldMap = {
     bankHoliday: "bankholiday",
     christmas: "christmas",
     bookingFee: "bookingfee",
+    vehicleUplift5To8: "vehicleuplift_5_8_percent",
+    vehicleUplift9To16: "vehicleuplift_9_16_percent",
+    vehicleUplift17To23: "vehicleuplift_17_23_percent",
+    vehicleUplift24To52: "vehicleuplift_24_52_percent",
     airportViaSurcharge: "airportviasurcharge",
 
     useGoogleBoundary: "usegoogleboundary",
@@ -130,6 +134,11 @@ const fieldMap = {
     airportPricing: "airportpricing",
     distanceCalculator: "distancecalculator",
     returnBookings: "returnbookings",
+    allowVehicleStandard: "allowvehicle_standard",
+    allowVehicle5To8: "allowvehicle_5_8",
+    allowVehicle9To16: "allowvehicle_9_16",
+    allowVehicle17To23: "allowvehicle_17_23",
+    allowVehicle24To52: "allowvehicle_24_52",
     multipleStops: "multiplestops",
     driverReject: "driverreject",
     customerCancel: "customercancel",
@@ -195,7 +204,9 @@ const OPTIONAL_SETTING_COLUMNS = new Set([
     "homesellingpoint3enabled", "homesellingpoint3text",
     "homesellingpoint4enabled", "homesellingpoint4text"
     ,"bankaccountname", "banksortcode", "bankaccountnumber",
-    "bankpaymentreferenceinstruction", "showbankdetailsoninvoices"
+    "bankpaymentreferenceinstruction", "showbankdetailsoninvoices",
+    "vehicleuplift_5_8_percent", "vehicleuplift_9_16_percent", "vehicleuplift_17_23_percent", "vehicleuplift_24_52_percent",
+    "allowvehicle_standard", "allowvehicle_5_8", "allowvehicle_9_16", "allowvehicle_17_23", "allowvehicle_24_52"
 ]);
 const pendingCompanyMediaFiles = {};
 const pendingCompanyMediaPreviewUrls = {};
@@ -274,6 +285,7 @@ async function loadSettings() {
         pageColumns.add("acceptadvancebookings");
         pageColumns.add("bookwhileclosed");
     }
+    if (document.getElementById("vehicleUplift5To8")) pageColumns.add("bookingfee");
 
     const { data: coreData, error } = await db
         .from("settings")
@@ -322,7 +334,16 @@ async function loadSettings() {
         homesellingpoint1text: data.homesellingpoint1text ?? "Fixed Airport Prices",
         homesellingpoint2text: data.homesellingpoint2text ?? "Online Booking",
         homesellingpoint3text: data.homesellingpoint3text ?? "Professional Drivers",
-        homesellingpoint4text: data.homesellingpoint4text ?? "24/7 Service"
+        homesellingpoint4text: data.homesellingpoint4text ?? "24/7 Service",
+        vehicleuplift_5_8_percent: data.vehicleuplift_5_8_percent ?? data.bookingfee ?? 0,
+        vehicleuplift_9_16_percent: data.vehicleuplift_9_16_percent ?? 0,
+        vehicleuplift_17_23_percent: data.vehicleuplift_17_23_percent ?? 0,
+        vehicleuplift_24_52_percent: data.vehicleuplift_24_52_percent ?? 0,
+        allowvehicle_standard: data.allowvehicle_standard ?? true,
+        allowvehicle_5_8: data.allowvehicle_5_8 ?? true,
+        allowvehicle_9_16: data.allowvehicle_9_16 ?? false,
+        allowvehicle_17_23: data.allowvehicle_17_23 ?? false,
+        allowvehicle_24_52: data.allowvehicle_24_52 ?? false
     };
 
     savedCompanyLogo = loadedData.companylogo || "";

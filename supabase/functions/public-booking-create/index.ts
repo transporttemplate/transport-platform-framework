@@ -62,6 +62,8 @@ Deno.serve(async (request) => {
         "returnbookings", "multiplestops", "allowcash", "enablecash", "allowcard", "enablestripe", "allowaccounts", "enableaccounts",
         "airportpricing", "distancecalculator", "allowairportoutsidearea", "minimumfare", "firstmile",
         "mileband1", "mileband2", "mileband3", "mileband4", "mileband5", "mileband6", "bookingfee", "airportviasurcharge",
+        "allowvehicle_standard", "allowvehicle_5_8", "allowvehicle_9_16", "allowvehicle_17_23", "allowvehicle_24_52",
+        "vehicleuplift_5_8_percent", "vehicleuplift_9_16_percent", "vehicleuplift_17_23_percent", "vehicleuplift_24_52_percent",
         "returndiscount", "requiredeposit", "airportdepositrequired", "depositpercent", "stripepublishablekey",
       ].join(",")).eq("company_id", companyId).maybeSingle(),
       db.from("service_areas").select("id,company_id,postcode_prefix,radius_miles,active")
@@ -142,7 +144,8 @@ Deno.serve(async (request) => {
       enforceAirportServiceArea(booking, airport!, areas || [], route);
     }
 
-    const pricing = calculatePrice({ settings, airport, mode, passengers: integer(booking.passengers), miles: route.miles, isReturn, viaCount: route.stops.length });
+    const vehicleTier = validateVehicleTier(booking.vehicle_tier || booking.vehicle_type, integer(booking.passengers), settings);
+    const pricing = calculatePrice({ settings, airport, mode, vehicleTier, miles: route.miles, isReturn, viaCount: route.stops.length });
     const prices = splitPrice(pricing.total, isReturn);
     const onlinePayment=paymentMethod==="Card"||paymentMethod==="Deposit";
     const airportPickup=mode==="airport" && String(booking.pickup_address||"").trim().toLowerCase()===String(airport?.name||"").trim().toLowerCase();
@@ -196,6 +199,8 @@ Deno.serve(async (request) => {
       route_distance_miles: route.miles,
       route_duration_minutes: route.minutes,
       pricing_method: pricing.method,
+      vehicle_tier: vehicleTier,
+      vehicle_type: vehicleTier === "standard" ? "car" : vehicleTier === "5_8" ? "mpv" : vehicleTier,
       account_customer_id: account?.id || null,
       account_po_reference: account ? clean(booking.account_po_reference) : null,
       booking_source: "website",
@@ -297,10 +302,7 @@ Deno.serve(async (request) => {
 function validateBasicBooking(booking: Row, stops: Row[], settings: Row) {
   if (!clean(booking.pickup_address) || !clean(booking.dropoff_address)) throw new ApiError(400, "Pickup and destination are required");
   const passengers = integer(booking.passengers);
-  if (passengers < 1 || passengers > 7) throw new ApiError(400, "Passengers must be between 1 and 7");
-  const vehicle = String(booking.vehicle_type || "").toLowerCase();
-  if (!['car', 'mpv'].includes(vehicle)) throw new ApiError(400, "A valid vehicle type is required");
-  if (passengers > 4 && vehicle !== "mpv") throw new ApiError(400, "An MPV is required for more than four passengers");
+  if (passengers < 1 || passengers > 52) throw new ApiError(400, "Passengers must be between 1 and 52");
   if (bool(booking.return_journey) && !bool(settings.returnbookings)) throw new ApiError(400, "Return bookings are not enabled");
   if (stops.length && !bool(settings.multiplestops)) throw new ApiError(400, "Multiple stops are not enabled");
   if (stops.length > 8) throw new ApiError(400, "Too many intermediate stops");
@@ -468,16 +470,41 @@ async function verifiedLocation(source: Row | null, address: unknown, apiKey: st
   };
 }
 
-function calculatePrice(input: { settings: Row; airport: Row | null; mode: string; passengers: number; miles: number; isReturn: boolean; viaCount: number }) {
-  const { settings, airport, mode, passengers, miles, isReturn, viaCount } = input;
-  const uplift = passengers >= 5 ? Math.max(0, number(settings.bookingfee)) : 0;
+function validateVehicleTier(value: unknown, passengers: number, settings: Row) {
+  const aliases: Record<string, string> = { car: "standard", mpv: "5_8", standard: "standard", "5_8": "5_8", "9_16": "9_16", "17_23": "17_23", "24_52": "24_52" };
+  const tier = aliases[String(value || "").toLowerCase()];
+  const rules: Record<string, { capacity: number; setting: string; legacyDefault: boolean }> = {
+    standard: { capacity: 4, setting: "allowvehicle_standard", legacyDefault: true },
+    "5_8": { capacity: 8, setting: "allowvehicle_5_8", legacyDefault: true },
+    "9_16": { capacity: 16, setting: "allowvehicle_9_16", legacyDefault: false },
+    "17_23": { capacity: 23, setting: "allowvehicle_17_23", legacyDefault: false },
+    "24_52": { capacity: 52, setting: "allowvehicle_24_52", legacyDefault: false },
+  };
+  const rule = rules[tier];
+  if (!rule) throw new ApiError(400, "A valid vehicle tier is required");
+  const configured = settings[rule.setting];
+  if (!(configured == null ? rule.legacyDefault : bool(configured))) throw new ApiError(400, "The selected vehicle tier is not available");
+  if (passengers > rule.capacity) throw new ApiError(400, "The selected vehicle cannot carry this passenger group");
+  return tier;
+}
+
+function vehicleUplift(tier: string, settings: Row) {
+  if (tier === "standard") return 0;
+  if (tier === "5_8") return Math.max(0, settings.vehicleuplift_5_8_percent == null ? number(settings.bookingfee) : number(settings.vehicleuplift_5_8_percent));
+  return Math.max(0, number(settings[`vehicleuplift_${tier}_percent`]));
+}
+
+function calculatePrice(input: { settings: Row; airport: Row | null; mode: string; vehicleTier: string; miles: number; isReturn: boolean; viaCount: number }) {
+  const { settings, airport, mode, vehicleTier, miles, isReturn, viaCount } = input;
+  const uplift = vehicleUplift(vehicleTier, settings);
   if (mode === "airport") {
-    const size = passengers >= 5 ? "5_7" : "1_4";
     const trip = isReturn ? "return" : "oneway";
+    const size = vehicleTier === "5_8" ? "5_7" : "1_4";
     const configured = number(airport?.[`price_${size}_${trip}`], NaN);
     if (!Number.isFinite(configured) || configured <= 0) throw new ApiError(400, "No fixed price is configured for this airport journey");
     const viaSurcharge = Math.max(0, number(settings.airportviasurcharge));
-    return { total: round2(configured * (1 + uplift / 100) + Math.max(0, viaCount) * viaSurcharge), method: "Airport fixed price" };
+    const tierPrice = ["standard", "5_8"].includes(vehicleTier) ? configured : configured * (1 + uplift / 100);
+    return { total: round2(tierPrice + Math.max(0, viaCount) * viaSurcharge), method: "Airport fixed price" };
   }
 
   if (!Number.isFinite(miles) || miles <= 0) throw new ApiError(400, "A valid route distance is required");
@@ -495,9 +522,9 @@ function calculatePrice(input: { settings: Row; airport: Row | null; mode: strin
     start = ends[index];
   }
   if (remaining > 0) total += remaining * rates[5];
-  total *= 1 + uplift / 100;
   total = Math.max(Math.max(0, number(settings.minimumfare)), total);
   if (isReturn) total *= 2 * (1 - Math.min(100, Math.max(0, number(settings.returndiscount))) / 100);
+  total *= 1 + uplift / 100;
   return { total: floorHalf(total), method: "Distance price" };
 }
 
@@ -513,7 +540,7 @@ function bookingPayload(booking: Row, fixed: Row) {
     "customer_name", "pickup_address", "pickup_name", "pickup_postcode", "pickup_place_id", "pickup_lat", "pickup_lng",
     "dropoff_address", "dropoff_name", "dropoff_postcode", "dropoff_place_id", "dropoff_lat", "dropoff_lng", "airport",
     "flight_number", "journey_type", "journey_date", "journey_time", "return_journey", "return_date", "return_time",
-    "phone", "email", "passengers", "suitcases", "hand_luggage", "vehicle_type", "notes",
+    "phone", "email", "passengers", "suitcases", "hand_luggage", "vehicle_type", "vehicle_tier", "notes",
   ];
   const output: Row = {};
   for (const key of allowed) output[key] = booking[key] ?? null;
