@@ -302,8 +302,8 @@ async function saveSettings() {
     const stripePublishableInput = document.getElementById("stripePublishableKey");
     if (stripeEnabledInput && stripePublishableInput) {
         const publishableKey = stripePublishableInput.value.trim();
-        if (stripeEnabledInput.checked && !publishableKey.startsWith("pk_test_")) {
-            alert("Enable Stripe requires a valid Stripe test publishable key beginning pk_test_.");
+        if (stripeEnabledInput.checked && !/^pk_(test|live)_/.test(publishableKey)) {
+            alert("Enable Stripe requires a valid publishable key beginning pk_test_ or pk_live_.");
             stripePublishableInput.focus();
             return;
         }

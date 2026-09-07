@@ -53,13 +53,14 @@ async function loadIntegrationSettings() {
 
     setText("googleMapsStatus", configuredStatus(data.googlemapsapi));
     setText("googleCalendarStatus", configuredStatus(data.googlecalendarid));
-    const stripeConfigured = data.enablestripe === true && isStripeTestPublishableKey(data.stripepublishablekey);
-    setText("stripeStatus", stripeConfigured ? "Configured (test mode)" : "Not configured");
+    const stripeMode = stripePublishableKeyMode(data.stripepublishablekey);
+    const stripeConfigured = data.enablestripe === true && Boolean(stripeMode);
+    setText("stripeStatus", stripeConfigured ? `Configured (${stripeMode} mode)` : "Not configured");
     setText(
         "stripeConfigurationNote",
         stripeConfigured
-            ? "Stripe test payments are enabled for this company. Secret keys remain stored server-side."
-            : "Stripe test payments are not configured. Enable Stripe and save a valid pk_test_ publishable key in Payment Settings; secret keys remain server-side."
+            ? `Stripe ${stripeMode} payments are enabled for this company. Secret keys remain stored server-side.`
+            : "Stripe payments are not configured. Enable Stripe and save a valid pk_test_ or pk_live_ publishable key in Payment Settings; secret keys remain server-side."
     );
     showIntegrationStatus("");
 }
@@ -126,8 +127,11 @@ function configuredStatus(value) {
     return String(value || "").trim() ? "Configured" : "Not configured";
 }
 
-function isStripeTestPublishableKey(value) {
-    return String(value || "").trim().startsWith("pk_test_");
+function stripePublishableKeyMode(value) {
+    const key = String(value || "").trim();
+    if (key.startsWith("pk_test_")) return "test";
+    if (key.startsWith("pk_live_")) return "live";
+    return "";
 }
 
 function setText(id, value) {

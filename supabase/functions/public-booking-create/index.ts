@@ -151,9 +151,13 @@ Deno.serve(async (request) => {
     const amountDue=paymentMethod==="Deposit"?round2(pricing.total*depositPercent/100):onlinePayment?pricing.total:0;
     const stripeSecret=onlinePayment?stripeSecretForCompany(String(company.company_code)):null;
     const stripePublishableKey=onlinePayment?clean(settings.stripepublishablekey):null;
-    if(onlinePayment&&!bool(settings.enablestripe)) throw new ApiError(503,"Stripe test payments are not enabled for this company");
-    if(onlinePayment&&(!stripeSecret||!stripeSecret.startsWith("sk_test_"))) throw new ApiError(503,"Stripe test payments are not configured on the server");
-    if(onlinePayment&&(!stripePublishableKey||!stripePublishableKey.startsWith("pk_test_"))) throw new ApiError(503,"Stripe test publishable key is not configured for this company");
+    if(onlinePayment&&!bool(settings.enablestripe)) throw new ApiError(503,"Stripe payments are not enabled for this company");
+    if(onlinePayment){
+      const secretMode=stripeCredentialMode(stripeSecret,"sk");
+      const publishableMode=stripeCredentialMode(stripePublishableKey,"pk");
+      if(!secretMode||!publishableMode) throw new ApiError(503,"Stripe credentials are not configured for this company");
+      if(secretMode!==publishableMode) throw new ApiError(503,"Stripe publishable and secret keys are configured for different modes.");
+    }
 
     const name = clean(booking.customer_name);
     const email = clean(booking.email);
@@ -551,6 +555,12 @@ function stripeSecretForCompany(companyCode: string) {
     ? Deno.env.get("STRIPE_SECRET_KEY_0003")
     : null;
   return clean(secret);
+}
+function stripeCredentialMode(value: unknown, keyType: "pk" | "sk") {
+  const key = String(value || "").trim();
+  if (key.startsWith(`${keyType}_test_`)) return "test";
+  if (key.startsWith(`${keyType}_live_`)) return "live";
+  return null;
 }
 function routeApiKeyForCompany(companyCode: string) {
   const companySecret = companyCode === "0001"
