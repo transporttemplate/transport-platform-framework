@@ -3,6 +3,7 @@ const adminDb = getSupabase();
 window.ADMIN_COMPANY_ID = null;
 window.ADMIN_COMPANY = null;
 window.ADMIN_ROLE = null;
+window.ADMIN_PLATFORM_ROLE = null;
 window.ADMIN_COMPANIES = [];
 
 function requestedAdminCompanyCode() {
@@ -72,9 +73,23 @@ window.adminCompanyReadyPromise = (async () => {
         throw new Error("Requested admin company is not accessible");
     }
 
+    const lifecycleResult = await adminDb.from("companies")
+        .select("id,company_status,trial_started_at,trial_expires_at,trial_grace_expires_at")
+        .eq("id", companyUser.company_id)
+        .maybeSingle();
+    if (!lifecycleResult.error && lifecycleResult.data) {
+        Object.assign(companyUser.companies, lifecycleResult.data);
+    } else if (lifecycleResult.error) {
+        console.info("Company lifecycle fields are not installed yet; continuing with active-company behaviour.", {
+            code: lifecycleResult.error.code || "unknown"
+        });
+        companyUser.companies.company_status = "active";
+    }
+
     window.ADMIN_COMPANY_ID = companyUser.company_id;
     window.ADMIN_COMPANY = companyUser.companies || null;
     window.ADMIN_ROLE = companyUser.role || "admin";
+    window.ADMIN_PLATFORM_ROLE = String(user.app_metadata?.platform_role || "");
     window.ADMIN_COMPANIES = memberships;
 
     const userName = document.getElementById("userName");
@@ -85,6 +100,7 @@ window.adminCompanyReadyPromise = (async () => {
             companyId: window.ADMIN_COMPANY_ID,
             company: window.ADMIN_COMPANY,
             role: window.ADMIN_ROLE,
+            platformRole: window.ADMIN_PLATFORM_ROLE,
             memberships: window.ADMIN_COMPANIES
         }
     }));
@@ -94,6 +110,7 @@ window.adminCompanyReadyPromise = (async () => {
         companyId: window.ADMIN_COMPANY_ID,
         company: window.ADMIN_COMPANY,
         role: window.ADMIN_ROLE,
+        platformRole: window.ADMIN_PLATFORM_ROLE,
         memberships: window.ADMIN_COMPANIES
     };
 })();

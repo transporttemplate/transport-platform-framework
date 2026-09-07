@@ -4,6 +4,16 @@ export const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-
 export const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: cors });
 export const adminClient = () => createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
+export async function productionEmailAllowed(companyId: string) {
+  const { data, error } = await adminClient().from("companies")
+    .select("company_status")
+    .eq("id", companyId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Company not found");
+  return String(data.company_status || "active").toLowerCase() === "active";
+}
+
 export async function requireCompanyAdmin(req: Request, companyId: string) {
   const token = req.headers.get("Authorization")?.replace("Bearer ", "");
   if (!token) return false;

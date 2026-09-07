@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         ensureAdminCompanyQuery(context.company?.company_code);
         preserveAdminCompanyLinks(context.company?.company_code);
         initialiseAdminCompanySwitcher(context);
+        initialiseTrialAccount(context);
     }
     await loadAdminCompanyTheme();
 });
@@ -36,7 +37,7 @@ function preserveAdminCompanyLinks(companyCode) {
 function initialiseAdminCompanySwitcher(context) {
     const topbar = document.querySelector(".topbar, .invoice-actions");
     const memberships = context.memberships || [];
-    if (!topbar || !memberships.length || document.getElementById("adminCompanySwitcher")) return;
+    if (!topbar || memberships.length < 2 || document.getElementById("adminCompanySwitcher")) return;
     const wrapper = document.createElement("label");
     wrapper.className = "admin-company-switcher";
     wrapper.textContent = "Company";
@@ -60,6 +61,60 @@ function initialiseAdminCompanySwitcher(context) {
     });
     wrapper.appendChild(select);
     topbar.appendChild(wrapper);
+}
+
+function initialiseTrialAccount(context) {
+    const company = context.company || {};
+    const status = String(company.company_status || "active").toLowerCase();
+    if (!["trial", "suspended"].includes(status)) return;
+    const main = document.querySelector(".main");
+    if (!main || document.getElementById("trialAccountBanner")) return;
+
+    const platformRoles = new Set(["builder", "support", "platform_owner"]);
+    const isPlatformOperator = platformRoles.has(String(context.platformRole || "").toLowerCase());
+    const expiresAt = company.trial_expires_at ? new Date(company.trial_expires_at) : null;
+    const expired = status === "suspended" || !expiresAt || expiresAt.getTime() <= Date.now();
+    const companyName = company.trading_name || company.name || `Company ${company.company_code || ""}`;
+
+    if (expired && !isPlatformOperator) {
+        const screen = document.createElement("section");
+        screen.id = "trialAccountBanner";
+        screen.className = "trial-expired-screen card";
+        screen.innerHTML = `<p class="trial-label">Trial account</p><h1>${adminEscape(companyName)}</h1><h2>Your trial has ended</h2><p>Contact us to activate your full account.</p><p><strong>Full platform: £550 upfront + £50/month.</strong></p>`;
+        [...main.children].forEach(child => { child.hidden = true; });
+        main.appendChild(screen);
+        return;
+    }
+
+    const days = expiresAt ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 86400000)) : 0;
+    const banner = document.createElement("section");
+    banner.id = "trialAccountBanner";
+    banner.className = `trial-account-banner${expired ? " is-expired" : ""}`;
+    banner.innerHTML = expired
+        ? `<strong>${adminEscape(companyName)} — Trial Account</strong><span>Your trial has ended. Contact us to activate your full account.</span>`
+        : `<div><strong>${adminEscape(companyName)} — Trial Account</strong><span>14-Day Trial · ${days === 0 ? "Ends today" : `Trial ends in ${days} day${days === 1 ? "" : "s"}`}</span></div><p>Like the platform? Upgrade to the full account for <strong>£550 upfront + £50/month</strong>.</p><small>Stripe payments and live branded email are activated on the full account. Business email requires your email/domain setup to be configured.</small>`;
+    const topbar = main.querySelector(".topbar, .invoice-actions");
+    topbar?.insertAdjacentElement("afterend", banner);
+    if (!topbar) main.prepend(banner);
+    applyTrialFeatureRestrictions();
+}
+
+function applyTrialFeatureRestrictions() {
+    for (const id of ["stripePublishableKey", "enableStripe", "requirePaymentBeforeTravel", "sendTestEmail"]) {
+        const control = document.getElementById(id);
+        if (control) control.disabled = true;
+    }
+    const stripeToggle = document.getElementById("enableStripe");
+    if (stripeToggle) stripeToggle.checked = false;
+    const emailToggle = document.getElementById("emailNotifications");
+    if (emailToggle) {
+        emailToggle.checked = false;
+        emailToggle.disabled = true;
+    }
+}
+
+function adminEscape(value) {
+    return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
 
 function initialiseAdminNavigation() {

@@ -35,12 +35,13 @@ Deno.serve(async (request) => {
     // resolved here and is the only company_id used by subsequent reads/writes.
     const { data: company, error: companyError } = await db
       .from("companies")
-      .select("id,company_code")
+      .select("id,company_code,company_status,trial_expires_at,trial_grace_expires_at")
       .eq("company_code", companyCode)
       .maybeSingle();
     if (companyError) throw companyError;
     if (!company) throw new ApiError(404, "Company not found");
     const companyId = String(company.id);
+    enforceCompanyLifecycle(company);
 
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     const subject = await hash(`${ip}|${companyId}`);
@@ -99,6 +100,9 @@ Deno.serve(async (request) => {
       throw new ApiError(400, "Distance bookings are not enabled");
     }
     const paymentMethod = validatePayment(booking.payment_method, settings);
+    if (String(company.company_status || "active") === "trial" && ["Card", "Deposit"].includes(paymentMethod)) {
+      throw new ApiError(403, "Online card and deposit payments are not available during the trial");
+    }
     const account = paymentMethod === "Account"
       ? await resolvePublicAccount(companyId, booking)
       : null;
@@ -268,7 +272,9 @@ Deno.serve(async (request) => {
       stripe={client_secret:intent.client_secret,publishable_key:stripePublishableKey,amount_due:amountDue,balance_due:round2(pricing.total-amountDue),payment_type:paymentMethod==="Deposit"?"deposit":"full"};
     }
 
-    await notifyBookingEmail(companyId, String(inserted.data?.[0]?.id || id), "new_booking");
+    if (String(company.company_status || "active") !== "trial") {
+      await notifyBookingEmail(companyId, String(inserted.data?.[0]?.id || id), "new_booking");
+    }
 
     return respond({
       ok: true,
@@ -562,14 +568,21 @@ function stripeCredentialMode(value: unknown, keyType: "pk" | "sk") {
   if (key.startsWith(`${keyType}_live_`)) return "live";
   return null;
 }
+function enforceCompanyLifecycle(company: Row) {
+  const status = String(company.company_status || "active").toLowerCase();
+  if (["suspended", "cancelled"].includes(status)) {
+    throw new ApiError(403, "Online booking is unavailable for this company");
+  }
+  if (status !== "trial") return;
+  const expiresAt = Date.parse(String(company.trial_expires_at || ""));
+  if (!Number.isFinite(expiresAt)) throw new ApiError(503, "This trial account is not configured correctly");
+  if (Date.now() >= expiresAt) {
+    throw new ApiError(403, "This trial has ended. Contact us to activate the full account");
+  }
+}
 function routeApiKeyForCompany(companyCode: string) {
-  const companySecret = companyCode === "0001"
-    ? Deno.env.get("GOOGLE_ROUTES_API_KEY_0001")
-    : companyCode === "0002"
-    ? Deno.env.get("GOOGLE_ROUTES_API_KEY_0002")
-    : companyCode === "0003"
-    ? Deno.env.get("GOOGLE_ROUTES_API_KEY_0003")
-    : null;
+  const safeCode = /^\d{4}$/.test(companyCode) ? companyCode : "";
+  const companySecret = safeCode ? Deno.env.get(`GOOGLE_ROUTES_API_KEY_${safeCode}`) : null;
 
   return clean(companySecret) || clean(Deno.env.get("GOOGLE_ROUTES_API_KEY"));
 }

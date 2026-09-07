@@ -17,12 +17,24 @@ Deno.serve(async (request) => {
     const providerConfigured = Boolean(Deno.env.get("EMAIL_PROVIDER_API_KEY") && Deno.env.get("EMAIL_FROM_ADDRESS"));
     if (!companyId) return json({ ok: false, error: "company_id is required" }, 400);
     if (!await requireInternalOrCompanyAdmin(request, companyId)) return json({ ok: false, error: "Forbidden" }, 403);
+    const db = adminClient();
+    const { data: lifecycle, error: lifecycleError } = await db.from("companies")
+      .select("company_status,trial_expires_at")
+      .eq("id", companyId)
+      .maybeSingle();
+    if (lifecycleError) throw lifecycleError;
+    if (!lifecycle) return json({ ok: false, error: "Company not found" }, 404);
     console.info("Email event received", { event, company_id: companyId, booking_id: bookingId, provider_configured: providerConfigured });
+    const lifecycleStatus = String(lifecycle.company_status || "active").toLowerCase();
+    if (lifecycleStatus !== "active") {
+      console.info("Email event skipped", { event, company_id: companyId, reason: "company_email_restricted", company_status: lifecycleStatus });
+      if (event === "provider_status") return json({ ok: true, configured: false, restricted: lifecycleStatus });
+      return json({ ok: true, sent: false, skipped: lifecycleStatus === "trial" ? "Production email is not available during the trial" : "Email is unavailable for this company" });
+    }
     if (event === "provider_status") return json({ ok: true, configured: providerConfigured });
     if (event === "test") return await sendTestEmail(request, companyId, body);
     if (!bookingId) return json({ ok: false, error: "booking_id is required" }, 400);
 
-    const db = adminClient();
     const [bookingResult, settingsResult, companyResult, stopsResult] = await Promise.all([
       db.from("bookings").select("*").eq("company_id", companyId).eq("id", bookingId).maybeSingle(),
       db.from("settings").select("*").eq("company_id", companyId).maybeSingle(),

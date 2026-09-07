@@ -1,10 +1,11 @@
-import { adminClient, cors, deliverEmail, json, logDelivery, render, requireCompanyAdmin } from "../_shared/email.ts";
+import { adminClient, cors, deliverEmail, json, logDelivery, productionEmailAllowed, render, requireCompanyAdmin } from "../_shared/email.ts";
 
 Deno.serve(async request => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     const { company_id, statement_id } = await request.json();
     if (!await requireCompanyAdmin(request, company_id)) return json({ ok: false, error: "Forbidden" }, 403);
+    if (!await productionEmailAllowed(company_id)) return json({ ok: true, sent: false, skipped: "Production email is not available during the trial" });
 
     const db = adminClient();
     const [statementResult, itemsResult, templateResult, settingsResult] = await Promise.all([
