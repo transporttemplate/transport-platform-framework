@@ -233,9 +233,14 @@ footer p{
   color:var(--muted);
 }
 
-.fleet-card{display:flex;flex-direction:column;gap:8px;align-items:center}
-.fleet-card img{width:100%;height:190px;object-fit:cover;border-radius:12px}
+.fleet-card{display:flex;flex-direction:column;gap:8px;align-items:center;height:100%}
+.fleet-card img{width:100%;aspect-ratio:16/10;object-fit:cover;object-position:50% 50%;border-radius:12px}
 .fleet-card small{color:var(--muted)}
+.top-bar{padding:14px 0}
+.home-selling-points{display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap;text-align:center}
+.home-selling-point{display:inline-flex;align-items:center}
+.home-selling-point::before{content:"✔";margin-right:.4em}
+.home-selling-point:not(:last-child)::after{content:"|";margin:0 1em;color:var(--muted)}
 .opening-hours-list{display:grid;gap:6px;text-align:left}
 .opening-hours-list>div{display:flex;justify-content:space-between;gap:14px;border-bottom:1px solid color-mix(in srgb,var(--text) 16%,transparent);padding:5px 0}
 .opening-hours-list span{color:var(--muted)}
@@ -270,6 +275,9 @@ header .container>.call-btn{display:none}
 .logo-area h1{font-size:clamp(1rem,5.5vw,1.35rem)}
 .logo-area small{font-size:.78rem}
 section{padding:45px 0}
+.top-bar{padding:12px 0}
+.home-selling-points{row-gap:8px}
+.home-selling-point:not(:last-child)::after{margin:0 .6em}
 
 .hero-text h2{
   font-size:2rem;

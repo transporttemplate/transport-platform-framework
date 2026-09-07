@@ -57,6 +57,7 @@ function applyCompanyInformation({ company, settings }) {
 
     renderCompanyLogo(settings.companylogo, displayName);
     applyCompanyPublicImages(settings);
+    renderHomeContent(settings);
 
     setCssVariableIfValue("--primary", settings.primarycolour || settings.primary_color);
     setCssVariableIfValue("--secondary", settings.secondarycolour || settings.secondary_color);
@@ -69,6 +70,33 @@ function applyCompanyInformation({ company, settings }) {
     setCssVariableIfValue("--text", settings.publictextcolour);
     setCssVariableIfValue("--muted", settings.publicmutedcolour);
     setCssVariableIfValue("--footer-background", settings.publicfootercolour);
+}
+
+function renderHomeContent(settings) {
+    if (!document.getElementById("homeHero")) return;
+    setTextIfValue("homeHeroHeading", settings.homeheroheading || "Airport Transfers Made Simple");
+    setTextIfValue("homeHeroDescription", settings.homeherodescription || "Reliable airport transfers with fixed prices, professional drivers and easy online booking.");
+    setTextIfValue("homeHeroButton", settings.homeherobuttontext || "Book Your Transfer");
+
+    const defaults = ["Fixed Airport Prices", "Online Booking", "Professional Drivers", "24/7 Service"];
+    const points = defaults.map((fallback, index) => {
+        const number = index + 1;
+        const enabled = settings[`homesellingpoint${number}enabled`];
+        const configuredText = settings[`homesellingpoint${number}text`];
+        const text = String(configuredText === null || configuredText === undefined ? fallback : configuredText).trim();
+        return { enabled: enabled === null || enabled === undefined ? true : enabled, text };
+    }).filter(point => point.enabled && point.text);
+    const section = document.getElementById("homeSellingPoints");
+    const list = document.getElementById("homeSellingPointsList");
+    if (!section || !list) return;
+    section.hidden = points.length === 0;
+    list.className = "container home-selling-points";
+    list.replaceChildren(...points.map(point => {
+        const item = document.createElement("span");
+        item.className = "home-selling-point";
+        item.textContent = point.text;
+        return item;
+    }));
 }
 
 function applyCompanyPublicImages(settings) {
@@ -97,8 +125,9 @@ function renderPublicFleet({ fleetItems = [], settings = {} }) {
             Number.isFinite(Number(item.passenger_capacity)) ? `Up to ${Number(item.passenger_capacity)} passengers` : "",
             Number.isFinite(Number(item.luggage_capacity)) ? `${Number(item.luggage_capacity)} luggage` : ""
         ].filter(Boolean).join(" • ");
+        const imagePosition = ({ center: "50% 50%", left: "20% 50%", right: "80% 50%", top: "50% 20%", bottom: "50% 80%" })[item.image_position] || "50% 50%";
         return `<article class="airport-card fleet-card">
-            ${image ? `<img src="${escapePublicHtml(image)}" alt="${escapePublicHtml(item.title)}">` : ""}
+            ${image ? `<img src="${escapePublicHtml(image)}" alt="${escapePublicHtml(item.title)}" style="object-position:${imagePosition}">` : ""}
             <h3>${escapePublicHtml(item.title)}</h3>
             ${item.description ? `<p>${escapePublicHtml(item.description)}</p>` : ""}
             ${capacities ? `<small>${escapePublicHtml(capacities)}</small>` : ""}

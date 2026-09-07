@@ -12,6 +12,17 @@ const fieldMap = {
     bookingHeroImage: "bookingheroimage",
     contactHeroImage: "contactheroimage",
     fleetImage: "fleetimage",
+    homeHeroHeading: "homeheroheading",
+    homeHeroDescription: "homeherodescription",
+    homeHeroButtonText: "homeherobuttontext",
+    homeSellingPoint1Enabled: "homesellingpoint1enabled",
+    homeSellingPoint1Text: "homesellingpoint1text",
+    homeSellingPoint2Enabled: "homesellingpoint2enabled",
+    homeSellingPoint2Text: "homesellingpoint2text",
+    homeSellingPoint3Enabled: "homesellingpoint3enabled",
+    homeSellingPoint3Text: "homesellingpoint3text",
+    homeSellingPoint4Enabled: "homesellingpoint4enabled",
+    homeSellingPoint4Text: "homesellingpoint4text",
     primaryColour: "primarycolour",
     secondaryColour: "secondarycolour",
     accentColour: "accentcolour",
@@ -172,7 +183,12 @@ const OPTIONAL_SETTING_COLUMNS = new Set([
     "publicbackgroundcolour", "publiccardcolour", "publicheadercolour",
     "publictextcolour", "publicmutedcolour", "publicfootercolour",
     "mon24hours", "tue24hours", "wed24hours", "thu24hours",
-    "fri24hours", "sat24hours", "sun24hours"
+    "fri24hours", "sat24hours", "sun24hours",
+    "homeheroheading", "homeherodescription", "homeherobuttontext",
+    "homesellingpoint1enabled", "homesellingpoint1text",
+    "homesellingpoint2enabled", "homesellingpoint2text",
+    "homesellingpoint3enabled", "homesellingpoint3text",
+    "homesellingpoint4enabled", "homesellingpoint4text"
 ]);
 const pendingCompanyMediaFiles = {};
 const pendingCompanyMediaPreviewUrls = {};
@@ -292,7 +308,14 @@ async function loadSettings() {
 
     const loadedData = {
         ...data,
-        acceptadvancebookings: data.acceptadvancebookings ?? data.bookwhileclosed ?? false
+        acceptadvancebookings: data.acceptadvancebookings ?? data.bookwhileclosed ?? false,
+        homeheroheading: data.homeheroheading ?? "Airport Transfers Made Simple",
+        homeherodescription: data.homeherodescription ?? "Reliable airport transfers with fixed prices, professional drivers and easy online booking.",
+        homeherobuttontext: data.homeherobuttontext ?? "Book Your Transfer",
+        homesellingpoint1text: data.homesellingpoint1text ?? "Fixed Airport Prices",
+        homesellingpoint2text: data.homesellingpoint2text ?? "Online Booking",
+        homesellingpoint3text: data.homesellingpoint3text ?? "Professional Drivers",
+        homesellingpoint4text: data.homesellingpoint4text ?? "24/7 Service"
     };
 
     savedCompanyLogo = loadedData.companylogo || "";
@@ -307,7 +330,8 @@ async function loadSettings() {
         if (!el || (OPTIONAL_SETTING_COLUMNS.has(dbColumn) && !availableOptionalSettingColumns.has(dbColumn))) return;
 
         if (el.type === "checkbox") {
-            el.checked = !!loadedData[dbColumn];
+            const isHomeSellingPoint = /^homesellingpoint[1-4]enabled$/.test(dbColumn);
+            el.checked = isHomeSellingPoint && loadedData[dbColumn] == null ? true : !!loadedData[dbColumn];
         } else if (el.type === "file") {
             return;
         } else {
@@ -671,7 +695,7 @@ async function loadFleetItems() {
     const list = document.getElementById("fleetItems");
     if (!list) return;
     const { data, error } = await db.from("fleet_items")
-        .select("id,company_id,active,title,description,image_url,sort_order,passenger_capacity,luggage_capacity")
+        .select("id,company_id,active,title,description,image_url,image_position,sort_order,passenger_capacity,luggage_capacity")
         .eq("company_id", settingsCompanyId)
         .order("sort_order", { ascending: true })
         .order("title", { ascending: true });
@@ -716,10 +740,13 @@ function addFleetItemRow(item = {}) {
             <label>Sort order<input class="fleet-sort" type="number" step="1" value="${Number(item.sort_order) || 0}"></label>
             <label>Passenger capacity<input class="fleet-passengers" type="number" min="0" step="1" value="${optionalNumber(item.passenger_capacity)}"></label>
             <label>Luggage capacity<input class="fleet-luggage" type="number" min="0" step="1" value="${optionalNumber(item.luggage_capacity)}"></label>
+            <label>Image Position<select class="fleet-image-position"><option value="center">Centre</option><option value="left">Left</option><option value="right">Right</option><option value="top">Top</option><option value="bottom">Bottom</option></select></label>
         </div>
+        <small>Choose which part of the vehicle image should remain most visible when the card crops the photo.</small>
         <label>Short description<textarea class="fleet-description" rows="2">${settingsEscape(item.description || "")}</textarea></label>
         <div class="fleet-image-line"><img class="fleet-image-preview" alt="Vehicle preview" ${item.image_url ? `src="${settingsEscape(item.image_url)}"` : "hidden"}><label>Vehicle image<input class="fleet-image" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label></div>
     `;
+    row.querySelector(".fleet-image-position").value = normalFleetImagePosition(item.image_position);
     row.querySelector(".fleet-image")?.addEventListener("change", event => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -756,6 +783,7 @@ async function saveFleetItems() {
             title,
             description: row.querySelector(".fleet-description")?.value.trim() || null,
             image_url: imageUrl,
+            image_position: normalFleetImagePosition(row.querySelector(".fleet-image-position")?.value),
             sort_order: Number(row.querySelector(".fleet-sort")?.value) || 0,
             passenger_capacity: numberOrNull(row.querySelector(".fleet-passengers")?.value),
             luggage_capacity: numberOrNull(row.querySelector(".fleet-luggage")?.value),
@@ -771,6 +799,10 @@ async function saveFleetItems() {
         const input = row.querySelector(".fleet-image");
         if (input) input.value = "";
     }
+}
+
+function normalFleetImagePosition(value) {
+    return ["center", "left", "right", "top", "bottom"].includes(value) ? value : "center";
 }
 
 function numberOrNull(value) {
