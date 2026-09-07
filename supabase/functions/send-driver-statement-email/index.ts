@@ -1,4 +1,4 @@
-import { adminClient, cors, deliverEmail, json, logDelivery, productionEmailAllowed, render, requireCompanyAdmin } from "../_shared/email.ts";
+import { adminClient, brandedEmail, cors, deliverEmail, escapeHtml, json, logDelivery, productionEmailAllowed, render, requireCompanyAdmin } from "../_shared/email.ts";
 
 Deno.serve(async request => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -24,7 +24,7 @@ Deno.serve(async request => {
         .eq("template_key", "driver_statement")
         .maybeSingle(),
       db.from("settings")
-        .select("currencysymbol")
+        .select("currencysymbol,companyname,tradingname,companylogo,companyphone,companyemail,companywebsite,primarycolour")
         .eq("company_id", company_id)
         .maybeSingle()
     ]);
@@ -63,7 +63,7 @@ Deno.serve(async request => {
 
     const values = {
       driver_name: driver.full_name,
-      company_name: "",
+      company_name: settingsResult.data?.tradingname || settingsResult.data?.companyname || "Transport Company",
       invoice_number: statement.statement_number
     };
     const subject = render(templateResult.data?.subject || "Driver statement {{invoice_number}}", values);
@@ -80,13 +80,14 @@ Deno.serve(async request => {
       `Driver Due: ${money(totals.driverDue)}`
     ];
     const body = `${introduction}\n\n${summary.join("\n")}\n\n${detailLines.join("\n")}`;
+    const html = brandedEmail(settingsResult.data || {}, `<p>${escapeHtml(introduction).replaceAll("\n", "<br>")}</p><h2>Remittance ${escapeHtml(statement.statement_number)}</h2><p>Period: ${escapeHtml(statement.period_start)} – ${escapeHtml(statement.period_end)} · Status: ${escapeHtml(statement.status)}</p><table width="100%" cellpadding="8" cellspacing="0"><tr><th align="left">Date / booking</th><th align="right">Driver amount</th><th align="right">Commission</th><th align="right">Driver due</th></tr>${items.map(item => `<tr><td>${escapeHtml(item.date)}<br>${escapeHtml(item.reference)}</td><td align="right">${escapeHtml(money(item.commissionBase))}</td><td align="right">${escapeHtml(money(item.commission))}</td><td align="right"><strong>${escapeHtml(money(item.driverDue))}</strong></td></tr>`).join("")}</table><h2 style="text-align:right">Driver due: ${escapeHtml(money(totals.driverDue))}</h2>`);
 
     await logDelivery(
       company_id,
       "driver_statement",
       driver.email,
       { driver_statement_id: statement_id, subject },
-      () => deliverEmail(driver.email, subject, body)
+      () => deliverEmail(driver.email, subject, body, { html, replyTo: settingsResult.data?.companyemail, senderName: values.company_name })
     );
     return json({ ok: true });
   } catch (error) {

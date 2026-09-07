@@ -1,6 +1,6 @@
 # Edge Function deployment
 
-Deploy `send-booking-email`, `send-invoice-email`, `send-driver-statement-email`, and `generate-invoice-pdf` after applying the migration.
+Deploy `send-booking-email`, `send-invoice-email`, `send-driver-statement-email`, `send-receipt-email`, and `generate-invoice-pdf` after applying the migration.
 
 Deploy `google-calendar-sync` after applying the Google Calendar sync migration. Set `GOOGLE_SERVICE_ACCOUNT_EMAIL` and `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` as Supabase Edge Function secrets, then share each configured Google calendar with that service-account email and grant permission to make changes to events.
 
