@@ -8,6 +8,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     applyCompanyInformation(publicData);
     renderPublicAirports(publicData);
     renderServiceAreas(publicData);
+    renderPublicFleet(publicData);
+    renderOpeningHours(publicData.settings);
     preserveCompanyOnPublicLinks(publicData.company.company_code);
     window.GoogleTags?.configureFromSettings(publicData.settings, publicData.company.company_code);
 });
@@ -61,6 +63,12 @@ function applyCompanyInformation({ company, settings }) {
     setCssVariableIfValue("--accent", settings.accentcolour || settings.accent_color);
     setCssVariableIfValue("--button", settings.buttoncolour || settings.button_color);
     setCssVariableIfValue("--button-text", settings.buttontextcolour || settings.button_text_color);
+    setCssVariableIfValue("--background", settings.publicbackgroundcolour);
+    setCssVariableIfValue("--card", settings.publiccardcolour);
+    setCssVariableIfValue("--header-background", settings.publicheadercolour);
+    setCssVariableIfValue("--text", settings.publictextcolour);
+    setCssVariableIfValue("--muted", settings.publicmutedcolour);
+    setCssVariableIfValue("--footer-background", settings.publicfootercolour);
 }
 
 function applyCompanyPublicImages(settings) {
@@ -70,6 +78,62 @@ function applyCompanyPublicImages(settings) {
     const fleet = document.getElementById("fleetImage");
     const fleetUrl = safePublicImageUrl(settings.fleetimage);
     if (fleet && fleetUrl) fleet.src = fleetUrl;
+    setPublicHeroImage("contactHero", settings.contactheroimage);
+}
+
+function renderPublicFleet({ fleetItems = [], settings = {} }) {
+    const grid = document.getElementById("publicFleetGrid");
+    if (!grid) return;
+
+    if (!fleetItems.length) {
+        const legacyImage = safePublicImageUrl(settings.fleetimage) || "assets/images/saloon.jpg";
+        grid.innerHTML = `<article class="airport-card fleet-card"><img src="${escapePublicHtml(legacyImage)}" alt="Company vehicle"><h3>Our Fleet</h3><p>Contact us to discuss the best vehicle for your journey.</p></article>`;
+        return;
+    }
+
+    grid.innerHTML = fleetItems.map(item => {
+        const image = safePublicImageUrl(item.image_url);
+        const capacities = [
+            Number.isFinite(Number(item.passenger_capacity)) ? `Up to ${Number(item.passenger_capacity)} passengers` : "",
+            Number.isFinite(Number(item.luggage_capacity)) ? `${Number(item.luggage_capacity)} luggage` : ""
+        ].filter(Boolean).join(" • ");
+        return `<article class="airport-card fleet-card">
+            ${image ? `<img src="${escapePublicHtml(image)}" alt="${escapePublicHtml(item.title)}">` : ""}
+            <h3>${escapePublicHtml(item.title)}</h3>
+            ${item.description ? `<p>${escapePublicHtml(item.description)}</p>` : ""}
+            ${capacities ? `<small>${escapePublicHtml(capacities)}</small>` : ""}
+        </article>`;
+    }).join("");
+}
+
+function renderOpeningHours(settings) {
+    const target = document.getElementById("openingHours");
+    if (!target) return;
+    const days = [
+        ["Monday", "mon"], ["Tuesday", "tue"], ["Wednesday", "wed"],
+        ["Thursday", "thu"], ["Friday", "fri"], ["Saturday", "sat"], ["Sunday", "sun"]
+    ];
+    const hasHours = days.some(([, key]) => settings[`${key}enabled`] !== undefined);
+    if (!hasHours) return;
+
+    target.className = "opening-hours-list";
+    target.innerHTML = days.map(([label, key]) => {
+        let value = "Closed";
+        if (settings[`${key}enabled`]) {
+            if (settings[`${key}24hours`]) value = "Open 24 hours";
+            else {
+                const open = displayTime(settings[`${key}open`]);
+                const close = displayTime(settings[`${key}close`]);
+                value = open && close ? `${open}–${close}${close <= open ? " (next day)" : ""}` : "Contact us";
+            }
+        }
+        return `<div><span>${label}</span><strong>${escapePublicHtml(value)}</strong></div>`;
+    }).join("");
+}
+
+function displayTime(value) {
+    const match = String(value || "").match(/^(\d{2}):(\d{2})/);
+    return match ? `${match[1]}:${match[2]}` : "";
 }
 
 function setPublicHeroImage(id, value) {
@@ -160,7 +224,13 @@ function renderPublicAirports({ airports, settings }) {
 function renderServiceAreas({ serviceAreas, settings }) {
     if (!serviceAreas.length) return;
 
-    const names = serviceAreas.map(area => area.area_name).filter(Boolean);
+    const seen = new Set();
+    const names = serviceAreas.map(area => String(area.area_name || "").trim()).filter(name => {
+        const key = name.toLocaleLowerCase("en-GB");
+        if (!name || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    }).map(publicAreaName);
     if (!names.length) return;
 
     setTextIfValue("serviceArea", names.join(", "));
@@ -171,6 +241,11 @@ function renderServiceAreas({ serviceAreas, settings }) {
             ? `Fixed airport prices are configured for ${names.join(", ")}. Other areas can also be booked where enabled.`
             : `Fixed airport prices apply when the non-airport address is in ${names.join(", ")}.`;
     }
+}
+
+function publicAreaName(value) {
+    const name = String(value || "").trim();
+    return name === name.toLowerCase() ? name.replace(/\b\p{L}/gu, letter => letter.toLocaleUpperCase("en-GB")) : name;
 }
 
 function preserveCompanyOnPublicLinks(companyCode) {

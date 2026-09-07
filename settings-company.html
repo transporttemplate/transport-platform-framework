@@ -62,6 +62,10 @@
 <div class="company-media-preview"><img id="bookingHeroImagePreview" alt="Booking hero preview" hidden><span id="bookingHeroImageFallback">Using the template default styling.</span></div>
 <input id="bookingHeroImage" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
 <small id="bookingHeroImageStatus">PNG, JPG, WebP or GIF. Maximum 5 MB.</small>
+<label for="contactHeroImage">Contact page hero image</label>
+<div class="company-media-preview"><img id="contactHeroImagePreview" alt="Contact hero preview" hidden><span id="contactHeroImageFallback">Using the template default image.</span></div>
+<input id="contactHeroImage" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+<small id="contactHeroImageStatus">PNG, JPG, WebP or GIF. Maximum 5 MB.</small>
 <label for="fleetImage">Fleet/vehicle image</label>
 <div class="company-media-preview"><img id="fleetImagePreview" alt="Fleet image preview" hidden><span id="fleetImageFallback">Using the template vehicle image.</span></div>
 <input id="fleetImage" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
@@ -75,6 +79,11 @@
 <label>Time Zone</label><select id="timeZone"><option value="Europe/London">Europe/London</option><option value="Europe/Dublin">Europe/Dublin</option><option value="Europe/Paris">Europe/Paris</option></select>
 </div></div></div>
 
+<div class="card company-fleet-card">
+<div class="settings-card-heading"><div><h3>🚘 Public Fleet</h3><p>Only active fleet cards are shown on this company’s website.</p></div><button id="addFleetItem" type="button">+ Add vehicle</button></div>
+<div id="fleetItems" class="fleet-settings-list"><p>Loading fleet…</p></div>
+</div>
+
 <div class="card company-theme-card">
 <h3>🎨 Company Theme</h3>
 <div class="theme-settings-grid">
@@ -84,6 +93,12 @@
 <label for="buttonColour">Button colour<input id="buttonColour" type="color" value="#37d4d4"></label>
 <label for="buttonTextColour">Button text colour<input id="buttonTextColour" type="color" value="#111111"></label>
 <label for="adminSidebarColour">Admin sidebar colour<input id="adminSidebarColour" type="color" value="#1f2937"></label>
+<label for="publicBackgroundColour">Public page background<input id="publicBackgroundColour" type="color" value="#0b0b0b"></label>
+<label for="publicCardColour">Public card background<input id="publicCardColour" type="color" value="#1a1a1a"></label>
+<label for="publicHeaderColour">Public header background<input id="publicHeaderColour" type="color" value="#111111"></label>
+<label for="publicTextColour">Public main text<input id="publicTextColour" type="color" value="#ffffff"></label>
+<label for="publicMutedColour">Public muted text<input id="publicMutedColour" type="color" value="#bdbdbd"></label>
+<label for="publicFooterColour">Public footer background<input id="publicFooterColour" type="color" value="#080808"></label>
 </div>
 <div id="companyThemePreview" class="company-theme-preview" aria-label="Company colour theme preview">
 <div class="theme-preview-sidebar">Admin</div>

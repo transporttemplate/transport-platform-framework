@@ -141,21 +141,24 @@
             if (!company) return null;
 
             const db = getSupabase();
-            const [settingsResult, airportsResult, areasResult] = await Promise.all([
+            const [settingsResult, airportsResult, areasResult, fleetResult] = await Promise.all([
                 loadPublicSettings(db, company.id),
                 db.from("airports").select("id,company_id,name,code,active,price_1_4_oneway,price_1_4_return,price_5_7_oneway,price_5_7_return,deposit_percent,sort_order").eq("company_id", company.id).eq("active", true).order("sort_order", { ascending: true }).order("name", { ascending: true }),
-                db.from("service_areas").select("id,company_id,area_name,postcode_prefix,radius_miles,active,sort_order").eq("company_id", company.id).eq("active", true).order("sort_order", { ascending: true }).order("area_name", { ascending: true })
+                db.from("service_areas").select("id,company_id,area_name,postcode_prefix,radius_miles,active,sort_order").eq("company_id", company.id).eq("active", true).order("sort_order", { ascending: true }).order("area_name", { ascending: true }),
+                db.from("fleet_items").select("id,company_id,active,title,description,image_url,sort_order,passenger_capacity,luggage_capacity").eq("company_id", company.id).eq("active", true).order("sort_order", { ascending: true }).order("title", { ascending: true })
             ]);
 
             if (settingsResult.error) console.error("Public settings load error:", settingsResult.error);
             if (airportsResult.error) console.error("Public airports load error:", airportsResult.error);
             if (areasResult.error) console.error("Public service areas load error:", areasResult.error);
+            if (fleetResult.error) console.info("Public fleet items are not available yet; using the legacy fleet image.");
 
             const result = {
                 company,
                 settings: settingsResult.data || {},
                 airports: airportsResult.data || [],
-                serviceAreas: areasResult.data || []
+                serviceAreas: areasResult.data || [],
+                fleetItems: fleetResult.data || []
             };
 
             window.PUBLIC_COMPANY_DATA = result;
@@ -171,7 +174,9 @@
 
     async function loadPublicSettings(db, companyId) {
         const baseColumns = "company_id,companyname,tradingname,companyphone,companyemail,companyaddress,companylogo,currencysymbol,allowairportoutsidearea,primarycolour,secondarycolour,accentcolour,buttoncolour,buttontextcolour,businessstatus,holidayfrom,holidayto,websitenotice,acceptadvancebookings,bookwhileclosed,closedmessage,timezone";
-        const mediaColumns = `${baseColumns},homeheroimage,bookingheroimage,fleetimage`;
+        const publicThemeColumns = "publicbackgroundcolour,publiccardcolour,publicheadercolour,publictextcolour,publicmutedcolour,publicfootercolour";
+        const hoursColumns = "monopen,monclose,monenabled,mon24hours,tueopen,tueclose,tueenabled,tue24hours,wedopen,wedclose,wedenabled,wed24hours,thuopen,thuclose,thuenabled,thu24hours,friopen,friclose,frienabled,fri24hours,satopen,satclose,satenabled,sat24hours,sunopen,sunclose,sunenabled,sun24hours";
+        const mediaColumns = `${baseColumns},homeheroimage,bookingheroimage,contactheroimage,fleetimage,${publicThemeColumns},${hoursColumns}`;
         const closureColumns = `${mediaColumns},holidayfromtime,holidaytotime`;
         const result = await db.from("settings")
             .select(closureColumns)

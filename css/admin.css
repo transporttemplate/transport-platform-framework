@@ -159,6 +159,19 @@ button{
 .company-media-settings h3{margin:0 0 6px}
 .company-media-preview{display:flex;align-items:center;justify-content:center;min-height:100px;padding:8px;border:1px dashed var(--border);border-radius:10px;background:#f8fafc;color:#64748b;text-align:center}
 .company-media-preview img{display:block;max-width:100%;max-height:130px;object-fit:cover;border-radius:7px}
+.company-fleet-card{margin-top:25px}
+.settings-card-heading{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:16px}
+.settings-card-heading p{color:#64748b}
+.fleet-settings-list{display:grid;gap:14px}
+.fleet-settings-item{padding:16px;border:1px solid var(--border);border-radius:12px;background:#f8fafc}
+.fleet-settings-head{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:700}
+.fleet-settings-head label{display:flex;align-items:center;gap:8px;margin:0}
+.fleet-settings-head input{width:auto;margin:0}
+.fleet-settings-grid{display:grid;grid-template-columns:2fr repeat(3,1fr);gap:12px}
+.fleet-settings-item label{margin-top:8px}
+.fleet-settings-item input,.fleet-settings-item textarea{margin-bottom:4px}
+.fleet-image-line{display:grid;grid-template-columns:150px minmax(0,1fr);gap:16px;align-items:center;margin-top:8px}
+.fleet-image-preview{width:150px;height:95px;object-fit:cover;border-radius:9px;background:#e2e8f0}
 .dashboard-update-notice{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:20px;border-left:5px solid var(--admin-primary)}
 .dashboard-update-notice p{margin-top:4px;color:#64748b}
 .dashboard-update-link{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:8px 15px;border-radius:9px;background:var(--admin-button);color:var(--admin-button-text);font-weight:700;text-decoration:none;white-space:nowrap}
@@ -229,6 +242,7 @@ input,select,textarea{
     .theme-settings-grid{
         grid-template-columns:1fr 1fr;
     }
+    .fleet-settings-grid{grid-template-columns:1fr 1fr}
     
     table{
         display:block;
@@ -251,6 +265,9 @@ input,select,textarea{
     .dashboard-map{height:220px}
     .card{padding:16px;border-radius:11px}
     .grid-2,.theme-settings-grid{grid-template-columns:minmax(0,1fr)}
+    .settings-card-heading{align-items:stretch;flex-direction:column}
+    .fleet-settings-grid,.fleet-image-line{grid-template-columns:minmax(0,1fr)}
+    .fleet-image-preview{width:100%;height:150px}
     input,select,textarea,button{font-size:16px;min-height:44px}
     .sidebar{width:min(280px,86vw);left:-100%;padding:20px}
     .company-theme-preview{grid-template-columns:90px 1fr}
