@@ -555,13 +555,20 @@ async function uploadSelectedCompanyMedia(id, config) {
 }
 
 async function uploadCompanyImage(file, kind) {
+    validateCompanyLogo(file);
+    const fileBytes = await file.arrayBuffer();
+    const uploadBody = new Blob([fileBytes], { type: file.type });
+    if (uploadBody.size !== file.size || uploadBody.size <= 0) {
+        throw new Error("The selected image could not be read. Please choose the image again.");
+    }
+
     const extension = COMPANY_LOGO_TYPES[file.type];
     const originalStem = file.name.replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || kind;
     const storagePath = `${settingsCompanyId}/${kind}-${Date.now()}-${originalStem}.${extension}`;
     console.info("Uploading company image", { company_code: settingsCompanyCode, media_type: kind, file_name: file.name, file_size: file.size, file_type: file.type, upload_path: storagePath });
     const { error } = await db.storage
         .from(COMPANY_LOGO_BUCKET)
-        .upload(storagePath, file, {
+        .upload(storagePath, uploadBody, {
             cacheControl: "3600",
             contentType: file.type,
             upsert: false
