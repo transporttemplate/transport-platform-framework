@@ -99,6 +99,19 @@
 </div>
 </div>
 
+<div class="card">
+<h3>🏦 BANK DETAILS FOR INVOICES</h3>
+<p class="settings-helper">These details are shown on customer invoices for bank transfer payments. They are stored separately for each company.</p>
+<label class="settings-checkbox"><input id="showBankDetailsOnInvoices" type="checkbox"> Show bank details on invoices</label>
+<div class="grid-2">
+<label for="bankAccountName">Account Name<input id="bankAccountName" type="text" autocomplete="off"></label>
+<label for="bankSortCode">Sort Code<input id="bankSortCode" type="text" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="12-34-56"></label>
+<label for="bankAccountNumber">Account Number<input id="bankAccountNumber" type="text" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="12345678"></label>
+<label for="bankPaymentReferenceInstruction">Payment Reference Instruction<input id="bankPaymentReferenceInstruction" type="text" placeholder="Please use your invoice number as the payment reference."></label>
+</div>
+<small>Account numbers are stored as text so leading zeros are preserved. The invoice reference itself is added automatically.</small>
+</div>
+
 <div class="card company-fleet-card">
 <div class="settings-card-heading"><div><h3>🚘 Public Fleet</h3><p>Only active fleet cards are shown on this company’s website.</p></div><button id="addFleetItem" type="button">+ Add vehicle</button></div>
 <div id="fleetItems" class="fleet-settings-list"><p>Loading fleet…</p></div>

@@ -173,6 +173,7 @@ button{
 .settings-helper{color:#64748b;margin:8px 0 14px}
 .home-selling-settings label>span{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .home-selling-settings input[type="checkbox"]{width:auto;margin:0}
+.settings-checkbox{display:flex;align-items:center;gap:9px;margin:12px 0}.settings-checkbox input{width:auto;margin:0}
 .fleet-image-line{display:grid;grid-template-columns:150px minmax(0,1fr);gap:16px;align-items:center;margin-top:8px}
 .fleet-image-preview{width:150px;height:95px;object-fit:cover;border-radius:9px;background:#e2e8f0}
 .dashboard-update-notice{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:20px;border-left:5px solid var(--admin-primary)}

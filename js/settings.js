@@ -23,6 +23,11 @@ const fieldMap = {
     homeSellingPoint3Text: "homesellingpoint3text",
     homeSellingPoint4Enabled: "homesellingpoint4enabled",
     homeSellingPoint4Text: "homesellingpoint4text",
+    bankAccountName: "bankaccountname",
+    bankSortCode: "banksortcode",
+    bankAccountNumber: "bankaccountnumber",
+    bankPaymentReferenceInstruction: "bankpaymentreferenceinstruction",
+    showBankDetailsOnInvoices: "showbankdetailsoninvoices",
     primaryColour: "primarycolour",
     secondaryColour: "secondarycolour",
     accentColour: "accentcolour",
@@ -189,6 +194,8 @@ const OPTIONAL_SETTING_COLUMNS = new Set([
     "homesellingpoint2enabled", "homesellingpoint2text",
     "homesellingpoint3enabled", "homesellingpoint3text",
     "homesellingpoint4enabled", "homesellingpoint4text"
+    ,"bankaccountname", "banksortcode", "bankaccountnumber",
+    "bankpaymentreferenceinstruction", "showbankdetailsoninvoices"
 ]);
 const pendingCompanyMediaFiles = {};
 const pendingCompanyMediaPreviewUrls = {};
@@ -355,6 +362,7 @@ async function saveSettings() {
         return;
     }
 
+    if (!validateInvoiceBankDetails()) return;
     const settings = {};
 
     Object.entries(fieldMap).forEach(([htmlId, dbColumn]) => {
@@ -373,7 +381,7 @@ async function saveSettings() {
             settings[dbColumn] =
                 el.value === "" ? null : Number(el.value);
         } else {
-            settings[dbColumn] = el.value;
+            settings[dbColumn] = dbColumn === "banksortcode" ? normaliseSortCode(el.value) : el.value;
         }
     });
 
@@ -476,6 +484,29 @@ async function saveSettings() {
     });
 
     alert("Settings saved successfully.");
+}
+
+function normaliseSortCode(value) {
+    const digits = String(value || "").replace(/\D/g, "");
+    return digits.length === 6 ? `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}` : String(value || "").trim();
+}
+
+function validateInvoiceBankDetails() {
+    const enabled = document.getElementById("showBankDetailsOnInvoices")?.checked;
+    const accountName = document.getElementById("bankAccountName")?.value.trim() || "";
+    const sortInput = document.getElementById("bankSortCode");
+    const accountInput = document.getElementById("bankAccountNumber");
+    const sortDigits = String(sortInput?.value || "").replace(/\D/g, "");
+    const accountDigits = String(accountInput?.value || "").replace(/\s/g, "");
+    if (sortInput && sortDigits.length === 6) sortInput.value = normaliseSortCode(sortInput.value);
+    if (sortInput?.value && sortDigits.length !== 6) { alert("Enter the sort code as six digits, for example 12-34-56."); sortInput.focus(); return false; }
+    if (accountInput?.value && !/^\d{8}$/.test(accountDigits)) { alert("Enter the account number as eight digits. Leading zeros are preserved."); accountInput.focus(); return false; }
+    if (accountInput) accountInput.value = accountDigits;
+    if (enabled && (!accountName || sortDigits.length !== 6 || !/^\d{8}$/.test(accountDigits))) {
+        alert("To show bank details on invoices, enter an account name, six-digit sort code and eight-digit account number.");
+        return false;
+    }
+    return true;
 }
 
 function previewSelectedCompanyLogo(event) {
