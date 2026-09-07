@@ -2239,8 +2239,8 @@ async function prepareStripePayment(created){
                 klarna:"never"
             }
         });
-        stripeExpressCheckoutElement.on("availablepaymentmethodschange",({paymentMethods}={})=>{
-            const walletAvailable=Boolean(paymentMethods?.applePay||paymentMethods?.googlePay);
+        stripeExpressCheckoutElement.on("ready",({availablePaymentMethods}={})=>{
+            const walletAvailable=Boolean(availablePaymentMethods?.applePay||availablePaymentMethods?.googlePay);
             if(expressSection) expressSection.hidden=!walletAvailable;
         });
         stripeExpressCheckoutElement.on("confirm",confirmPendingStripePayment);
