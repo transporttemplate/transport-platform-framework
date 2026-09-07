@@ -135,7 +135,14 @@
 <div id="bookingSummary" class="review-card"></div>
 <div class="final-price-card"><span>Total fare</span><strong id="finalPrice">—</strong><small>Price based on the journey details provided.</small></div>
 <div id="paymentBreakdown" class="notice-box" hidden></div>
-<div id="stripePaymentPanel" class="stripe-payment-panel" hidden><div id="stripePaymentElement"></div><div id="stripePaymentMessage" role="status"></div></div>
+<div id="stripePaymentPanel" class="stripe-payment-panel" hidden>
+<div id="stripeExpressSection" class="stripe-express-section" hidden>
+<div id="stripeExpressCheckout"></div>
+<div class="stripe-payment-divider" aria-hidden="true"><span>Or pay by card</span></div>
+</div>
+<div id="stripePaymentElement"></div>
+<div id="stripePaymentMessage" role="status" aria-live="polite"></div>
+</div>
 <div class="step-actions"><button type="button" class="secondary-btn" data-back="4">Back</button><button id="confirmBookingButton" type="submit" class="primary-btn">Confirm Booking</button></div>
 </div>
 <section id="bookingPaymentConfirmation" class="payment-confirmation" aria-live="polite" hidden>

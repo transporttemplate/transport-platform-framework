@@ -13,8 +13,10 @@ let currentStep=1;
 let liveRouteTimer=null;
 let stripeClient=null;
 let stripeElements=null;
+let stripeExpressCheckoutElement=null;
 let stripePaymentElement=null;
 let pendingStripeBooking=null;
+let stripePaymentInProgress=false;
 
 let currentRoute={
     miles:null,
@@ -80,8 +82,11 @@ function bindPublicStopButtons(){
 
 async function initialiseGoogleMapsForCompany(){
 
-    const apiKey=
-        pricingSettings.googlemapsapi || "";
+    const apiKey=await window.TransportAddressAutocomplete.resolveBrowserMapsKey(
+        bookingdb,
+        bookingCompany,
+        pricingSettings.googlemapsapi
+    );
 
     if(!apiKey){
         console.warn("Google Maps is not configured for this company.");
@@ -2214,11 +2219,40 @@ async function prepareStripePayment(created){
     if(!window.Stripe) throw new Error("Stripe payment controls could not be loaded.");
     stripeClient=window.Stripe(created.stripe.publishable_key);
     stripeElements=stripeClient.elements({clientSecret:created.stripe.client_secret,appearance:{theme:"stripe"}});
-    stripePaymentElement=stripeElements.create("payment",{layout:"tabs"});
-    stripePaymentElement.mount("#stripePaymentElement");
     pendingStripeBooking=created;
     const panel=document.getElementById("stripePaymentPanel");
     if(panel) panel.hidden=false;
+
+    const expressSection=document.getElementById("stripeExpressSection");
+    if(expressSection) expressSection.hidden=true;
+    try{
+        stripeExpressCheckoutElement=stripeElements.create("expressCheckout",{
+            layout:{maxColumns:1,maxRows:2,overflow:"never"},
+            buttonHeight:48,
+            buttonType:{applePay:"book",googlePay:"book"},
+            paymentMethods:{
+                applePay:"auto",
+                googlePay:"auto",
+                link:"never",
+                paypal:"never",
+                amazonPay:"never",
+                klarna:"never"
+            }
+        });
+        stripeExpressCheckoutElement.on("availablepaymentmethodschange",({paymentMethods}={})=>{
+            const walletAvailable=Boolean(paymentMethods?.applePay||paymentMethods?.googlePay);
+            if(expressSection) expressSection.hidden=!walletAvailable;
+        });
+        stripeExpressCheckoutElement.on("confirm",confirmPendingStripePayment);
+        stripeExpressCheckoutElement.mount("#stripeExpressCheckout");
+    }catch(error){
+        stripeExpressCheckoutElement=null;
+        if(expressSection) expressSection.hidden=true;
+        console.warn("Stripe express wallet controls are unavailable; card payment remains available.",error?.message||error);
+    }
+
+    stripePaymentElement=stripeElements.create("payment",{layout:"tabs"});
+    stripePaymentElement.mount("#stripePaymentElement");
     const breakdown=document.getElementById("paymentBreakdown");
     if(breakdown){breakdown.hidden=false;breakdown.innerHTML=`<strong>Journey total: ${esc(money(created.authoritative_price))}</strong><br>Due now: ${esc(money(created.stripe.amount_due))}${created.stripe.payment_type==="deposit"?`<br>Remaining balance: ${esc(money(created.stripe.balance_due))}`:""}`;}
     const button=document.getElementById("confirmBookingButton");
@@ -2229,25 +2263,38 @@ async function prepareStripePayment(created){
 }
 
 async function confirmPendingStripePayment(){
+    if(stripePaymentInProgress||!stripeClient||!stripeElements||!pendingStripeBooking) return;
     const button=document.getElementById("confirmBookingButton");
     const message=document.getElementById("stripePaymentMessage");
+    stripePaymentInProgress=true;
     if(button) button.disabled=true;
     if(message) message.textContent="Processing payment…";
-    const result=await stripeClient.confirmPayment({elements:stripeElements,redirect:"if_required",confirmParams:{return_url:window.location.href}});
-    if(button) button.disabled=false;
-    if(result.error){if(message) message.textContent=result.error.message||"Payment was not completed.";return;}
-    const status=String(result.paymentIntent?.status||"");
-    if(status && !["succeeded","processing"].includes(status)){
-        if(message) message.textContent="Your payment needs further action. Please follow the payment instructions above.";
-        return;
+    try{
+        const submitted=await stripeElements.submit();
+        if(submitted.error){
+            if(message) message.textContent=submitted.error.message||"Please check your payment details.";
+            return;
+        }
+        const result=await stripeClient.confirmPayment({elements:stripeElements,redirect:"if_required",confirmParams:{return_url:window.location.href}});
+        if(result.error){if(message) message.textContent=result.error.message||"Payment was not completed.";return;}
+        const status=String(result.paymentIntent?.status||"");
+        if(status && !["succeeded","processing"].includes(status)){
+            if(message) message.textContent="Your payment needs further action. Please follow the payment instructions above.";
+            return;
+        }
+        showBookingConfirmation(pendingStripeBooking,{
+            paymentMethod:document.getElementById("paymentMethod")?.value||"Pay Now",
+            amountPaid:pendingStripeBooking.stripe?.amount_due,
+            balance:pendingStripeBooking.stripe?.balance_due||0,
+            paymentIntentStatus:status,
+            isDeposit:pendingStripeBooking.stripe?.payment_type==="deposit"
+        });
+    }catch(error){
+        if(message) message.textContent=error?.message||"Payment could not be completed. Please try again.";
+    }finally{
+        stripePaymentInProgress=false;
+        if(button&&pendingStripeBooking) button.disabled=false;
     }
-    showBookingConfirmation(pendingStripeBooking,{
-        paymentMethod:document.getElementById("paymentMethod")?.value||"Pay Now",
-        amountPaid:pendingStripeBooking.stripe?.amount_due,
-        balance:pendingStripeBooking.stripe?.balance_due||0,
-        paymentIntentStatus:status,
-        isDeposit:pendingStripeBooking.stripe?.payment_type==="deposit"
-    });
 }
 
 function showBookingConfirmation(created,options={}){
@@ -2258,6 +2305,8 @@ function showBookingConfirmation(created,options={}){
     const isAccount=/account|invoice/i.test(paymentMethod);
     const isPayInCar=/cash|pay\s*in\s*(car|vehicle)/i.test(paymentMethod);
 
+    stripeExpressCheckoutElement?.unmount();
+    stripeExpressCheckoutElement=null;
     stripePaymentElement?.unmount();
     stripePaymentElement=null;
     stripeElements=null;

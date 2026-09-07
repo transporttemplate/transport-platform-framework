@@ -3,7 +3,7 @@ const db = getSupabase();
 async function loadDashboard() {
     const upcomingBody = document.getElementById("upcomingBookings");
     try {
-        const { companyId } = await window.getAdminCompanyContext();
+        const { companyId, company } = await window.getAdminCompanyContext();
         const today = new Date().toISOString().split("T")[0];
 
         const [todayResult, upcomingResult, settingsResult, driversResult] = await Promise.all([
@@ -49,7 +49,8 @@ async function loadDashboard() {
         const jobsWaiting = document.getElementById("jobsWaiting");
         if (jobsWaiting) jobsWaiting.textContent = waiting;
 
-        await initialiseDashboardMap(settings.googlemapsapi, drivers || []);
+        const browserMapsKey = await window.TransportAddressAutocomplete.resolveBrowserMapsKey(db, company, settings.googlemapsapi);
+        await initialiseDashboardMap(browserMapsKey, drivers || []);
 
     } catch (error) {
         console.error("Dashboard load failed", { message: error?.message || "Unknown dashboard error" });

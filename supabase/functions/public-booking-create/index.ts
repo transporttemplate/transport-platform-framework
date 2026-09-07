@@ -134,7 +134,7 @@ Deno.serve(async (request) => {
       }
     }
 
-    const routeKey = routeApiKeyForCompany(String(company.company_code));
+    const routeKey = routeApiKeyForCompany(String(company.company_code), String(company.company_status || "active"));
     if (!routeKey) throw new ApiError(503, "Route pricing is not configured for this company.");
     const route = await authoritativeRoute(booking, stops, airport, routeKey);
 
@@ -350,7 +350,7 @@ async function createStripeIntent(secret:string,amount:number,companyId:string,b
   const minor=Math.round(amount*100);
   if(minor<50) throw new ApiError(400,"Payment amount is too small");
   const form=new URLSearchParams();
-  form.set("amount",String(minor)); form.set("currency","gbp"); form.set("automatic_payment_methods[enabled]","true");
+  form.set("amount",String(minor)); form.set("currency","gbp"); form.append("payment_method_types[]","card");
   form.set("metadata[company_id]",companyId); form.set("metadata[booking_id]",bookingId); form.set("metadata[booking_reference]",reference); form.set("metadata[payment_type]",paymentMethod.toLowerCase());
   const response=await fetch("https://api.stripe.com/v1/payment_intents",{method:"POST",headers:{Authorization:`Bearer ${secret}`,"Content-Type":"application/x-www-form-urlencoded"},body:form});
   const result=await response.json();
@@ -580,11 +580,13 @@ function enforceCompanyLifecycle(company: Row) {
     throw new ApiError(403, "This trial has ended. Contact us to activate the full account");
   }
 }
-function routeApiKeyForCompany(companyCode: string) {
+function routeApiKeyForCompany(companyCode: string, companyStatus: string) {
   const safeCode = /^\d{4}$/.test(companyCode) ? companyCode : "";
   const companySecret = safeCode ? Deno.env.get(`GOOGLE_ROUTES_API_KEY_${safeCode}`) : null;
+  if (clean(companySecret)) return clean(companySecret);
 
-  return clean(companySecret) || clean(Deno.env.get("GOOGLE_ROUTES_API_KEY"));
+  const mayUsePlatformFallback = companyStatus.toLowerCase() === "trial" || safeCode === "0001";
+  return mayUsePlatformFallback ? clean(Deno.env.get("GOOGLE_ROUTES_API_KEY")) : null;
 }
 
 function clean(value: unknown) { return String(value ?? "").trim() || null; }

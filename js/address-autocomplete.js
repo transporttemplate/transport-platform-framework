@@ -34,6 +34,30 @@
         return mapsPromise;
     }
 
+    async function resolveBrowserMapsKey(_db, company, configuredKey) {
+        const ownKey = String(configuredKey || "").trim();
+        if (ownKey) return ownKey;
+
+        const companyCode = String(company?.company_code || "").trim();
+        const companyStatus = String(company?.company_status || "trial").toLowerCase();
+        if (companyCode !== "0004" || companyStatus !== "trial") return "";
+
+        try {
+            const headers = { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` };
+            const companyResponse = await fetch(`${SUPABASE_URL}/rest/v1/companies?select=id&company_code=eq.0001&limit=1`, { headers });
+            if (!companyResponse.ok) return "";
+            const [platformCompany] = await companyResponse.json();
+            if (!platformCompany?.id) return "";
+
+            const settingsResponse = await fetch(`${SUPABASE_URL}/rest/v1/settings?select=googlemapsapi&company_id=eq.${encodeURIComponent(platformCompany.id)}&limit=1`, { headers });
+            if (!settingsResponse.ok) return "";
+            const [platformSettings] = await settingsResponse.json();
+            return String(platformSettings?.googlemapsapi || "").trim();
+        } catch {
+            return "";
+        }
+    }
+
     function clearMetadata(input) {
         delete input.dataset.placeId;
         delete input.dataset.lat;
@@ -107,6 +131,7 @@
 
     window.TransportAddressAutocomplete = {
         loadGoogleMaps,
+        resolveBrowserMapsKey,
         attach,
         metadata,
         registerProvider(provider) { if (provider && !providers.includes(provider)) providers.push(provider); }

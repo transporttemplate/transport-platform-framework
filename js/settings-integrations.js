@@ -5,6 +5,7 @@ const INTEGRATION_FIELDS = Object.freeze({
 });
 
 let integrationCompanyId = null;
+let integrationCompany = null;
 let integrationSettingsId = null;
 let originalIntegrationValues = {};
 
@@ -15,6 +16,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
         const context = await window.getAdminCompanyContext();
         integrationCompanyId = context.companyId;
+        integrationCompany = context.company;
         await loadIntegrationSettings();
         await loadEmailProviderStatus();
         if (saveButton) {
@@ -53,6 +55,7 @@ async function loadIntegrationSettings() {
 
     setText("googleMapsStatus", configuredStatus(data.googlemapsapi));
     setText("googleCalendarStatus", configuredStatus(data.googlecalendarid));
+    updateGoogleRoutesActivationNotice();
     const stripeMode = stripePublishableKeyMode(data.stripepublishablekey);
     const stripeConfigured = data.enablestripe === true && Boolean(stripeMode);
     setText("stripeStatus", stripeConfigured ? `Configured (${stripeMode} mode)` : "Not configured");
@@ -63,6 +66,17 @@ async function loadIntegrationSettings() {
             : "Stripe payments are not configured. Enable Stripe and save a valid pk_test_ or pk_live_ publishable key in Payment Settings; secret keys remain server-side."
     );
     showIntegrationStatus("");
+}
+
+function updateGoogleRoutesActivationNotice() {
+    const notice = document.getElementById("googleRoutesActivationNotice");
+    if (!notice) return;
+    const convertedTrial = String(integrationCompany?.company_code || "") === "0004" &&
+        String(integrationCompany?.company_status || "active").toLowerCase() === "active";
+    notice.hidden = !convertedTrial;
+    if (convertedTrial) {
+        notice.textContent = "Company 0004 is active. Configure its company-specific GOOGLE_ROUTES_API_KEY_0004 server secret before relying on production route pricing.";
+    }
 }
 
 async function loadEmailProviderStatus() {

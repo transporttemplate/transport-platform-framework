@@ -5,6 +5,7 @@ let allDrivers = [];
 let allAccountCustomers = [];
 let currentTab = "bookings";
 let adminCompanyId = null;
+let adminCompany = null;
 let adminStopCounters = { pickup: 0, dropoff: 0 };
 
 let dispatchMap = null;
@@ -25,6 +26,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
         const context = await window.getAdminCompanyContext();
         adminCompanyId = context.companyId;
+        adminCompany = context.company;
 
         setActiveDateRange();
         bindBookingEvents();
@@ -1877,9 +1879,13 @@ async function initialiseDispatchMap() {
             throw error;
         }
 
-        if (
-            !data?.googlemapsapi
-        ) {
+        const browserMapsKey = await window.TransportAddressAutocomplete.resolveBrowserMapsKey(
+            bookingsDb,
+            adminCompany,
+            data?.googlemapsapi
+        );
+
+        if (!browserMapsKey) {
 
             if (message) {
 
@@ -1891,7 +1897,7 @@ async function initialiseDispatchMap() {
         }
 
         await window.TransportAddressAutocomplete.loadGoogleMaps(
-            data.googlemapsapi
+            browserMapsKey
         );
 
         setupAdminAutocomplete(
