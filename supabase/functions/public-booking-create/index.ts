@@ -64,6 +64,7 @@ Deno.serve(async (request) => {
         "mileband1", "mileband2", "mileband3", "mileband4", "mileband5", "mileband6", "bookingfee", "airportviasurcharge",
         "allowvehicle_standard", "allowvehicle_5_8", "allowvehicle_9_16", "allowvehicle_17_23", "allowvehicle_24_52",
         "vehicleuplift_5_8_percent", "vehicleuplift_9_16_percent", "vehicleuplift_17_23_percent", "vehicleuplift_24_52_percent",
+        "allowvehicle_5_7", "vehicleuplift_5_7_percent", "enablecardbookingfee", "cardbookingfeepercent",
         "returndiscount", "requiredeposit", "airportdepositrequired", "depositpercent", "stripepublishablekey",
       ].join(",")).eq("company_id", companyId).maybeSingle(),
       db.from("service_areas").select("id,company_id,postcode_prefix,radius_miles,active")
@@ -146,7 +147,11 @@ Deno.serve(async (request) => {
 
     const vehicleTier = validateVehicleTier(booking.vehicle_tier || booking.vehicle_type, integer(booking.passengers), settings);
     const pricing = calculatePrice({ settings, airport, mode, vehicleTier, miles: route.miles, isReturn, viaCount: route.stops.length });
-    const prices = splitPrice(pricing.total, isReturn);
+    const cardFeePercent = paymentMethod === "Card" && bool(settings.enablecardbookingfee) ? Math.min(100, Math.max(0, number(settings.cardbookingfeepercent))) : 0;
+    const cardFeeAmount = round2(pricing.total * cardFeePercent / 100);
+    const authoritativeTotal = round2(pricing.total + cardFeeAmount);
+    const journeyPrices = splitPrice(pricing.total, isReturn);
+    const prices = splitPrice(authoritativeTotal, isReturn);
     const onlinePayment=paymentMethod==="Card"||paymentMethod==="Deposit";
     const airportPickup=mode==="airport" && String(booking.pickup_address||"").trim().toLowerCase()===String(airport?.name||"").trim().toLowerCase();
     if(airportPickup && bool(settings.airportdepositrequired) && paymentMethod==="Pay in Car") throw new ApiError(400,"Online payment is required for this airport pickup");
@@ -155,7 +160,7 @@ Deno.serve(async (request) => {
     if(paymentMethod==="Deposit"&&!depositRequired) throw new ApiError(400,"Deposit payment is not enabled for this journey");
     const depositPercent=Math.min(100,Math.max(0,number(airportPickup?airport?.deposit_percent:settings.depositpercent)||number(settings.depositpercent)));
     if(paymentMethod==="Deposit"&&depositPercent<=0) throw new ApiError(503,"Deposit percentage is not configured");
-    const amountDue=paymentMethod==="Deposit"?round2(pricing.total*depositPercent/100):onlinePayment?pricing.total:0;
+    const amountDue=paymentMethod==="Deposit"?round2(authoritativeTotal*depositPercent/100):onlinePayment?authoritativeTotal:0;
     const stripeSecret=onlinePayment?stripeSecretForCompany(String(company.company_code)):null;
     const stripePublishableKey=onlinePayment?clean(settings.stripepublishablekey):null;
     if(onlinePayment&&!bool(settings.enablestripe)) throw new ApiError(503,"Stripe payments are not enabled for this company");
@@ -194,13 +199,16 @@ Deno.serve(async (request) => {
       payment_status: onlinePayment?"pending_payment":"unpaid",
       payment_type: paymentMethod==="Deposit"?"deposit":paymentMethod==="Card"?"full":"pay_in_car",
       amount_paid: 0,
-      balance_due: pricing.total,
+      balance_due: authoritativeTotal,
       price: prices.outbound,
+      journey_fare: journeyPrices.outbound,
+      card_booking_fee_percent: cardFeePercent,
+      card_booking_fee_amount: round2(prices.outbound - journeyPrices.outbound),
       route_distance_miles: route.miles,
       route_duration_minutes: route.minutes,
       pricing_method: pricing.method,
       vehicle_tier: vehicleTier,
-      vehicle_type: vehicleTier === "standard" ? "car" : vehicleTier === "5_8" ? "mpv" : vehicleTier,
+      vehicle_type: vehicleTier === "standard" ? "car" : vehicleTier === "5_7" ? "mpv" : vehicleTier,
       account_customer_id: account?.id || null,
       account_po_reference: account ? clean(booking.account_po_reference) : null,
       booking_source: "website",
@@ -239,6 +247,8 @@ Deno.serve(async (request) => {
         return_date: null,
         return_time: null,
         price: prices.return,
+        journey_fare: journeyPrices.return,
+        card_booking_fee_amount: round2((prices.return || 0) - (journeyPrices.return || 0)),
         journey_type: "return",
         payment_type: "linked_return",
         amount_paid: 0,
@@ -274,7 +284,7 @@ Deno.serve(async (request) => {
       const intent=await createStripeIntent(stripeSecret!,amountDue,companyId,String(primaryBooking.id),String(reference),paymentMethod);
       const paymentInsert=await db.from("payments").insert({company_id:companyId,booking_id:primaryBooking.id,amount:amountDue,method:"stripe",status:"pending",reference:intent.id});
       if(paymentInsert.error) throw paymentInsert.error;
-      stripe={client_secret:intent.client_secret,publishable_key:stripePublishableKey,amount_due:amountDue,balance_due:round2(pricing.total-amountDue),payment_type:paymentMethod==="Deposit"?"deposit":"full"};
+      stripe={client_secret:intent.client_secret,publishable_key:stripePublishableKey,amount_due:amountDue,balance_due:round2(authoritativeTotal-amountDue),payment_type:paymentMethod==="Deposit"?"deposit":"full"};
     }
 
     if (String(company.company_status || "active") !== "trial") {
@@ -286,7 +296,11 @@ Deno.serve(async (request) => {
       customer_id: customerId,
       reference,
       bookings: inserted.data,
-      authoritative_price: pricing.total,
+      authoritative_price: authoritativeTotal,
+      journey_fare: pricing.total,
+      card_booking_fee_percent: cardFeePercent,
+      card_booking_fee_amount: cardFeeAmount,
+      return_pricing: pricing.returnPricing,
       pricing_method: pricing.method,
       stripe,
       account: account ? { business_name: account.business_name, account_code: account.account_code } : null,
@@ -471,11 +485,12 @@ async function verifiedLocation(source: Row | null, address: unknown, apiKey: st
 }
 
 function validateVehicleTier(value: unknown, passengers: number, settings: Row) {
-  const aliases: Record<string, string> = { car: "standard", mpv: "5_8", standard: "standard", "5_8": "5_8", "9_16": "9_16", "17_23": "17_23", "24_52": "24_52" };
+  const aliases: Record<string, string> = { car: "standard", mpv: "5_7", standard: "standard", "5_7": "5_7", "5_8": "5_8", "9_16": "9_16", "17_23": "17_23", "24_52": "24_52" };
   const tier = aliases[String(value || "").toLowerCase()];
   const rules: Record<string, { capacity: number; setting: string; legacyDefault: boolean }> = {
     standard: { capacity: 4, setting: "allowvehicle_standard", legacyDefault: true },
-    "5_8": { capacity: 8, setting: "allowvehicle_5_8", legacyDefault: true },
+    "5_7": { capacity: 7, setting: "allowvehicle_5_7", legacyDefault: true },
+    "5_8": { capacity: 8, setting: "allowvehicle_5_8", legacyDefault: false },
     "9_16": { capacity: 16, setting: "allowvehicle_9_16", legacyDefault: false },
     "17_23": { capacity: 23, setting: "allowvehicle_17_23", legacyDefault: false },
     "24_52": { capacity: 52, setting: "allowvehicle_24_52", legacyDefault: false },
@@ -490,7 +505,8 @@ function validateVehicleTier(value: unknown, passengers: number, settings: Row) 
 
 function vehicleUplift(tier: string, settings: Row) {
   if (tier === "standard") return 0;
-  if (tier === "5_8") return Math.max(0, settings.vehicleuplift_5_8_percent == null ? number(settings.bookingfee) : number(settings.vehicleuplift_5_8_percent));
+  if (tier === "5_7") return Math.max(0, settings.vehicleuplift_5_7_percent == null ? number(settings.bookingfee) : number(settings.vehicleuplift_5_7_percent));
+  if (tier === "5_8") return Math.max(0, number(settings.vehicleuplift_5_8_percent));
   return Math.max(0, number(settings[`vehicleuplift_${tier}_percent`]));
 }
 
@@ -499,12 +515,13 @@ function calculatePrice(input: { settings: Row; airport: Row | null; mode: strin
   const uplift = vehicleUplift(vehicleTier, settings);
   if (mode === "airport") {
     const trip = isReturn ? "return" : "oneway";
-    const size = vehicleTier === "5_8" ? "5_7" : "1_4";
+    const size = ["5_7", "5_8"].includes(vehicleTier) ? "5_7" : "1_4";
     const configured = number(airport?.[`price_${size}_${trip}`], NaN);
     if (!Number.isFinite(configured) || configured <= 0) throw new ApiError(400, "No fixed price is configured for this airport journey");
     const viaSurcharge = Math.max(0, number(settings.airportviasurcharge));
-    const tierPrice = ["standard", "5_8"].includes(vehicleTier) ? configured : configured * (1 + uplift / 100);
-    return { total: round2(tierPrice + Math.max(0, viaCount) * viaSurcharge), method: "Airport fixed price" };
+    const tierPrice = ["standard", "5_7"].includes(vehicleTier) ? configured : configured * (1 + uplift / 100);
+    const total = round2(tierPrice + Math.max(0, viaCount) * viaSurcharge);
+    return { total, method: "Airport fixed price", returnPricing: { is_return: isReturn, gross: total, discount_percent: 0, discount_amount: 0, final_total: total } };
   }
 
   if (!Number.isFinite(miles) || miles <= 0) throw new ApiError(400, "A valid route distance is required");
@@ -522,10 +539,11 @@ function calculatePrice(input: { settings: Row; airport: Row | null; mode: strin
     start = ends[index];
   }
   if (remaining > 0) total += remaining * rates[5];
-  total = Math.max(Math.max(0, number(settings.minimumfare)), total);
-  if (isReturn) total *= 2 * (1 - Math.min(100, Math.max(0, number(settings.returndiscount))) / 100);
-  total *= 1 + uplift / 100;
-  return { total: floorHalf(total), method: "Distance price" };
+  const oneWay = Math.max(Math.max(0, number(settings.minimumfare)), total) * (1 + uplift / 100);
+  const gross = isReturn ? oneWay * 2 : oneWay;
+  const discountPercent = isReturn ? Math.min(100, Math.max(0, number(settings.returndiscount))) : 0;
+  const finalTotal = floorHalf(gross * (1 - discountPercent / 100));
+  return { total: finalTotal, method: "Distance price", returnPricing: { is_return: isReturn, outbound_base: round2(oneWay), gross: round2(gross), discount_percent: discountPercent, discount_amount: round2(gross - finalTotal), final_total: finalTotal } };
 }
 
 function splitPrice(total: number, isReturn: boolean) {

@@ -113,6 +113,7 @@ const fieldMap = {
     christmas: "christmas",
     bookingFee: "bookingfee",
     vehicleUplift5To8: "vehicleuplift_5_8_percent",
+    vehicleUplift5To7: "vehicleuplift_5_7_percent",
     vehicleUplift9To16: "vehicleuplift_9_16_percent",
     vehicleUplift17To23: "vehicleuplift_17_23_percent",
     vehicleUplift24To52: "vehicleuplift_24_52_percent",
@@ -135,6 +136,7 @@ const fieldMap = {
     distanceCalculator: "distancecalculator",
     returnBookings: "returnbookings",
     allowVehicleStandard: "allowvehicle_standard",
+    allowVehicle5To7: "allowvehicle_5_7",
     allowVehicle5To8: "allowvehicle_5_8",
     allowVehicle9To16: "allowvehicle_9_16",
     allowVehicle17To23: "allowvehicle_17_23",
@@ -157,6 +159,8 @@ const fieldMap = {
     enableCash: "enablecash",
     enableAccounts: "enableaccounts",
     requirePaymentBeforeTravel: "requirepaymentbeforetravel",
+    enableCardBookingFee: "enablecardbookingfee",
+    cardBookingFeePercent: "cardbookingfeepercent",
 
     bookingConfirmationEmail: "bookingconfirmationemail",
     driverAssignedEmail: "driverassignedemail",
@@ -205,8 +209,9 @@ const OPTIONAL_SETTING_COLUMNS = new Set([
     "homesellingpoint4enabled", "homesellingpoint4text"
     ,"bankaccountname", "banksortcode", "bankaccountnumber",
     "bankpaymentreferenceinstruction", "showbankdetailsoninvoices",
-    "vehicleuplift_5_8_percent", "vehicleuplift_9_16_percent", "vehicleuplift_17_23_percent", "vehicleuplift_24_52_percent",
-    "allowvehicle_standard", "allowvehicle_5_8", "allowvehicle_9_16", "allowvehicle_17_23", "allowvehicle_24_52"
+    "vehicleuplift_5_7_percent", "vehicleuplift_5_8_percent", "vehicleuplift_9_16_percent", "vehicleuplift_17_23_percent", "vehicleuplift_24_52_percent",
+    "allowvehicle_standard", "allowvehicle_5_7", "allowvehicle_5_8", "allowvehicle_9_16", "allowvehicle_17_23", "allowvehicle_24_52",
+    "enablecardbookingfee", "cardbookingfeepercent"
 ]);
 const pendingCompanyMediaFiles = {};
 const pendingCompanyMediaPreviewUrls = {};
@@ -335,15 +340,19 @@ async function loadSettings() {
         homesellingpoint2text: data.homesellingpoint2text ?? "Online Booking",
         homesellingpoint3text: data.homesellingpoint3text ?? "Professional Drivers",
         homesellingpoint4text: data.homesellingpoint4text ?? "24/7 Service",
-        vehicleuplift_5_8_percent: data.vehicleuplift_5_8_percent ?? data.bookingfee ?? 0,
+        vehicleuplift_5_8_percent: data.vehicleuplift_5_8_percent ?? 0,
+        vehicleuplift_5_7_percent: data.vehicleuplift_5_7_percent ?? data.bookingfee ?? 0,
         vehicleuplift_9_16_percent: data.vehicleuplift_9_16_percent ?? 0,
         vehicleuplift_17_23_percent: data.vehicleuplift_17_23_percent ?? 0,
         vehicleuplift_24_52_percent: data.vehicleuplift_24_52_percent ?? 0,
         allowvehicle_standard: data.allowvehicle_standard ?? true,
-        allowvehicle_5_8: data.allowvehicle_5_8 ?? true,
+        allowvehicle_5_7: data.allowvehicle_5_7 ?? true,
+        allowvehicle_5_8: data.allowvehicle_5_8 ?? false,
         allowvehicle_9_16: data.allowvehicle_9_16 ?? false,
         allowvehicle_17_23: data.allowvehicle_17_23 ?? false,
-        allowvehicle_24_52: data.allowvehicle_24_52 ?? false
+        allowvehicle_24_52: data.allowvehicle_24_52 ?? false,
+        enablecardbookingfee: data.enablecardbookingfee ?? false,
+        cardbookingfeepercent: data.cardbookingfeepercent ?? 0
     };
 
     savedCompanyLogo = loadedData.companylogo || "";
@@ -383,7 +392,7 @@ async function saveSettings() {
         return;
     }
 
-    if (!validateInvoiceBankDetails()) return;
+    if (!validateInvoiceBankDetails() || !validateCardBookingFee()) return;
     const settings = {};
 
     Object.entries(fieldMap).forEach(([htmlId, dbColumn]) => {
@@ -510,6 +519,16 @@ async function saveSettings() {
 function normaliseSortCode(value) {
     const digits = String(value || "").replace(/\D/g, "");
     return digits.length === 6 ? `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}` : String(value || "").trim();
+}
+
+function validateCardBookingFee() {
+    const input = document.getElementById("cardBookingFeePercent");
+    if (!input || input.value === "") return true;
+    const percent = Number(input.value);
+    if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+        alert("Card payment fee must be between 0% and 100%."); input.focus(); return false;
+    }
+    return true;
 }
 
 function validateInvoiceBankDetails() {

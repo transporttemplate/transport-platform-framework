@@ -45,6 +45,9 @@
 <label><input id="enableCash" type="checkbox" style="width:auto;"> Enable Cash</label>
 <label><input id="enableAccounts" type="checkbox" style="width:auto;"> Enable Account Customers</label>
 <label><input id="requirePaymentBeforeTravel" type="checkbox" style="width:auto;"> Require Payment Before Travel</label>
+<label><input id="enableCardBookingFee" type="checkbox" style="width:auto;"> Enable card payment fee</label>
+<label>Card payment fee (%)<input id="cardBookingFeePercent" type="number" min="0" max="100" step="0.01"></label>
+<small>Only enable this where a payment surcharge is legally permitted. The fee is added only when Card is selected.</small>
 </div></div>
 <p><strong>Security:</strong> Stripe secret keys are intentionally not included on this browser page. They should be handled securely server-side.</p></div>
 

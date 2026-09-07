@@ -544,13 +544,18 @@ function renderPublicPaymentOptions(){
 function updatePaymentBreakdown(){
     const box=document.getElementById("paymentBreakdown");
     if(!box) return;
-    const total=Number(currentPrices.selected);
+    const journeyTotal=Number(currentPrices.selected);
     const method=document.getElementById("paymentMethod")?.value;
-    if(!Number.isFinite(total)||!["Pay Now","Deposit"].includes(method)){box.hidden=true;box.textContent="";return;}
+    if(!Number.isFinite(journeyTotal)){box.hidden=true;box.textContent="";return;}
+    const cardFeePercent=method==="Pay Now"&&pricingSettings.enablecardbookingfee===true?Math.min(100,Math.max(0,Number(pricingSettings.cardbookingfeepercent)||0)):0;
+    const cardFee=Math.round(journeyTotal*cardFeePercent)/100;
+    const total=journeyTotal+cardFee;
     const percent=publicDepositPercent();
     const due=method==="Deposit"?Math.round(total*percent)/100:total;
     box.hidden=false;
-    box.innerHTML=`<strong>Journey total: ${esc(money(total))}</strong><br>Due now: ${esc(money(due))}${method==="Deposit"?`<br>Remaining balance: ${esc(money(Math.max(0,total-due)))}`:""}`;
+    const fareLabel=document.getElementById("returnJourney")?.checked?"Return journey fare":"Journey fare";
+    const returnExplanation=document.getElementById("returnJourney")?.checked&&typeof vehicleReturnDetail==="function"?`<br><small>${vehicleReturnDetail(journeyTotal)}</small>`:"";
+    box.innerHTML=`${fareLabel}: ${esc(money(journeyTotal))}${returnExplanation}${cardFee>0?`<br>Card payment fee (${cardFeePercent}%): ${esc(money(cardFee))}`:""}<br><strong>Total: ${esc(money(total))}</strong>${["Pay Now","Deposit"].includes(method)?`<br>Due now: ${esc(money(due))}`:""}${method==="Deposit"?`<br>Remaining balance: ${esc(money(Math.max(0,total-due)))}`:""}`;
 }
 
 function publicDepositPercent(){
@@ -1897,7 +1902,7 @@ function buildSummary(){
 
 
     const selectedTier=document.getElementById("vehicleType").value;
-    const vehicle=({standard:"Car","5_8":"5–8 Seater","9_16":"9–16 Seater","17_23":"17–23 Seater","24_52":"24–52 Seater"})[selectedTier]||selectedTier;
+    const vehicle=({standard:"Car","5_7":"5–7 Seater","5_8":"5–8 Seater","9_16":"9–16 Seater","17_23":"17–23 Seater","24_52":"24–52 Seater"})[selectedTier]||selectedTier;
 
 
     const returnJourney=
@@ -2255,7 +2260,7 @@ async function prepareStripePayment(created){
     stripePaymentElement=stripeElements.create("payment",{layout:"tabs"});
     stripePaymentElement.mount("#stripePaymentElement");
     const breakdown=document.getElementById("paymentBreakdown");
-    if(breakdown){breakdown.hidden=false;breakdown.innerHTML=`<strong>Journey total: ${esc(money(created.authoritative_price))}</strong><br>Due now: ${esc(money(created.stripe.amount_due))}${created.stripe.payment_type==="deposit"?`<br>Remaining balance: ${esc(money(created.stripe.balance_due))}`:""}`;}
+    if(breakdown){breakdown.hidden=false;breakdown.innerHTML=`Journey fare: ${esc(money(created.journey_fare??created.authoritative_price))}${Number(created.card_booking_fee_amount)>0?`<br>Card payment fee (${esc(created.card_booking_fee_percent)}%): ${esc(money(created.card_booking_fee_amount))}`:""}<br><strong>Total: ${esc(money(created.authoritative_price))}</strong><br>Due now: ${esc(money(created.stripe.amount_due))}${created.stripe.payment_type==="deposit"?`<br>Remaining balance: ${esc(money(created.stripe.balance_due))}`:""}`;}
     const button=document.getElementById("confirmBookingButton");
     if(button) button.textContent="Complete secure payment";
     document.querySelector('[data-back="4"]')?.setAttribute("disabled","");
