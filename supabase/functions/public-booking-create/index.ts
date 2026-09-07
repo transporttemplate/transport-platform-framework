@@ -149,7 +149,7 @@ Deno.serve(async (request) => {
     const depositPercent=Math.min(100,Math.max(0,number(airportPickup?airport?.deposit_percent:settings.depositpercent)||number(settings.depositpercent)));
     if(paymentMethod==="Deposit"&&depositPercent<=0) throw new ApiError(503,"Deposit percentage is not configured");
     const amountDue=paymentMethod==="Deposit"?round2(pricing.total*depositPercent/100):onlinePayment?pricing.total:0;
-    const stripeSecret=onlinePayment?clean(Deno.env.get("STRIPE_SECRET_KEY")):null;
+    const stripeSecret=onlinePayment?stripeSecretForCompany(String(company.company_code)):null;
     const stripePublishableKey=onlinePayment?clean(settings.stripepublishablekey):null;
     if(onlinePayment&&!bool(settings.enablestripe)) throw new ApiError(503,"Stripe test payments are not enabled for this company");
     if(onlinePayment&&(!stripeSecret||!stripeSecret.startsWith("sk_test_"))) throw new ApiError(503,"Stripe test payments are not configured on the server");
@@ -544,6 +544,14 @@ function normalPostcode(value: unknown) { return String(value || "").toUpperCase
 function bool(value: unknown) { return value === true || value === "true" || value === 1 || value === "1"; }
 function integer(value: unknown) { const parsed = Number(value); return Number.isInteger(parsed) ? parsed : -1; }
 function number(value: unknown, fallback = 0) { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : fallback; }
+function stripeSecretForCompany(companyCode: string) {
+  const secret = companyCode === "0002"
+    ? Deno.env.get("STRIPE_SECRET_KEY_0002")
+    : companyCode === "0003"
+    ? Deno.env.get("STRIPE_SECRET_KEY_0003")
+    : null;
+  return clean(secret);
+}
 function routeApiKeyForCompany(companyCode: string) {
   const companySecret = companyCode === "0001"
     ? Deno.env.get("GOOGLE_ROUTES_API_KEY_0001")
