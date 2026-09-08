@@ -3,7 +3,8 @@ const bookingsDb = getSupabase();
 let allBookings = [];
 let allDrivers = [];
 let allAccountCustomers = [];
-let currentTab = "bookings";
+let currentTab = "all";
+let activeQuickRange = "this_month";
 let adminCompanyId = null;
 let adminCompany = null;
 let adminStopCounters = { pickup: 0, dropoff: 0 };
@@ -28,7 +29,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         adminCompanyId = context.companyId;
         adminCompany = context.company;
 
-        setActiveDateRange();
+        setRangeForTab(currentTab);
         bindBookingEvents();
 
         await Promise.all([
@@ -80,13 +81,9 @@ function bindBookingEvents() {
             refreshDriverMarkers();
         });
 
-    document
-        .getElementById("dateFrom")
-        ?.addEventListener("change", renderBookings);
-
-    document
-        .getElementById("dateTo")
-        ?.addEventListener("change", renderBookings);
+    document.getElementById("dateFrom")?.addEventListener("change", onCustomDateChange);
+    document.getElementById("dateTo")?.addEventListener("change", onCustomDateChange);
+    document.querySelectorAll("[data-range]").forEach(button => button.addEventListener("click", () => applyQuickRange(button.dataset.range)));
 
     document
         .getElementById("searchBookings")
@@ -127,14 +124,9 @@ function bindBookingEvents() {
                 currentTab =
                     button.dataset.status;
 
-                if (currentTab === "history") {
-                    setHistoryDateRange();
-                } else {
-                    setActiveDateRange();
-                }
-
+                setRangeForTab(currentTab);
                 updateStatusFilterForTab();
-                renderBookings();
+                loadBookings();
             });
         });
 
@@ -240,6 +232,49 @@ function setActiveDateRange() {
     }
 }
 
+function setRangeForTab(tab) {
+    const today = new Date();
+    if (tab === "all") return applyDateRange(new Date(today.getFullYear(), today.getMonth(), 1), new Date(today.getFullYear(), today.getMonth() + 1, 0), "this_month");
+    if (tab === "upcoming") return applyDateRange(today, addDays(today, 29), "next_30");
+    if (tab === "on_job") return applyDateRange(today, today, "today");
+    applyDateRange(addDays(today, -29), today, "custom");
+}
+
+function applyQuickRange(range) {
+    const today = new Date();
+    if (range === "today") applyDateRange(today, today, range);
+    else if (range === "7_days") applyDateRange(today, addDays(today, 6), range);
+    else if (range === "this_month") applyDateRange(new Date(today.getFullYear(), today.getMonth(), 1), new Date(today.getFullYear(), today.getMonth() + 1, 0), range);
+    else if (range === "next_30") applyDateRange(today, addDays(today, 29), range);
+    else { activeQuickRange = "custom"; updateQuickRangeButtons(); document.getElementById("dateFrom")?.focus(); return; }
+    loadBookings();
+}
+
+function applyDateRange(from, to, range) {
+    document.getElementById("dateFrom").value = localDateKey(from);
+    document.getElementById("dateTo").value = localDateKey(to);
+    const journeyDate = document.getElementById("journeyDate");
+    if (journeyDate && !journeyDate.value) journeyDate.value = localDateKey(new Date());
+    activeQuickRange = range;
+    updateQuickRangeButtons();
+}
+
+function onCustomDateChange() {
+    activeQuickRange = "custom";
+    updateQuickRangeButtons();
+    loadBookings();
+}
+
+function updateQuickRangeButtons() {
+    document.querySelectorAll("[data-range]").forEach(button => button.classList.toggle("active", button.dataset.range === activeQuickRange));
+}
+
+function addDays(date, days) {
+    const result = new Date(date);
+    result.setDate(result.getDate() + days);
+    return result;
+}
+
 
 function setHistoryDateRange() {
 
@@ -280,32 +315,12 @@ function updateStatusFilterForTab() {
 
     select.value = "";
 
-    if (currentTab === "bookings") {
-
-        select.innerHTML = `
-            <option value="">All active statuses</option>
-            <option value="waiting">Waiting</option>
-            <option value="on_way">On Way</option>
-            <option value="passenger_onboard">Passenger Onboard</option>
-        `;
-
-    } else if (currentTab === "booked") {
-
-        select.innerHTML = `
-            <option value="">All booked statuses</option>
-            <option value="booked">Booked</option>
-            <option value="assigned">Assigned</option>
-            <option value="accepted">Accepted</option>
-        `;
-
-    } else {
-
-        select.innerHTML = `
-            <option value="">All history</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-        `;
-    }
+    select.innerHTML = `<option value="">All statuses in this view</option>
+        <option value="waiting">Waiting</option><option value="pending">Pending</option>
+        <option value="booked">Booked</option><option value="assigned">Assigned</option>
+        <option value="accepted">Accepted</option><option value="on_way">On Way</option>
+        <option value="passenger_onboard">Passenger Onboard</option><option value="completed">Completed</option>
+        <option value="no_show">No Show</option><option value="cancelled">Cancelled</option>`;
 }
 
 
@@ -409,14 +424,18 @@ async function loadBookings() {
             '<tr><td colspan="13" class="empty-row">Loading bookings…</td></tr>';
     }
 
-    const { data, error } =
-        await bookingsDb
+    let bookingsQuery = bookingsDb
             .from("bookings")
             .select("*")
             .eq(
                 "company_id",
                 adminCompanyId
-            )
+            );
+    const from = document.getElementById("dateFrom")?.value;
+    const to = document.getElementById("dateTo")?.value;
+    if (from) bookingsQuery = bookingsQuery.gte("journey_date", from);
+    if (to) bookingsQuery = bookingsQuery.lte("journey_date", to);
+    const { data, error } = await bookingsQuery
             .order(
                 "journey_date",
                 {
@@ -448,11 +467,11 @@ async function loadBookings() {
         return;
     }
 
-    const { data: stops, error: stopsError } = await bookingsDb
-        .from("booking_stops")
-        .select("*")
-        .eq("company_id", adminCompanyId)
-        .order("stop_order", { ascending: true });
+    const bookingIds = (data || []).map(booking => booking.id);
+    const stopsResult = bookingIds.length
+        ? await bookingsDb.from("booking_stops").select("*").eq("company_id", adminCompanyId).in("booking_id", bookingIds).order("stop_order", { ascending: true })
+        : { data: [], error: null };
+    const { data: stops, error: stopsError } = stopsResult;
 
     if (stopsError) console.error("Unable to load booking stops:", stopsError);
     allBookings = (data || []).map(booking => ({
@@ -486,38 +505,16 @@ function matchesTab(booking) {
     const status =
         bookingStatus(booking);
 
-    if (currentTab === "history") {
-
-        return [
-            "completed",
-            "cancelled",
-            "canceled"
-        ].includes(status);
+    if (currentTab === "all") return true;
+    if (currentTab === "completed") return status === "completed";
+    if (currentTab === "no_show") return status === "no_show";
+    if (currentTab === "cancelled") return ["cancelled", "canceled"].includes(status);
+    if (currentTab === "on_job") return ["accepted", "on_way", "passenger_onboard"].includes(status);
+    if (currentTab === "upcoming") {
+        const activeOrFinal = ["accepted", "on_way", "passenger_onboard", "completed", "cancelled", "canceled", "no_show"];
+        return booking.journey_date >= localDateKey(new Date()) && !activeOrFinal.includes(status);
     }
-
-    if (currentTab === "booked") {
-
-        return [
-            "booked",
-            "assigned",
-            "accepted"
-        ].includes(status);
-    }
-
-    /*
-       BOOKINGS =
-       work that still needs attention / is in progress.
-       Assigned/accepted jobs live in Booked until the
-       driver starts travelling.
-    */
-
-    return [
-        "waiting",
-        "pending",
-        "dispatched",
-        "on_way",
-        "passenger_onboard"
-    ].includes(status);
+    return true;
 }
 
 
@@ -593,7 +590,8 @@ function renderBookings() {
                     booking.email,
                     booking.customer_email,
                     booking.flight_number,
-                    booking.notes
+                    booking.notes,
+                    driverDisplayName(booking.driver_id)
                 ]
                     .filter(Boolean)
                     .join(" ")
@@ -668,8 +666,8 @@ function bookingRowHtml(booking) {
     const status =
         bookingStatus(booking);
 
-    const isHistory =
-        currentTab === "history";
+    const isHistory = ["completed", "no_show", "cancelled"].includes(currentTab);
+    const canAllocate = currentTab === "upcoming";
     const paymentClass = bookingPaymentClass(booking);
 
     const driverOptions = [
@@ -702,7 +700,7 @@ function bookingRowHtml(booking) {
     ].join("");
 
     const driverCell =
-        isHistory
+        !canAllocate
             ? escapeHtml(
                 driverDisplayName(
                     booking.driver_id
@@ -745,7 +743,8 @@ function bookingRowHtml(booking) {
             [
                 "completed",
                 "cancelled",
-                "canceled"
+                "canceled",
+                "no_show"
             ].includes(status)
                 ? ""
                 : `
@@ -758,6 +757,8 @@ function bookingRowHtml(booking) {
                     </button>
                 `
         }
+
+        ${!["completed", "cancelled", "canceled", "no_show"].includes(status) ? `<button type="button" onclick="markBookingNoShow('${booking.id}')">No Show</button>` : ""}
     `;
 
     return `
@@ -825,11 +826,7 @@ function bookingRowHtml(booking) {
             </td>
 
             <td data-label="Payment">
-                ${escapeHtml(
-                    booking.payment_method ||
-                    booking.payment_status ||
-                    "-"
-                )}
+                <span class="payment-pill">${escapeHtml(bookingPaymentLabel(booking))}</span>
             </td>
 
             <td data-label="Source">
@@ -1162,7 +1159,7 @@ async function createAdminBooking(event) {
     document.getElementById("adminDropoffStops").innerHTML = "";
     adminStopCounters = { pickup: 0, dropoff: 0 };
 
-    setActiveDateRange();
+    setRangeForTab(currentTab);
 
     populateDriverDropdown();
 
@@ -1180,6 +1177,9 @@ async function cancelBooking(id) {
         return;
     }
 
+    const cancellationReason = prompt("Cancellation reason (optional):", "");
+    if (cancellationReason === null) return;
+    const cancelledBy = await currentAdminActor();
     const { error } =
         await bookingsDb
             .from("bookings")
@@ -1192,7 +1192,9 @@ async function cancelBooking(id) {
 
                 cancelled_at:
                     new Date()
-                        .toISOString()
+                        .toISOString(),
+                cancellation_reason: cancellationReason.trim() || null,
+                cancelled_by: cancelledBy
             })
             .eq(
                 "id",
@@ -1215,6 +1217,23 @@ async function cancelBooking(id) {
     await requestBookingEmailEvent(id, "booking_cancelled");
 
     await loadBookings();
+}
+
+async function markBookingNoShow(id) {
+    if (!confirm("Mark this booking as No Show?")) return;
+    const { error } = await bookingsDb.from("bookings").update({
+        status: "no_show",
+        booking_status: "no_show",
+        no_show_at: new Date().toISOString(),
+        no_show_by: await currentAdminActor()
+    }).eq("id", id).eq("company_id", adminCompanyId);
+    if (error) return alert(error.message);
+    await loadBookings();
+}
+
+async function currentAdminActor() {
+    const { data } = await bookingsDb.auth.getUser();
+    return data?.user?.email || data?.user?.id || "Admin";
 }
 
 
@@ -1252,6 +1271,10 @@ async function cycleBookingStatus(
 
     if (next === "assigned") {
         update.dispatched_at = now;
+    }
+
+    if (next === "accepted") {
+        update.accepted_at = now;
     }
 
     if (next === "on_way") {
@@ -1503,40 +1526,16 @@ async function openBookingView(id) {
         "-"
     );
 
-    setText(
-        "viewDispatchedAt",
-        formatDateTime(
-            booking.dispatched_at
-        )
-    );
-
-    setText(
-        "viewOnWayAt",
-        formatDateTime(
-            booking.on_way_at
-        )
-    );
-
-    setText(
-        "viewPobAt",
-        formatDateTime(
-            booking.passenger_onboard_at
-        )
-    );
-
-    setText(
-        "viewCompletedAt",
-        formatDateTime(
-            booking.completed_at
-        )
-    );
-
-    setText(
-        "viewCancelledAt",
-        formatDateTime(
-            booking.cancelled_at
-        )
-    );
+    setTimelineItem("viewCreatedAt", booking.created_at);
+    setTimelineItem("viewDispatchedAt", booking.dispatched_at);
+    setTimelineItem("viewAcceptedAt", booking.accepted_at);
+    setTimelineItem("viewOnWayAt", booking.on_way_at);
+    setTimelineItem("viewPobAt", booking.passenger_onboard_at);
+    setTimelineItem("viewCompletedAt", booking.completed_at);
+    setTimelineItem("viewCancelledAt", booking.cancelled_at);
+    setTimelineItem("viewNoShowAt", booking.no_show_at);
+    setOptionalDetail("viewCancellationReason", [booking.cancellation_reason, booking.cancelled_by ? `By ${booking.cancelled_by}` : ""].filter(Boolean).join(" — "));
+    setOptionalDetail("viewNoShowBy", booking.no_show_by);
 
     renderLinkedBooking(
         booking
@@ -1786,53 +1785,15 @@ function referenceRoot(reference) {
    ========================================================= */
 
 function updateCounts() {
-
-    setCount(
-        "countBookings",
-        allBookings.filter(booking => {
-
-            const status =
-                bookingStatus(booking);
-
-            return [
-                "waiting",
-                "pending",
-                "dispatched",
-                "on_way",
-                "passenger_onboard"
-            ].includes(status);
-        }).length
-    );
-
-    setCount(
-        "countBooked",
-        allBookings.filter(booking => {
-
-            const status =
-                bookingStatus(booking);
-
-            return [
-                "booked",
-                "assigned",
-                "accepted"
-            ].includes(status);
-        }).length
-    );
-
-    setCount(
-        "countHistory",
-        allBookings.filter(booking => {
-
-            const status =
-                bookingStatus(booking);
-
-            return [
-                "completed",
-                "cancelled",
-                "canceled"
-            ].includes(status);
-        }).length
-    );
+    const count = statuses => allBookings.filter(booking => statuses.includes(bookingStatus(booking))).length;
+    const today = localDateKey(new Date());
+    const finalOrActive = ["accepted", "on_way", "passenger_onboard", "completed", "cancelled", "canceled", "no_show"];
+    setCount("countAll", allBookings.length);
+    setCount("countUpcoming", allBookings.filter(booking => booking.journey_date >= today && !finalOrActive.includes(bookingStatus(booking))).length);
+    setCount("countOnJob", count(["accepted", "on_way", "passenger_onboard"]));
+    setCount("countCompleted", count(["completed"]));
+    setCount("countNoShow", count(["no_show"]));
+    setCount("countCancelled", count(["cancelled", "canceled"]));
 }
 
 
@@ -2248,11 +2209,15 @@ function bookingAddressDisplay(detail,address) {
 }
 
 function bookingPaymentClass(booking) {
-    if (String(booking?.payment_status || "").trim().toLowerCase() === "paid") return "payment-card";
     const method = canonicalPaymentMethod(booking?.payment_method);
     if (method === "account") return "payment-account";
-    if (method === "card") return "payment-card";
-    return "payment-cash";
+    if (String(booking?.payment_status || "").trim().toLowerCase() === "paid") return "payment-paid";
+    return "payment-unpaid";
+}
+
+function bookingPaymentLabel(booking) {
+    if (canonicalPaymentMethod(booking?.payment_method) === "account") return "Account";
+    return String(booking?.payment_status || "").trim().toLowerCase() === "paid" ? "Paid" : "Unpaid";
 }
 
 function driverDisplayName(id) {
@@ -2487,6 +2452,20 @@ function setText(
         element.textContent =
             value ?? "-";
     }
+}
+
+function setTimelineItem(id, value) {
+    const element = document.getElementById(id);
+    if (!element) return;
+    element.textContent = formatDateTime(value);
+    element.closest(".booking-detail-item")?.toggleAttribute("hidden", !value);
+}
+
+function setOptionalDetail(id, value) {
+    const element = document.getElementById(id);
+    if (!element) return;
+    element.textContent = value || "-";
+    element.closest(".booking-detail-item")?.toggleAttribute("hidden", !value);
 }
 
 

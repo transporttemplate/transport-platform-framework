@@ -25,6 +25,9 @@
     background:#334155;
     color:#fff;
 }
+.quick-ranges{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.quick-ranges button{padding:8px 10px;background:#e5e9ef;color:#243142}
+.quick-ranges button.active{background:#334155;color:#fff}
 
 .bookings-page .main{min-width:0}
 .dispatch-grid{
@@ -120,8 +123,10 @@
 .jobs-panel tbody tr{transition:filter .15s ease,box-shadow .15s ease}
 .jobs-panel tbody tr:hover{filter:brightness(.96);box-shadow:inset 0 1px rgba(15,23,42,.12),inset 0 -1px rgba(15,23,42,.12)}
 .jobs-panel tr.payment-account,.jobs-panel tr.payment-account td:last-child{background:#f1e9ff}
-.jobs-panel tr.payment-card,.jobs-panel tr.payment-card td:last-child{background:#e6f7e9}
-.jobs-panel tr.payment-cash,.jobs-panel tr.payment-cash td:last-child{background:#fff8d9}
+.jobs-panel tr.payment-paid,.jobs-panel tr.payment-paid td:last-child{background:#e6f7e9}
+.jobs-panel tr.payment-unpaid,.jobs-panel tr.payment-unpaid td:last-child{background:#fdecec}
+.payment-pill{display:inline-block;padding:3px 7px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid rgba(15,23,42,.12)}
+.payment-account .payment-pill{background:#e6d8ff}.payment-paid .payment-pill{background:#cef0d5}.payment-unpaid .payment-pill{background:#fad2d2}
 .jobs-panel th:last-child,.jobs-panel td:last-child{
     position:sticky;
     right:0;
@@ -369,16 +374,25 @@
 </div>
 
 <div class="booking-tabs">
-<button class="active" data-status="bookings">
-    Bookings <span id="countBookings">0</span>
+<button class="active" data-status="all">
+    All Jobs <span id="countAll">0</span>
 </button>
 
-<button data-status="booked">
-    Booked <span id="countBooked">0</span>
+<button data-status="upcoming">
+    Upcoming <span id="countUpcoming">0</span>
 </button>
 
-<button data-status="history">
-    History <span id="countHistory">0</span>
+<button data-status="on_job">
+    On Job <span id="countOnJob">0</span>
+</button>
+<button data-status="completed">
+    Completed <span id="countCompleted">0</span>
+</button>
+<button data-status="no_show">
+    No Show <span id="countNoShow">0</span>
+</button>
+<button data-status="cancelled">
+    Cancelled <span id="countCancelled">0</span>
 </button>
 </div>
 
@@ -494,6 +508,14 @@ To
 <input id="dateTo" type="date">
 </label>
 
+<div class="quick-ranges" aria-label="Quick date ranges">
+<button type="button" data-range="today">Today</button>
+<button type="button" data-range="7_days">7 Days</button>
+<button type="button" data-range="this_month">This Month</button>
+<button type="button" data-range="next_30">Next 30 Days</button>
+<button type="button" data-range="custom">Custom</button>
+</div>
+
 <label>
 Search
 <input id="searchBookings" placeholder="Name, ref, address">
@@ -510,6 +532,7 @@ Status
 <option value="on_way">On Way</option>
 <option value="passenger_onboard">Passenger Onboard</option>
 <option value="completed">Completed</option>
+<option value="no_show">No Show</option>
 <option value="cancelled">Cancelled</option>
 </select>
 </label>
@@ -786,7 +809,7 @@ Loading bookings…
 <div class="booking-detail-grid">
 
 <div class="booking-detail-item">
-<small>Dispatched</small>
+<small>Driver allocated</small>
 <strong id="viewDispatchedAt">-</strong>
 </div>
 
@@ -796,18 +819,43 @@ Loading bookings…
 </div>
 
 <div class="booking-detail-item">
-<small>Passenger Onboard</small>
+<small>Picked up at</small>
 <strong id="viewPobAt">-</strong>
 </div>
 
 <div class="booking-detail-item">
-<small>Completed</small>
+<small>Dropped off / Completed at</small>
 <strong id="viewCompletedAt">-</strong>
 </div>
 
 <div class="booking-detail-item">
 <small>Cancelled</small>
 <strong id="viewCancelledAt">-</strong>
+</div>
+
+<div class="booking-detail-item" id="viewCreatedAtItem">
+<small>Created</small>
+<strong id="viewCreatedAt">-</strong>
+</div>
+
+<div class="booking-detail-item" id="viewAcceptedAtItem">
+<small>Driver accepted</small>
+<strong id="viewAcceptedAt">-</strong>
+</div>
+
+<div class="booking-detail-item" id="viewNoShowAtItem">
+<small>Marked No Show</small>
+<strong id="viewNoShowAt">-</strong>
+</div>
+
+<div class="booking-detail-item" id="viewCancellationReasonItem">
+<small>Cancellation details</small>
+<strong id="viewCancellationReason">-</strong>
+</div>
+
+<div class="booking-detail-item" id="viewNoShowByItem">
+<small>No Show recorded by</small>
+<strong id="viewNoShowBy">-</strong>
 </div>
 
 </div>
