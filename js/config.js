@@ -64,14 +64,25 @@
         return "";
     }
 
-    function resolvePublicCompanyCode() {
+    function isTestingHostname() {
+        const hostname = normalHostname(window.location.hostname);
+        return !hostname || hostname === "localhost" || hostname.endsWith(".localhost") ||
+            hostname.endsWith(".vercel.app") || hostname.endsWith(".github.io") ||
+            /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname);
+    }
+
+    function resolvePublicCompanyCode(options = {}) {
         const params = new URLSearchParams(window.location.search);
+        const allowQuery = options.allowQuery ?? isTestingHostname();
+        const companyCode = cleanCompanyCode(allowQuery ? params.get("company") || params.get("company_code") : "");
+        return companyCode ? { companyCode, source: "URL query" } : { companyCode: "", source: "unresolved" };
+    }
+
+    function embeddedCompanyCode() {
         const candidates = [
-            [params.get("company") || params.get("company_code"), "URL query"],
             [codeFromPath(), "URL slug"],
             [window.PUBLIC_COMPANY_CONFIG.companyCode, "runtime config"],
-            [document.querySelector('meta[name="public-company-code"]')?.content, "page config"],
-            [codeFromHostname(), "hostname"]
+            [document.querySelector('meta[name="public-company-code"]')?.content, "page config"]
         ];
 
         for (const [candidate, source] of candidates) {
@@ -107,6 +118,11 @@
                 const mappedCode = await codeFromDomainMapping(db);
                 if (mappedCode) resolution = { companyCode: mappedCode, source: "domain mapping" };
             }
+            if (!resolution.companyCode) {
+                const hostnameCode = codeFromHostname();
+                if (hostnameCode) resolution = { companyCode: hostnameCode, source: "hostname fallback" };
+            }
+            if (!resolution.companyCode) resolution = embeddedCompanyCode();
             if (!resolution.companyCode) {
                 console.error("No public company code could be resolved.");
                 return null;

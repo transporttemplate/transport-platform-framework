@@ -164,7 +164,6 @@ function applyAccountBranding({ company, settings = {} }) {
     if (accent) root.setProperty("--portal-accent", accent);
     if (settings.buttontextcolour) root.setProperty("--portal-accent-contrast", settings.buttontextcolour);
     if (settings.publicbackgroundcolour) root.setProperty("--portal-bg", settings.publicbackgroundcolour);
-    if (settings.publiccardcolour) root.setProperty("--portal-card", settings.publiccardcolour);
     const logo = document.getElementById("portalCompanyLogo"), fallback = document.getElementById("portalCompanyLogoFallback");
     fallback.textContent = name.split(/\s+/).slice(0, 2).map(word => word[0]).join("").toUpperCase();
     if (settings.companylogo) try { const url = new URL(settings.companylogo, location.href); if (/^https?:$/.test(url.protocol)) { logo.alt = `${name} logo`; logo.onload = () => { logo.hidden = false; fallback.hidden = true; }; logo.src = url.href; } } catch {}
@@ -174,7 +173,7 @@ async function friendlyAccountError(error) {
     let text = error?.portalMessage || "";
     if (!text && error?.context?.json) try { text = (await error.context.json())?.error || ""; } catch {}
     text ||= error?.message || "Unable to complete this request.";
-    if (/No customer account is linked/i.test(text)) return "Your account is not linked to this transport company. Use the secure account link from your booking confirmation.";
+    if (/No customer account is linked/i.test(text)) return `This account is not linked to ${portalCompany?.trading_name || portalCompany?.name || "this transport company"}. Use the secure account link from your booking confirmation.`;
     if (/invalid or expired/i.test(text)) return "This booking link is invalid or has expired. Please contact the company for help.";
     if (/Customer login required|JWT|authorization/i.test(text)) return "Your session has expired. Please sign in again.";
     return text;

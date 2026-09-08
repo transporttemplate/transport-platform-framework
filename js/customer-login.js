@@ -144,7 +144,6 @@ function applyPortalColours(settings) {
     if (accent) root.setProperty("--portal-accent", accent);
     if (settings.buttontextcolour) root.setProperty("--portal-accent-contrast", settings.buttontextcolour);
     if (settings.publicbackgroundcolour) root.setProperty("--portal-bg", settings.publicbackgroundcolour);
-    if (settings.publiccardcolour) root.setProperty("--portal-card", settings.publiccardcolour);
 }
 
 function setPortalLogo(value, name) {
@@ -167,7 +166,7 @@ async function friendlyPortalError(error, fallback) {
         try { text = (await error.context.json())?.error || ""; } catch {}
     }
     text ||= error?.message || fallback;
-    if (/No customer account is linked/i.test(text)) return "Your account is not linked to this transport company. Use the secure link from your booking confirmation, or sign in on the company where your account was created.";
+    if (/No customer account is linked/i.test(text)) return `This account is not linked to ${customerCompany?.trading_name || customerCompany?.name || "this transport company"}. Use the secure link from your booking confirmation, or sign in on the company where your account was created.`;
     if (/invalid or expired/i.test(text)) return "This booking link is invalid or has expired. Please sign in using the email address used for this booking or contact the company.";
     if (/does not match|verified account/i.test(text)) return "Please sign in using the verified email address used for this booking.";
     if (/Customer login required|JWT|authorization/i.test(text)) return "Your sign-in session has expired. Please sign in again.";
