@@ -360,7 +360,9 @@ function showStep(step){
 
 
     setTimeout(()=>{
-        refreshMapViewport();
+        if(step===1){
+            requestAnimationFrame(()=>requestAnimationFrame(refreshMapViewport));
+        }
         updateLiveJourneyTitle();
         updateLiveFare();
     },100);
@@ -2503,15 +2505,12 @@ function resetPrice(){
 
 
     document
-        .getElementById("carPrice")
-        .textContent=
-        "£—";
-
+        .querySelectorAll('[id^="tierPrice-"]')
+        .forEach(element=>element.textContent=money(null));
 
     document
-        .getElementById("mpvPrice")
-        .textContent=
-        "£—";
+        .querySelectorAll('[id^="tierDetail-"]')
+        .forEach(element=>element.textContent="");
 
 
     updateLiveFare();
