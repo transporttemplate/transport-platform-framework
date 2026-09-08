@@ -1,1 +1,51 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Customer Login</title><link rel="stylesheet" href="css/style.css"><link rel="stylesheet" href="css/customer-portal.css"><script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script defer src="js/supabase.js"></script><script defer src="js/config.js"></script><script defer src="js/customer-login.js"></script></head><body><main class="portal-shell"><section class="portal-card"><h1>Manage your bookings</h1><p>Sign in or create an account for this transport company.</p><div class="portal-tabs"><button type="button" data-auth-view="login" class="active">Sign In</button><button type="button" data-auth-view="signup">Create Account</button></div><form id="customerAuthForm"><label>Email<input id="customerEmail" type="email" autocomplete="email" required></label><label>Password<input id="customerPassword" type="password" minlength="8" autocomplete="current-password" required></label><button id="customerAuthSubmit" type="submit">Sign In</button></form><button id="forgotCustomerPassword" class="link-button" type="button">Forgot password?</button><p id="customerAuthMessage" aria-live="polite"></p><a id="customerBackHome" href="index.html">Return to website</a></section></main></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Manage Your Bookings</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/customer-portal.css">
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="js/supabase.js"></script>
+<script defer src="js/config.js"></script>
+<script defer src="js/customer-login.js"></script>
+</head>
+<body class="customer-portal-page">
+<main class="portal-shell portal-login-shell">
+<section class="portal-card portal-login-card">
+<header class="portal-brand">
+<div class="portal-logo-wrap">
+<img id="portalCompanyLogo" class="portal-logo" hidden alt="">
+<span id="portalCompanyLogoFallback" class="portal-logo-fallback" aria-hidden="true">TB</span>
+</div>
+<div>
+<p id="portalCompanyName" class="portal-company-name">Your transport company</p>
+<h1>Manage Your Bookings</h1>
+<p class="portal-subheading">Sign in to view and manage your bookings.</p>
+</div>
+</header>
+
+<div class="portal-tabs portal-auth-tabs" role="tablist" aria-label="Customer account">
+<button type="button" data-auth-view="login" class="active" role="tab">Sign In</button>
+<button type="button" data-auth-view="signup" role="tab">Create Account</button>
+</div>
+
+<form id="customerAuthForm" class="portal-form">
+<label for="customerEmail">Email address</label>
+<input id="customerEmail" type="email" autocomplete="email" required>
+<label for="customerPassword">Password</label>
+<div class="password-field">
+<input id="customerPassword" type="password" minlength="8" autocomplete="current-password" required>
+<button id="toggleCustomerPassword" class="password-toggle" type="button" aria-label="Show password">Show</button>
+</div>
+<button id="customerAuthSubmit" class="portal-primary-button" type="submit">Sign In</button>
+</form>
+
+<button id="forgotCustomerPassword" class="link-button" type="button">Forgot password?</button>
+<div id="customerAuthMessage" class="portal-notice" aria-live="polite" hidden></div>
+<a id="customerBackHome" class="portal-back-link" href="index.html">Return to <span id="portalBackCompanyName">website</span></a>
+</section>
+</main>
+</body>
+</html>

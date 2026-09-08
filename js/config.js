@@ -4,7 +4,9 @@
     const defaultHostnameCompanyCodes = {
         "transport-platform-framework.vercel.app": "0001",
         "etbm.co.uk": "0002",
-        "www.etbm.co.uk": "0002"
+        "www.etbm.co.uk": "0002",
+        "jeffscars.com": "0003",
+        "www.jeffscars.com": "0003"
     };
 
     window.PUBLIC_COMPANY_CONFIG = {
