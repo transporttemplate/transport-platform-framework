@@ -1,6 +1,8 @@
 const VEHICLE_TIERS = [
     { id: "standard", label: "Car", art: "CAR", capacity: 4, allow: "allowvehicle_standard", uplift: null },
+    { id: "executive_car", label: "Executive Car", art: "EXEC", capacity: 4, allow: "allowvehicle_executive_car", uplift: "vehicleuplift_executive_car_percent", airportSize: "1_4" },
     { id: "5_7", label: "5–7 Seater", art: "5–7", capacity: 7, allow: "allowvehicle_5_7", uplift: "vehicleuplift_5_7_percent" },
+    { id: "executive_5_7", label: "Executive 5–7 Seater", art: "EXEC 5–7", capacity: 7, allow: "allowvehicle_executive_5_7", uplift: "vehicleuplift_executive_5_7_percent", airportSize: "5_7" },
     { id: "5_8", label: "5–8 Seater", art: "5–8", capacity: 8, allow: "allowvehicle_5_8", uplift: "vehicleuplift_5_8_percent" },
     { id: "9_16", label: "9–16 Seater", art: "9–16", capacity: 16, allow: "allowvehicle_9_16", uplift: "vehicleuplift_9_16_percent" },
     { id: "17_23", label: "17–23 Seater", art: "17–23", capacity: 23, allow: "allowvehicle_17_23", uplift: "vehicleuplift_17_23_percent" },
@@ -10,13 +12,15 @@ const VEHICLE_TIERS = [
 const legacyLoadPricingSettings = loadPricingSettings;
 loadPricingSettings = async function loadVehicleCapacityPricingSettings() {
     await legacyLoadPricingSettings();
-    const result = await bookingdb.from("settings").select("allowvehicle_standard,allowvehicle_5_7,allowvehicle_5_8,allowvehicle_9_16,allowvehicle_17_23,allowvehicle_24_52,vehicleuplift_5_7_percent,vehicleuplift_5_8_percent,vehicleuplift_9_16_percent,vehicleuplift_17_23_percent,vehicleuplift_24_52_percent,enablecardbookingfee,cardbookingfeepercent").eq("company_id", bookingCompany.id).maybeSingle();
+    const result = await bookingdb.from("settings").select("allowvehicle_standard,allowvehicle_executive_car,allowvehicle_5_7,allowvehicle_executive_5_7,allowvehicle_5_8,allowvehicle_9_16,allowvehicle_17_23,allowvehicle_24_52,vehicleuplift_executive_car_percent,vehicleuplift_5_7_percent,vehicleuplift_executive_5_7_percent,vehicleuplift_5_8_percent,vehicleuplift_9_16_percent,vehicleuplift_17_23_percent,vehicleuplift_24_52_percent,enablecardbookingfee,cardbookingfeepercent").eq("company_id", bookingCompany.id).maybeSingle();
     if (result.error) {
         console.info("Vehicle capacity pricing follow-up is not installed; using legacy Car and 5–7 defaults.");
-        Object.assign(pricingSettings, { allowvehicle_standard: true, allowvehicle_5_7: true, allowvehicle_5_8: false, allowvehicle_9_16: false, allowvehicle_17_23: false, allowvehicle_24_52: false });
+        Object.assign(pricingSettings, { allowvehicle_standard: true, allowvehicle_executive_car: false, allowvehicle_5_7: true, allowvehicle_executive_5_7: false, allowvehicle_5_8: false, allowvehicle_9_16: false, allowvehicle_17_23: false, allowvehicle_24_52: false });
     } else Object.assign(pricingSettings, result.data || {});
     if (pricingSettings.allowvehicle_standard == null) pricingSettings.allowvehicle_standard = true;
+    if (pricingSettings.allowvehicle_executive_car == null) pricingSettings.allowvehicle_executive_car = false;
     if (pricingSettings.allowvehicle_5_7 == null) pricingSettings.allowvehicle_5_7 = true;
+    if (pricingSettings.allowvehicle_executive_5_7 == null) pricingSettings.allowvehicle_executive_5_7 = false;
     if (pricingSettings.allowvehicle_5_8 == null) pricingSettings.allowvehicle_5_8 = false;
     if (pricingSettings.vehicleuplift_5_7_percent == null) pricingSettings.vehicleuplift_5_7_percent = settingNumber(["bookingfee"], 0);
     if (pricingSettings.vehicleuplift_5_8_percent == null) pricingSettings.vehicleuplift_5_8_percent = settingNumber(["bookingfee"], 0);
@@ -50,8 +54,13 @@ calculatePrices = function calculateVehicleTierPrices() {
             const viaTotal = collectPublicViaStops().length * Math.max(0, settingNumber(["airportviasurcharge"], 0));
             prices.standard = Number.isFinite(standardBase) ? standardBase + viaTotal : null;
             prices["5_7"] = Number.isFinite(largerBase) && largerBase > 0 ? largerBase + viaTotal : null;
-            prices["5_8"] = Number.isFinite(largerBase) && largerBase > 0 ? round(largerBase * (1 + vehicleTierUplift(VEHICLE_TIERS[2]) / 100) + viaTotal) : null;
-            for (const tier of VEHICLE_TIERS.slice(3)) prices[tier.id] = Number.isFinite(standardBase) && standardBase > 0 ? round(standardBase * (1 + vehicleTierUplift(tier) / 100) + viaTotal) : null;
+            const executiveCar = VEHICLE_TIERS.find(tier => tier.id === "executive_car");
+            const executive5To7 = VEHICLE_TIERS.find(tier => tier.id === "executive_5_7");
+            const fiveToEight = VEHICLE_TIERS.find(tier => tier.id === "5_8");
+            prices.executive_car = Number.isFinite(standardBase) && standardBase > 0 ? round(standardBase * (1 + vehicleTierUplift(executiveCar) / 100) + viaTotal) : null;
+            prices.executive_5_7 = Number.isFinite(largerBase) && largerBase > 0 ? round(largerBase * (1 + vehicleTierUplift(executive5To7) / 100) + viaTotal) : null;
+            prices["5_8"] = Number.isFinite(largerBase) && largerBase > 0 ? round(largerBase * (1 + vehicleTierUplift(fiveToEight) / 100) + viaTotal) : null;
+            for (const tier of VEHICLE_TIERS.filter(tier => ["9_16", "17_23", "24_52"].includes(tier.id))) prices[tier.id] = Number.isFinite(standardBase) && standardBase > 0 ? round(standardBase * (1 + vehicleTierUplift(tier) / 100) + viaTotal) : null;
         }
         currentPrices.method = "Airport fixed price";
         document.getElementById("routePricingType").textContent = "Airport fixed";
@@ -101,7 +110,7 @@ selectPrice = function selectVehicleTierPrice() {
     document.getElementById("finalPrice").textContent = money(currentPrices.selected);
 };
 
-function vehicleTierUplift(tier) { return tier.uplift ? Math.max(0, settingNumber([tier.uplift], 0)) : 0; }
+function vehicleTierUplift(tier) { return tier?.uplift ? Math.max(0, settingNumber([tier.uplift], 0)) : 0; }
 function vehicleDistanceOneWayBase(miles) {
     if (!Number.isFinite(miles) || miles <= 0) return null;
     const rates = [1,2,3,4,5,6].map(index => Math.max(0, settingNumber([`mileband${index}`], 0)));

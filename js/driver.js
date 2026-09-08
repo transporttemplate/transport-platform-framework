@@ -427,6 +427,7 @@ function openJobDetails(job) {
     setText("detailPassenger", job.customer_name ?? job.passenger_name ?? "-");
     setText("detailPhone", job.phone ?? job.customer_phone ?? "-");
     setText("detailPassengers", job.passengers ?? "-");
+    setText("detailVehicle", vehicleTierLabel(job.vehicle_tier || job.vehicle_type));
     setText("detailSuitcases", job.suitcases ?? "-");
     setText("detailHandLuggage", job.hand_luggage ?? "-");
     setText("detailFlightNumber", job.flight_number || "-");
@@ -659,6 +660,22 @@ function prettyStatus(status) {
         "declined": "Declined",
         "cancelled": "Cancelled"
     }[v] || status || "Waiting";
+}
+
+function vehicleTierLabel(value) {
+    const tier = String(value || "").toLowerCase();
+    return {
+        standard: "Car",
+        car: "Car",
+        executive_car: "Executive Car",
+        "5_7": "5–7 Seater",
+        mpv: "5–7 Seater",
+        executive_5_7: "Executive 5–7 Seater",
+        "5_8": "5–8 Seater",
+        "9_16": "9–16 Seater",
+        "17_23": "17–23 Seater",
+        "24_52": "24–52 Seater"
+    }[tier] || String(value || "-").replaceAll("_", " ").replace(/\b\w/g, letter => letter.toUpperCase());
 }
 
 function formatTime(value) {

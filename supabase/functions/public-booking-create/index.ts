@@ -62,9 +62,10 @@ Deno.serve(async (request) => {
         "returnbookings", "multiplestops", "allowcash", "enablecash", "allowcard", "enablestripe", "allowaccounts", "enableaccounts",
         "airportpricing", "distancecalculator", "allowairportoutsidearea", "minimumfare", "firstmile",
         "mileband1", "mileband2", "mileband3", "mileband4", "mileband5", "mileband6", "bookingfee", "airportviasurcharge",
-        "allowvehicle_standard", "allowvehicle_5_8", "allowvehicle_9_16", "allowvehicle_17_23", "allowvehicle_24_52",
-        "vehicleuplift_5_8_percent", "vehicleuplift_9_16_percent", "vehicleuplift_17_23_percent", "vehicleuplift_24_52_percent",
+        "allowvehicle_standard", "allowvehicle_executive_car", "allowvehicle_5_8", "allowvehicle_9_16", "allowvehicle_17_23", "allowvehicle_24_52",
+        "vehicleuplift_executive_car_percent", "vehicleuplift_5_8_percent", "vehicleuplift_9_16_percent", "vehicleuplift_17_23_percent", "vehicleuplift_24_52_percent",
         "allowvehicle_5_7", "vehicleuplift_5_7_percent", "enablecardbookingfee", "cardbookingfeepercent",
+        "allowvehicle_executive_5_7", "vehicleuplift_executive_5_7_percent",
         "returndiscount", "requiredeposit", "airportdepositrequired", "depositpercent", "stripepublishablekey",
       ].join(",")).eq("company_id", companyId).maybeSingle(),
       db.from("service_areas").select("id,company_id,postcode_prefix,radius_miles,active")
@@ -485,11 +486,13 @@ async function verifiedLocation(source: Row | null, address: unknown, apiKey: st
 }
 
 function validateVehicleTier(value: unknown, passengers: number, settings: Row) {
-  const aliases: Record<string, string> = { car: "standard", mpv: "5_7", standard: "standard", "5_7": "5_7", "5_8": "5_8", "9_16": "9_16", "17_23": "17_23", "24_52": "24_52" };
+  const aliases: Record<string, string> = { car: "standard", mpv: "5_7", standard: "standard", executive_car: "executive_car", "5_7": "5_7", executive_5_7: "executive_5_7", "5_8": "5_8", "9_16": "9_16", "17_23": "17_23", "24_52": "24_52" };
   const tier = aliases[String(value || "").toLowerCase()];
   const rules: Record<string, { capacity: number; setting: string; legacyDefault: boolean }> = {
     standard: { capacity: 4, setting: "allowvehicle_standard", legacyDefault: true },
+    executive_car: { capacity: 4, setting: "allowvehicle_executive_car", legacyDefault: false },
     "5_7": { capacity: 7, setting: "allowvehicle_5_7", legacyDefault: true },
+    executive_5_7: { capacity: 7, setting: "allowvehicle_executive_5_7", legacyDefault: false },
     "5_8": { capacity: 8, setting: "allowvehicle_5_8", legacyDefault: false },
     "9_16": { capacity: 16, setting: "allowvehicle_9_16", legacyDefault: false },
     "17_23": { capacity: 23, setting: "allowvehicle_17_23", legacyDefault: false },
@@ -515,7 +518,7 @@ function calculatePrice(input: { settings: Row; airport: Row | null; mode: strin
   const uplift = vehicleUplift(vehicleTier, settings);
   if (mode === "airport") {
     const trip = isReturn ? "return" : "oneway";
-    const size = ["5_7", "5_8"].includes(vehicleTier) ? "5_7" : "1_4";
+    const size = ["5_7", "executive_5_7", "5_8"].includes(vehicleTier) ? "5_7" : "1_4";
     const configured = number(airport?.[`price_${size}_${trip}`], NaN);
     if (!Number.isFinite(configured) || configured <= 0) throw new ApiError(400, "No fixed price is configured for this airport journey");
     const viaSurcharge = Math.max(0, number(settings.airportviasurcharge));

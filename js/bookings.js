@@ -1421,6 +1421,8 @@ async function openBookingView(id) {
         "-"
     );
 
+    setText("viewVehicle", vehicleTierLabel(booking.vehicle_tier || booking.vehicle_type));
+
     setText(
         "viewSuitcases",
         booking.suitcases ??
@@ -2431,6 +2433,22 @@ function prettyLabel(value) {
             letter =>
                 letter.toUpperCase()
         );
+}
+
+function vehicleTierLabel(value) {
+    const tier = String(value || "").toLowerCase();
+    return {
+        standard: "Car",
+        car: "Car",
+        executive_car: "Executive Car",
+        "5_7": "5–7 Seater",
+        mpv: "5–7 Seater",
+        executive_5_7: "Executive 5–7 Seater",
+        "5_8": "5–8 Seater",
+        "9_16": "9–16 Seater",
+        "17_23": "17–23 Seater",
+        "24_52": "24–52 Seater"
+    }[tier] || prettyLabel(value);
 }
 
 
