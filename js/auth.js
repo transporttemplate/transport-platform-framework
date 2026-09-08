@@ -1,5 +1,38 @@
 const adminDb = getSupabase();
 
+document.body?.classList.remove("admin-authenticated");
+
+function redirectToLogin() {
+    window.location.replace(adminAuthUrl("login.html"));
+}
+
+async function adminLogout() {
+    document.body?.classList.remove("admin-authenticated");
+    const { error } = await adminDb.auth.signOut();
+    if (error) console.error("Admin logout failed:", error);
+    window.location.replace("login.html");
+}
+
+document.addEventListener("click", event => {
+    const link = event.target.closest?.('a[href]');
+    if (!link) return;
+    const url = new URL(link.href, window.location.href);
+    if (url.origin !== window.location.origin || !url.pathname.endsWith("/login.html")) return;
+    event.preventDefault();
+    adminLogout();
+}, true);
+
+window.addEventListener("pagehide", () => {
+    document.body?.classList.remove("admin-authenticated");
+});
+
+window.addEventListener("pageshow", async event => {
+    if (!event.persisted) return;
+    const { data: { user } } = await adminDb.auth.getUser();
+    if (!user) redirectToLogin();
+    else document.body?.classList.add("admin-authenticated");
+});
+
 window.ADMIN_COMPANY_ID = null;
 window.ADMIN_COMPANY = null;
 window.ADMIN_ROLE = null;
@@ -23,7 +56,7 @@ window.adminCompanyReadyPromise = (async () => {
     if (sessionError) throw sessionError;
 
     if (!session) {
-        window.location.href = adminAuthUrl("login.html");
+        redirectToLogin();
         throw new Error("No admin session");
     }
 
@@ -31,7 +64,7 @@ window.adminCompanyReadyPromise = (async () => {
     if (userError || !user || user.id !== session.user.id) {
         console.error("Admin user verification failed:", userError);
         await adminDb.auth.signOut();
-        window.location.href = adminAuthUrl("login.html");
+        redirectToLogin();
         throw new Error("Admin session could not be verified");
     }
 
@@ -59,7 +92,7 @@ window.adminCompanyReadyPromise = (async () => {
     if (!companyUsers?.length) {
         alert("Your login is not linked to a company.");
         await adminDb.auth.signOut();
-        window.location.href = adminAuthUrl("login.html");
+        redirectToLogin();
         throw new Error("Admin user is not linked to a company");
     }
 
@@ -69,7 +102,10 @@ window.adminCompanyReadyPromise = (async () => {
         ? memberships.find(item => String(item.companies.company_code).toLowerCase() === requestedCode.toLowerCase())
         : memberships.find(item => String(item.companies.company_code) === "0001") || memberships[0];
     if (!companyUser) {
-        alert(`Your login does not have access to company ${requestedCode}.`);
+        const authorisedCode = String((memberships.find(item => String(item.companies.company_code) === "0001") || memberships[0]).companies.company_code);
+        const url = new URL(window.location.href);
+        url.searchParams.set("company", authorisedCode);
+        window.location.replace(url.href);
         throw new Error("Requested admin company is not accessible");
     }
 
@@ -91,6 +127,8 @@ window.adminCompanyReadyPromise = (async () => {
     window.ADMIN_ROLE = companyUser.role || "admin";
     window.ADMIN_PLATFORM_ROLE = String(user.app_metadata?.platform_role || "");
     window.ADMIN_COMPANIES = memberships;
+
+    document.body?.classList.add("admin-authenticated");
 
     const userName = document.getElementById("userName");
     if (userName) userName.textContent = session.user.email;

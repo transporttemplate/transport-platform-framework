@@ -283,3 +283,6 @@ input,select,textarea{
     .modal,.booking-modal,.calendar-modal,.customer-modal,.driver-modal{width:calc(100vw - 20px)!important;max-width:none!important;max-height:calc(100dvh - 20px);overflow:auto;padding:16px!important}
     .booking-modal-backdrop,.calendar-modal-backdrop,.customer-modal-backdrop,.driver-modal-backdrop{padding:10px!important}
 }
+/* Private admin pages remain concealed until the shared auth guard has
+   verified both the Supabase user and an authorised company membership. */
+body:not(.login-page):not(.admin-authenticated){visibility:hidden}
