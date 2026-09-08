@@ -857,7 +857,10 @@ function companyDateKey(date,timezone){
 
 function companyTimeKey(date,timezone){
     const parts=companyDateTimeParts(date,timezone);
-    return `${parts.hour}:${parts.minute}`;
+    // Some Safari versions can return 24:xx for midnight even when h23 was
+    // requested. That is not a valid value/minimum for an HTML time input.
+    const hour=parts.hour==="24"?"00":parts.hour;
+    return `${hour}:${parts.minute}`;
 }
 
 function publicJourneyMeetsNotice(dateValue,timeValue){

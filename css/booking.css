@@ -56,6 +56,7 @@
 .route-stats small{display:block;color:#667085}
 
 .vehicle-card{display:grid;grid-template-columns:70px 1fr auto;align-items:center;gap:10px}
+.vehicle-card[hidden]{display:none}
 .vehicle-card.disabled{opacity:.4;pointer-events:none}
 .vehicle-art{height:55px;border-radius:9px;background:var(--primary);color:var(--button-text);display:grid;place-items:center;font-weight:900}
 .vehicle-copy{display:grid}
