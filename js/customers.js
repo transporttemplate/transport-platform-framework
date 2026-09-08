@@ -6,6 +6,7 @@ let customerBookings = [];
 let customerInvoices = [];
 let customerCurrency = "£";
 let invoicesAvailable = false;
+let customerPortalUsers = [];
 
 document.addEventListener("DOMContentLoaded", async () => {
     try {
@@ -33,10 +34,11 @@ async function loadCustomersPage() {
     if (!customersCompanyId) return;
     document.getElementById("customersTableBody").innerHTML = '<tr><td colspan="7" class="customer-empty">Loading customers…</td></tr>';
 
-    const [customersResult, bookingsResult, settingsResult] = await Promise.all([
+    const [customersResult, bookingsResult, settingsResult, portalResult] = await Promise.all([
         customersDb.from("customers").select("*").eq("company_id", customersCompanyId).order("full_name", { ascending: true }),
         customersDb.from("bookings").select("*").eq("company_id", customersCompanyId).order("journey_date", { ascending: false }).order("journey_time", { ascending: false }),
-        customersDb.from("settings").select("company_id,currencysymbol").eq("company_id", customersCompanyId).maybeSingle()
+        customersDb.from("settings").select("company_id,currencysymbol").eq("company_id", customersCompanyId).maybeSingle(),
+        customersDb.from("customer_users").select("customer_id").eq("company_id", customersCompanyId)
     ]);
 
     const primaryError = customersResult.error || bookingsResult.error || settingsResult.error;
@@ -49,6 +51,7 @@ async function loadCustomersPage() {
     customerRows = customersResult.data || [];
     customerBookings = bookingsResult.data || [];
     customerCurrency = settingsResult.data?.currencysymbol || "£";
+    customerPortalUsers = portalResult.error ? [] : portalResult.data || [];
 
     const invoiceResult = await customersDb.from("invoices").select("id,company_id,customer_id,customer_name,customer_email,invoice_number,issue_date,due_date,status,total,paid_total").eq("company_id", customersCompanyId).order("issue_date", { ascending: false });
     if (invoiceResult.error) {
@@ -132,6 +135,7 @@ function openCustomerDetails(customerId) {
         detailItem("Billing Address", customer.billing_address || customer.address || "-"),
         detailItem("Payment Terms", customer.payment_terms != null ? `${customer.payment_terms} days` : "Company default"),
         detailItem("Account Status", customer.account_status || customer.customer_type || (isAccountCustomer(customer, bookings) ? "Account customer" : "Standard customer")),
+        detailItem("Customer Portal", customerPortalUsers.some(row => String(row.customer_id) === String(customer.id)) ? "Active" : "Guest"),
         detailItem("Outstanding", money(outstanding))
     ].join("");
 

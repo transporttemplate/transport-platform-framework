@@ -30,6 +30,8 @@ function bindDriverUI() {
     document.getElementById("onWayButton")?.addEventListener("click", setOnWay);
     document.getElementById("pobButton")?.addEventListener("click", setPOB);
     document.getElementById("dropOffButton")?.addEventListener("click", completeCurrentJob);
+    document.getElementById("markPaidButton")?.addEventListener("click", () => markJobPaid(currentJob));
+    document.getElementById("detailMarkPaidButton")?.addEventListener("click", () => markJobPaid(currentJob));
     document.getElementById("viewCurrentJobButton")?.addEventListener("click", () => currentJob && openJobDetails(currentJob));
     document.getElementById("closeJobDetailsButton")?.addEventListener("click", closeJobDetails);
     document.getElementById("jobDetailsOverlay")?.addEventListener("click", closeJobDetails);
@@ -303,7 +305,7 @@ function renderCurrentJob() {
     setText("currentJobTime", formatTime(currentJob.journey_time));
     setText("currentPassengers", currentJob.passengers ?? "-");
     setText("currentFare", money(jobPrice(currentJob)));
-    setText("currentPayment", currentJob.payment_method ?? currentJob.payment_status ?? "-");
+    setText("currentPayment", `${currentJob.payment_method || "-"} — ${prettyStatus(currentJob.payment_status || "unpaid")}`);
 
     renderJobActions();
 }
@@ -321,6 +323,7 @@ function renderJobActions() {
     document.getElementById("onWayButton")?.classList.toggle("hidden", status !== "accepted");
     document.getElementById("pobButton")?.classList.toggle("hidden", status !== "on_way");
     document.getElementById("dropOffButton")?.classList.toggle("hidden", status !== "passenger_onboard");
+    document.getElementById("markPaidButton")?.classList.toggle("hidden", !canDriverMarkPaid(currentJob));
 }
 
 function canWork() {
@@ -402,6 +405,33 @@ async function updateCurrentJobStatus(status, extra = {}) {
     return true;
 }
 
+function canDriverMarkPaid(job) {
+    const method = String(job?.payment_method || "").trim().toLowerCase();
+    const status = normaliseStatus(job?.status);
+    return String(job?.payment_status || "").toLowerCase() !== "paid"
+        && ["cash", "pay in car", "pay by cash"].includes(method)
+        && ["accepted", "on_way", "passenger_onboard", "completed"].includes(status);
+}
+
+async function markJobPaid(job) {
+    if (!job || !canDriverMarkPaid(job)) return;
+    const amount = Number(job.cash_collection_amount);
+    const prompt = Number.isFinite(amount)
+        ? `Confirm ${money(amount)} has been received from the customer?`
+        : "Confirm the full cash fare has been received from the customer?";
+    if (!confirm(prompt)) return;
+    try {
+        await driverPortalRequest("mark_cash_paid", { booking_id: job.id });
+        Object.assign(job, { payment_status: "paid", balance_due: 0, paid_at: new Date().toISOString() });
+        setText("detailPayment", "Paid");
+        setText("currentPayment", "Paid");
+        renderJobActions();
+        document.getElementById("detailMarkPaidButton")?.classList.add("hidden");
+    } catch (error) {
+        alert(error.message || "Unable to mark this booking paid.");
+    }
+}
+
 function openNavigation(address) {
     if (!address || address === "-") return alert("No address saved for this job.");
 
@@ -432,7 +462,9 @@ function openJobDetails(job) {
     setText("detailHandLuggage", job.hand_luggage ?? "-");
     setText("detailFlightNumber", job.flight_number || "-");
     setText("detailFare", money(jobPrice(job)));
-    setText("detailPayment", job.payment_method ?? job.payment_status ?? "-");
+    setText("detailPayment", `${job.payment_method || "-"} — ${prettyStatus(job.payment_status || "unpaid")}`);
+    currentJob = job;
+    document.getElementById("detailMarkPaidButton")?.classList.toggle("hidden", !canDriverMarkPaid(job));
     setText("detailNotes", job.notes || "-");
 
     const phone = job.phone ?? job.customer_phone ?? "";
@@ -506,14 +538,18 @@ function renderEarnings() {
     }
 
     list.innerHTML = completed.slice().reverse().map(job => `
-        <div class="earning-row">
+        <button type="button" class="earning-row" data-completed-job="${escapeHtml(String(job.id))}">
             <div>
                 <strong>${escapeHtml(formatDate(job.journey_date))} • ${escapeHtml(formatTime(job.journey_time))}</strong>
                 <span>${escapeHtml(destination(job))}</span>
             </div>
             <strong>${escapeHtml(money(driverEarning(job)))}</strong>
-        </div>
+        </button>
     `).join("");
+    list.querySelectorAll("[data-completed-job]").forEach(button => button.addEventListener("click", () => {
+        const job = driverBookings.find(item => String(item.id) === String(button.dataset.completedJob));
+        if (job) openJobDetails(job);
+    }));
 }
 
 function driverEarning(job) {

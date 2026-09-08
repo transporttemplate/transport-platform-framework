@@ -19,6 +19,7 @@ Deno.serve(async request => {
     if (action === "set_online") return await setOnline(session, Boolean(body.online));
     if (action === "gps") return await saveGps(session, body);
     if (action === "job_status") return await setJobStatus(session, body);
+    if (action === "mark_cash_paid") return await markCashPaid(session, body);
     if (action === "create_unavailability") return await createUnavailability(session, body);
     if (action === "end_unavailability") return await endUnavailability(session);
     if (action === "logout") return await logout(session);
@@ -102,7 +103,8 @@ async function refresh(s:DriverSession){
   const driverJobs=jobs.map(j=>{
     const {price,job_price,driver_amount,account_customer_id,account_po_reference,...safeJob}=j;
     const visibleAmount=driver_amount==null?(price??job_price??null):driver_amount;
-    return {...safeJob,price:visibleAmount,driver_amount:driver_amount??null,via_stops:stops.filter(x=>x.booking_id===j.id)};
+    const cashCollectionAmount=["cash","pay in car","pay by cash"].includes(String(j.payment_method||"").trim().toLowerCase())?price:null;
+    return {...safeJob,price:visibleAmount,driver_amount:driver_amount??null,cash_collection_amount:cashCollectionAmount,via_stops:stops.filter(x=>x.booking_id===j.id)};
   });
   return reply({ok:true,driver:driverResult.data,company:companyResult.data,settings:settingsResult.data,jobs:driverJobs,unavailability:unavailableResult.data||[]});
 }
@@ -110,6 +112,7 @@ async function refresh(s:DriverSession){
 async function setOnline(s:DriverSession,online:boolean){const {error}=await db.from("drivers").update({online}).eq("company_id",s.company_id).eq("id",s.driver_id);if(error)throw error;return reply({ok:true,online});}
 async function saveGps(s:DriverSession,b:Record<string,unknown>){const lat=Number(b.latitude),lng=Number(b.longitude);if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180)throw new ApiError(400,"Invalid location");const {error}=await db.from("drivers").update({latitude:lat,longitude:lng,location_updated_at:new Date().toISOString()}).eq("company_id",s.company_id).eq("id",s.driver_id).eq("online",true);if(error)throw error;return reply({ok:true});}
 async function setJobStatus(s:DriverSession,b:Record<string,unknown>){const id=String(b.booking_id||"");const status=String(b.status||"").toLowerCase();const allowed=["accepted","on_way","passenger_onboard","completed","declined"];if(!id||!allowed.includes(status))throw new ApiError(400,"Invalid job status");const update:Record<string,unknown>=status==="declined"?{status:"waiting",driver_id:null,dispatched_at:null}:{status};if(status==="accepted")update.accepted_at=new Date().toISOString();if(status==="on_way")update.on_way_at=new Date().toISOString();if(status==="passenger_onboard")update.passenger_onboard_at=new Date().toISOString();if(status==="completed")update.completed_at=new Date().toISOString();const {data,error}=await db.from("bookings").update(update).eq("company_id",s.company_id).eq("driver_id",s.driver_id).eq("id",id).select("id").maybeSingle();if(error)throw error;if(!data)throw new ApiError(404,"Assigned job not found");return reply({ok:true});}
+async function markCashPaid(s:DriverSession,b:Record<string,unknown>){const id=String(b.booking_id||"");if(!id)throw new ApiError(400,"Booking is required");const {data,error}=await db.rpc("mark_driver_cash_booking_paid",{target_company_id:s.company_id,target_driver_id:s.driver_id,target_booking_id:id});if(error){if(/Only Pay in Car/i.test(error.message))throw new ApiError(403,error.message);if(/stage/i.test(error.message))throw new ApiError(400,error.message);throw error}if(!data)throw new ApiError(404,"Assigned job not found");return reply({ok:true});}
 async function createUnavailability(s:DriverSession,b:Record<string,unknown>){const from=new Date(String(b.from_datetime||"")),to=new Date(String(b.to_datetime||""));if(isNaN(from.valueOf())||isNaN(to.valueOf())||to<=from)throw new ApiError(400,"Invalid unavailable period");const {error}=await db.from("driver_unavailability").insert({company_id:s.company_id,driver_id:s.driver_id,from_datetime:from.toISOString(),to_datetime:to.toISOString(),reason:clean(b.reason),active:true});if(error)throw error;await db.from("drivers").update({online:false}).eq("company_id",s.company_id).eq("id",s.driver_id);return reply({ok:true});}
 async function endUnavailability(s:DriverSession){const now=new Date().toISOString();const {error}=await db.from("driver_unavailability").update({active:false,to_datetime:now}).eq("company_id",s.company_id).eq("driver_id",s.driver_id).eq("active",true);if(error)throw error;return reply({ok:true});}
 async function logout(s:DriverSession){await db.from("drivers").update({online:false}).eq("company_id",s.company_id).eq("id",s.driver_id);await db.from("driver_sessions").update({revoked_at:new Date().toISOString()}).eq("id",s.id);return reply({ok:true});}

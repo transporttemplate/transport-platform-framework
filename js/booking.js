@@ -47,10 +47,13 @@ document.addEventListener("DOMContentLoaded",async()=>{
 
     bindSteps();
     bindControls();
+    const portalLink=document.getElementById("customerPortalLink");
+    if(portalLink) portalLink.href=`customer-login.html?company=${encodeURIComponent(bookingCompany.company_code)}`;
     
     await Promise.all([
         loadAirports(),
-        loadPricingSettings()
+        loadPricingSettings(),
+        prefillCustomerProfile()
     ]);
 
     await initialiseGoogleMapsForCompany();
@@ -63,6 +66,16 @@ document.addEventListener("DOMContentLoaded",async()=>{
 
     updateLiveJourneyTitle();
 });
+
+async function prefillCustomerProfile(){
+    const {data:{session}}=await bookingdb.auth.getSession();
+    if(!session)return;
+    const {data,error}=await bookingdb.functions.invoke("customer-portal",{body:{action:"profile",company_code:bookingCompany.company_code}});
+    if(error||!data?.ok||!data.customer)return;
+    const customer=data.customer;
+    const fields={customerName:customer.full_name,customerEmail:customer.email,customerPhone:customer.phone};
+    for(const [id,value] of Object.entries(fields)){const input=document.getElementById(id);if(input&&!input.value&&value)input.value=value;}
+}
 
 window.addEventListener("pageshow",resetPublicDateTimeState);
 
@@ -2355,6 +2368,14 @@ function showBookingConfirmation(created,options={}){
     const anotherLink=document.getElementById("confirmationAnotherLink");
     if(homeLink) homeLink.href=`index.html${companyQuery}`;
     if(anotherLink) anotherLink.href=`booking.html${companyQuery}`;
+    const portal=created.customer_portal||{};
+    const offer=document.getElementById("customerAccountOffer");
+    const portalLink=document.getElementById("createCustomerAccount");
+    if(offer) offer.hidden=portal.account_exists||!portal.claim_token||!email;
+    if(portalLink&&portal.claim_token) portalLink.href=`customer-login.html${companyQuery}&claim=${encodeURIComponent(portal.claim_token)}`;
+    document.getElementById("declineCustomerAccount")?.addEventListener("click",()=>{if(offer)offer.hidden=true},{once:true});
+    const headerPortal=document.getElementById("customerPortalLink");
+    if(headerPortal) headerPortal.href=`customer-login.html${companyQuery}`;
 
     pendingStripeBooking=null;
     confirmation?.scrollIntoView({behavior:"smooth",block:"start"});

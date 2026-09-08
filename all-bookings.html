@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bookings</title>
+<title>All Bookings</title>
 <link rel="stylesheet" href="css/admin.css">
 
 <style>
@@ -343,15 +343,15 @@
 </style>
 </head>
 
-<body class="bookings-page">
+<body class="bookings-page all-bookings-page">
 
 <div class="admin-layout">
 
 <aside class="sidebar">
 <h2>Transport Admin</h2>
 <a href="dashboard.html">🏠 Dashboard</a>
-<a class="active" href="bookings.html">📖 Bookings</a>
-<a href="all-bookings.html">📚 All Bookings</a>
+<a href="bookings.html">📖 Bookings</a>
+<a class="active" href="all-bookings.html">📚 All Bookings</a>
 <a href="customers.html">👥 Customers</a>
 <a href="drivers.html">🚖 Drivers</a>
 <a href="availability.html">🟢 Availability</a>
@@ -368,10 +368,10 @@
 
 <div class="topbar">
 <div>
-<h2>Bookings</h2>
-<small>Bookings, allocated work and completed job history</small>
+<h2>All Bookings</h2>
+<small>Search, review and manage company booking history</small>
 </div>
-<button id="focusNewBooking" type="button">+ New Booking</button>
+
 </div>
 
 <div class="booking-tabs">
@@ -395,104 +395,6 @@
 <button data-status="cancelled">
     Cancelled <span id="countCancelled">0</span>
 </button>
-</div>
-
-<div class="dispatch-grid">
-
-<section class="dispatch-panel" id="newBookingPanel">
-<h3>New Admin Booking</h3>
-
-<form id="adminBookingForm" class="job-form">
-
-<div class="form-heading">CUSTOMER</div>
-
-<div class="two-col">
-<input id="customerName" required placeholder="Customer name">
-<input id="customerPhone" placeholder="Phone">
-</div>
-
-<input id="customerEmail" type="email" placeholder="Email">
-
-<div class="form-heading">JOURNEY</div>
-
-<div class="admin-location-group"><div class="admin-location-title">PICKUP</div><label for="pickupName">Property/detail <small>(optional)</small></label><input id="pickupName" class="admin-property-detail" placeholder="House, flat, unit or reception"><label for="pickupAddress">Pickup address</label><input id="pickupAddress" required placeholder="Search address, postcode or place" autocomplete="off"><button id="addAdminPickup" class="admin-add-stop" type="button">+ Add pickup</button><div id="adminPickupStops" class="admin-extra-stops"></div></div>
-<div class="admin-location-group"><div class="admin-location-title">DROP-OFF</div><label for="dropoffName">Property/detail <small>(optional)</small></label><input id="dropoffName" class="admin-property-detail" placeholder="House, flat, unit or reception"><label for="dropoffAddress">Drop-off address</label><input id="dropoffAddress" required placeholder="Search address, postcode or place" autocomplete="off"><button id="addAdminDropoff" class="admin-add-stop" type="button">+ Add drop-off</button><div id="adminDropoffStops" class="admin-extra-stops"></div></div>
-
-<div class="two-col">
-<input id="journeyDate" type="date" required>
-<input id="journeyTime" type="time" required>
-</div>
-
-<div class="two-col">
-<input id="passengers" type="number" min="1" value="1" placeholder="Passengers">
-<input id="jobPrice" type="number" min="0" step="0.01" placeholder="Customer Price £">
-</div>
-<div class="two-col">
-<input id="driverAmount" type="number" min="0" step="0.01" placeholder="Driver Amount £ (optional)">
-<span class="driver-select-note">Optional driver-visible commission base.</span>
-</div>
-
-<div class="form-heading">DRIVER</div>
-
-<select id="driverSelect">
-<option value="">Unassigned</option>
-</select>
-
-<div class="driver-select-note">
-Drivers for this company only. Online drivers are marked ONLINE.
-</div>
-
-<div class="two-col">
-
-<select id="paymentMethod">
-<option value="cash">Pay in car / Cash</option>
-<option value="card">Card</option>
-<option value="account">Account</option>
-</select>
-
-<select id="accountCustomerSelect" hidden>
-<option value="">Select account customer</option>
-</select>
-<input id="accountPoReference" hidden placeholder="Account PO / reference">
-
-<select id="bookingStatus">
-<option value="waiting">Waiting</option>
-<option value="booked">Booked</option>
-<option value="assigned">Assigned</option>
-</select>
-
-</div>
-
-<textarea id="notes" rows="2" placeholder="Notes"></textarea>
-
-<button type="submit">Save Job</button>
-<div id="bookingMessage"></div>
-
-</form>
-</section>
-
-<section class="map-panel">
-
-<div class="driver-key">
-<span><span class="driver-dot"></span>Online driver</span>
-<span>Driver number shown on map marker</span>
-</div>
-
-<div id="dispatchMap"></div>
-
-<div class="route-quote" id="routeQuote" aria-live="polite">
-<div><small>Distance</small><strong id="quoteDistance">—</strong></div>
-<div><small>Estimated time</small><strong id="quoteDuration">—</strong></div>
-<div><small>Estimated customer fare</small><strong id="quoteFare">—</strong></div>
-<button id="recalculateQuote" type="button">Recalculate</button>
-</div>
-
-<div class="map-message" id="mapMessage">
-Loading map…
-</div>
-
-</section>
-
 </div>
 
 <section class="jobs-panel">
@@ -555,6 +457,8 @@ Refresh
 <th>Customer</th>
 <th>Pickup</th>
 <th>Destination</th>
+<th>Passengers</th>
+<th>Vehicle</th>
 <th>Driver</th>
 <th>Price</th>
 <th>Driver Amount</th>
@@ -567,7 +471,7 @@ Refresh
 
 <tbody id="bookingsBody">
 <tr>
-<td colspan="13" class="empty-row">
+<td colspan="15" class="empty-row">
 Loading bookings…
 </td>
 </tr>
@@ -639,6 +543,20 @@ Loading bookings…
 <div class="booking-detail-item">
 <small>Driver</small>
 <strong id="viewDriver">-</strong>
+</div>
+
+<div class="booking-detail-item">
+<small>Customer account</small>
+<strong id="viewCustomerPortal">Guest</strong>
+</div>
+
+<div class="booking-detail-item wide">
+<small>Allocate driver / Driver amount</small>
+<div class="two-col">
+<select id="editBookingDriver"><option value="">Unassigned</option></select>
+<input id="editBookingDriverAmount" type="number" min="0" step="0.01" placeholder="Driver Amount £">
+</div>
+<button id="updateBookingDriver" type="button">Update Driver Details</button>
 </div>
 
 </div>
@@ -730,6 +648,10 @@ Loading bookings…
 <small>Price</small>
 <strong id="viewPrice">-</strong>
 </div>
+
+<div class="booking-detail-item"><small>Journey Fare</small><strong id="viewJourneyFare">-</strong></div>
+<div class="booking-detail-item"><small>Card Booking Fee</small><strong id="viewCardFee">-</strong></div>
+<div class="booking-detail-item"><small>Driver Commission</small><strong id="viewDriverCommission">-</strong></div>
 
 <div class="booking-detail-item">
 <small>Driver Amount</small>
@@ -879,8 +801,7 @@ Loading bookings…
 <script src="js/supabase.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/admin.js"></script>
-<script src="js/address-autocomplete.js"></script>
-<script src="js/bookings.js"></script>
+<script src="js/all-bookings.js"></script>
 
 </body>
 </html>

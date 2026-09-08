@@ -177,14 +177,13 @@ Deno.serve(async (request) => {
     const phone = clean(booking.phone);
     if (!name || (!email && !phone)) throw new ApiError(400, "Customer name and phone or email are required");
 
-    const customerResult = await db.rpc("find_or_create_public_customer", {
+    const portalCustomerId = await resolvePortalCustomer(request, companyId, email);
+    const customerResult = portalCustomerId ? null : await db.rpc("find_or_create_public_customer", {
       target_company_id: companyId,
-      customer_name: name,
-      customer_email: email,
-      customer_phone: phone,
+      customer_name: name, customer_email: email, customer_phone: phone,
     });
-    if (customerResult.error) throw customerResult.error;
-    const customerId = customerResult.data;
+    if (customerResult?.error) throw customerResult.error;
+    const customerId = portalCustomerId || customerResult?.data;
 
     const refResult = await db.rpc("next_company_booking_reference", { target_company_id: companyId });
     if (refResult.error) throw refResult.error;
@@ -292,6 +291,13 @@ Deno.serve(async (request) => {
       await notifyBookingEmail(companyId, String(inserted.data?.[0]?.id || id), "new_booking");
     }
 
+    let claimToken: string | null = null;
+    if (!portalCustomerId && email && inserted.data?.[0]?.id) {
+      claimToken = toHex(crypto.getRandomValues(new Uint8Array(32)));
+      const claimInsert = await db.from("booking_claim_tokens").insert({ company_id: companyId, booking_id: inserted.data[0].id, email_normalized: email.toLowerCase(), token_hash: await hash(claimToken), expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() });
+      if (claimInsert.error) { console.error("Unable to create customer booking claim", claimInsert.error.message); claimToken = null; }
+    }
+
     return respond({
       ok: true,
       customer_id: customerId,
@@ -305,6 +311,7 @@ Deno.serve(async (request) => {
       pricing_method: pricing.method,
       stripe,
       account: account ? { business_name: account.business_name, account_code: account.account_code } : null,
+      customer_portal: { account_exists: Boolean(portalCustomerId), claim_token: claimToken },
     });
   } catch (error) {
     const status = error instanceof ApiError ? error.status : 500;
@@ -638,6 +645,17 @@ function routeApiKeyForCompany(companyCode: string, companyStatus: string) {
 }
 
 function clean(value: unknown) { return String(value ?? "").trim() || null; }
+async function resolvePortalCustomer(request: Request, companyId: string, bookingEmail: string | null) {
+  const authorization = request.headers.get("authorization") || "";
+  if (!authorization.toLowerCase().startsWith("bearer ") || !bookingEmail) return null;
+  const userDb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authorization } } });
+  const { data: { user } } = await userDb.auth.getUser();
+  if (!user || String(user.email || "").toLowerCase() !== bookingEmail.toLowerCase()) return null;
+  const membership = await db.from("customer_users").select("customer_id").eq("auth_user_id", user.id).eq("company_id", companyId).maybeSingle();
+  if (membership.error) throw membership.error;
+  return membership.data?.customer_id || null;
+}
+function toHex(bytes: Uint8Array) { return [...bytes].map(byte => byte.toString(16).padStart(2, "0")).join(""); }
 function numberOrNull(value: unknown) { const parsed = Number(value); return value === "" || value == null || !Number.isFinite(parsed) ? null : parsed; }
 function round2(value: number) { return Math.round(value * 100) / 100; }
 function floorHalf(value: number) { return Math.floor(value * 2) / 2; }
