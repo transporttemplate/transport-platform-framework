@@ -206,14 +206,14 @@ begin
   end if;
 
   if not duplicate_request then
-    update public.bookings set
+    update public.bookings as target set
       status=next_status,
-      accepted_at=case when next_status='accepted' then now() else accepted_at end,
-      on_way_at=case when next_status='on_way' then now() else on_way_at end,
-      passenger_onboard_at=case when next_status='passenger_onboard' then now() else passenger_onboard_at end,
-      completed_at=case when next_status='completed' then now() else completed_at end
-    where id=target_booking_id and company_id=target_company_id and driver_id=target_driver_id
-    returning * into booking_row;
+      accepted_at=case when next_status='accepted' then now() else target.accepted_at end,
+      on_way_at=case when next_status='on_way' then now() else target.on_way_at end,
+      passenger_onboard_at=case when next_status='passenger_onboard' then now() else target.passenger_onboard_at end,
+      completed_at=case when next_status='completed' then now() else target.completed_at end
+    where target.id=target_booking_id and target.company_id=target_company_id and target.driver_id=target_driver_id
+    returning target.* into booking_row;
     insert into public.driver_job_events(company_id,booking_id,driver_id,event_type,from_status,to_status,actor_type,actor_id)
       values(target_company_id,target_booking_id,target_driver_id,'status_changed',previous_status,next_status,'driver',target_driver_id::text);
   end if;

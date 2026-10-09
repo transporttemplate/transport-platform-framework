@@ -126,3 +126,15 @@ test("historical terminal states remain readable without becoming active work", 
     assert.equal(diary.awaiting.length, 0);
     assert.equal(diary.accepted.length, 0);
 });
+
+test("driver transition migration qualifies timestamp columns returned by the RPC", () => {
+    const sql = fs.readFileSync(path.join(__dirname, "../supabase/migrations/202610090002_fix_driver_transition_timestamp_ambiguity.sql"), "utf8");
+    assert.match(sql, /update public\.bookings as target set/i);
+    for (const column of ["accepted_at", "on_way_at", "passenger_onboard_at", "completed_at"]) {
+        assert.match(sql, new RegExp(`else target\\.${column} end`, "i"));
+        assert.doesNotMatch(sql, new RegExp(`else ${column} end`, "i"));
+    }
+    assert.match(sql, /returning target\.\* into booking_row/i);
+    assert.match(sql, /revoke all on function public\.transition_driver_booking/i);
+    assert.match(sql, /grant execute on function public\.transition_driver_booking\(uuid,uuid,uuid,text\) to service_role/i);
+});
