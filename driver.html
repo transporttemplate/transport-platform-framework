@@ -10,7 +10,8 @@
 
 <section id="driverLoginScreen" class="driver-login-screen">
     <div class="driver-login-card">
-        <div class="login-icon">🚕</div>
+        <img id="loginCompanyLogo" class="company-logo hidden" alt="Company logo">
+        <div id="loginFallbackIcon" class="login-icon">🚕</div>
         <h1>Driver Login</h1>
         <p>Sign in with your company and driver details.</p>
 
@@ -51,10 +52,10 @@
     </div>
 
     <nav class="side-nav">
-        <button type="button" data-view="jobs">🚕 <span>Jobs</span></button>
+        <button type="button" data-view="jobs">🚕 <span>Driver Diary</span></button>
         <button type="button" data-view="earnings">💷 <span>Earnings</span></button>
         <button type="button" data-view="holidays">🏖️ <span>Holidays / Off Days</span></button>
-        <button type="button" data-view="upcoming">📅 <span>Upcoming Bookings</span></button>
+        <button type="button" data-view="completed">✅ <span>Completed Jobs</span></button>
     </nav>
 
     <button id="driverLogoutButton" class="logout-button" type="button">Log Off</button>
@@ -63,6 +64,11 @@
 <main class="app-main">
 
 <section id="view-jobs" class="driver-view active">
+    <div id="connectionBanner" class="connection-banner hidden" role="status"></div>
+    <div class="diary-heading">
+        <div><h1>Driver Diary</h1><p id="lastUpdatedText">Loading your work…</p></div>
+        <button id="refreshDiaryButton" class="icon-button" type="button" aria-label="Refresh diary">↻</button>
+    </div>
     <div class="status-card">
         <div>
             <span>Availability</span>
@@ -100,36 +106,50 @@
 
         <div class="job-grid">
             <div><small>Time</small><strong id="currentJobTime">-</strong></div>
+            <div><small>Passenger</small><strong id="currentPassenger">-</strong></div>
             <div><small>Passengers</small><strong id="currentPassengers">-</strong></div>
+            <div><small>Flight</small><strong id="currentFlight">-</strong></div>
             <div><small>Fare</small><strong id="currentFare">£0.00</strong></div>
             <div><small>Payment</small><strong id="currentPayment">-</strong></div>
         </div>
 
-        <button id="viewCurrentJobButton" class="btn btn-secondary btn-full" type="button">View Job Details</button>
-
-        <div id="jobOfferActions" class="two-buttons">
-            <button id="acceptJobButton" class="btn btn-success" type="button">Accept</button>
-            <button id="declineJobButton" class="btn btn-danger" type="button">Decline</button>
+        <div class="two-buttons">
+            <button id="navigateCurrentJobButton" class="btn btn-primary" type="button">🧭 Navigate</button>
+            <button id="viewCurrentJobButton" class="btn btn-secondary" type="button">View Details</button>
         </div>
 
         <div id="jobProgressActions" class="progress-buttons hidden">
-            <button id="onWayButton" class="btn btn-primary" type="button">📍 On Way</button>
-            <button id="pobButton" class="btn btn-primary hidden" type="button">👥 POB</button>
-            <button id="dropOffButton" class="btn btn-success hidden" type="button">✅ Dropped Off</button>
+            <button id="pobButton" class="btn btn-primary hidden" type="button">👥 Passengers On Board</button>
+            <button id="dropOffButton" class="btn btn-success hidden" type="button">✅ Complete Job</button>
             <button id="markPaidButton" class="btn btn-success hidden" type="button">Customer Paid</button>
         </div>
     </section>
 
     <section id="noCurrentJob" class="empty-card">
         <div class="empty-icon">🚕</div>
-        <h2>No Current Job</h2>
-        <p>Allocated jobs will appear here automatically.</p>
+        <h2>No Job In Progress</h2>
+        <p>Your accepted work remains in the diary below.</p>
+    </section>
+
+    <section class="diary-section" aria-labelledby="awaitingHeading">
+        <div class="section-heading"><div><span class="section-kicker">ACTION REQUIRED</span><h2 id="awaitingHeading">Awaiting Your Response</h2></div><span id="awaitingCount" class="count-badge">0</span></div>
+        <div id="awaitingJobsList" class="list-stack"><div class="empty-list">No jobs awaiting your response.</div></div>
+    </section>
+
+    <section class="diary-section" aria-labelledby="acceptedHeading">
+        <div class="section-heading"><div><span class="section-kicker accepted">YOUR SCHEDULE</span><h2 id="acceptedHeading">Accepted / Upcoming</h2></div><span id="acceptedCount" class="count-badge">0</span></div>
+        <div id="acceptedJobsList" class="list-stack"><div class="empty-list">No accepted upcoming jobs.</div></div>
     </section>
 
     <div class="mini-stats">
         <div><span>Today's Earnings</span><strong id="todayEarnings">£0.00</strong></div>
         <div><span>Jobs Today</span><strong id="todayJobs">0</strong></div>
     </div>
+</section>
+
+<section id="view-completed" class="driver-view">
+    <div class="page-title"><h2>Completed Jobs</h2><p>Your completed work and payment history.</p></div>
+    <div id="completedJobsList" class="list-stack"><div class="empty-list">No completed jobs yet.</div></div>
 </section>
 
 <section id="view-earnings" class="driver-view">
@@ -162,11 +182,6 @@
     <div id="holidayList" class="list-stack"><div class="empty-list">No holidays or off days saved.</div></div>
 </section>
 
-<section id="view-upcoming" class="driver-view">
-    <div class="page-title"><h2>Upcoming Bookings</h2><p>Jobs allocated to you.</p></div>
-    <div id="upcomingBookingsList" class="list-stack"><div class="empty-list">No upcoming bookings.</div></div>
-</section>
-
 </main>
 
 <div id="jobDetailsOverlay" class="overlay details-overlay"></div>
@@ -193,9 +208,12 @@
         <div class="detail-row"><span>Flight Number</span><strong id="detailFlightNumber">-</strong></div>
         <div class="detail-row"><span>Fare</span><strong id="detailFare">£0.00</strong></div>
         <div class="detail-row"><span>Payment</span><strong id="detailPayment">-</strong></div>
+        <div class="detail-row"><span>Status</span><strong id="detailStatus">-</strong></div>
+        <div class="detail-row"><span>Workflow available</span><strong id="detailActivation">-</strong></div>
         <button id="detailMarkPaidButton" class="btn btn-success btn-full hidden" type="button">Customer Paid</button>
         <div class="detail-row"><span>Notes</span><strong id="detailNotes">-</strong></div>
 
+        <button id="detailNavigateButton" class="btn btn-secondary btn-full" type="button">🧭 Navigate</button>
         <a id="callPassengerButton" class="btn btn-primary btn-full" href="#">☎ Call Passenger</a>
     </div>
 </aside>
@@ -204,6 +222,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
+<script src="js/driver-workflow.js"></script>
 <script src="js/driver.js"></script>
 </body>
 </html>

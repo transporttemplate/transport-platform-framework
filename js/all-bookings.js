@@ -1335,6 +1335,21 @@ async function cycleBookingStatus(
         update.completed_at = now;
     }
 
+    if (next === "on_way") {
+        const overrideReason = prompt("If this job is being started more than 3 hours 30 minutes before pickup, enter the operational override reason. Otherwise leave blank.", "");
+        if (overrideReason === null) return;
+        const { data, error } = await bookingsDb.rpc("admin_transition_booking", {
+            target_company_id: adminCompanyId,
+            target_booking_id: id,
+            requested_status: next,
+            override_reason: overrideReason.trim() || null
+        });
+        if (error) return alert(error.message);
+        if (!data) return alert("The booking was not updated.");
+        await loadBookings();
+        return;
+    }
+
     const { error } =
         await bookingsDb
             .from("bookings")

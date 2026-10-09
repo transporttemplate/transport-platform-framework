@@ -90,28 +90,52 @@ async function requireDriverSession(token:string):Promise<DriverSession>{
 }
 
 async function refresh(s:DriverSession){
+  const historyCutoff=new Date(Date.now()-180*24*60*60*1000).toISOString().slice(0,10);
   const [driverResult,companyResult,settingsResult,jobsResult,unavailableResult]=await Promise.all([
     safeDriver(s.company_id,s.driver_id),
     db.from("companies").select("id,company_code,name,trading_name").eq("id",s.company_id).maybeSingle(),
-    db.from("settings").select("company_id,drivercommission,currencysymbol,driverreject").eq("company_id",s.company_id).maybeSingle(),
-    db.from("bookings").select("*").eq("company_id",s.company_id).eq("driver_id",s.driver_id).order("journey_date").order("journey_time"),
-    db.from("driver_unavailability").select("*").eq("company_id",s.company_id).eq("driver_id",s.driver_id).order("from_datetime",{ascending:false})
+    db.from("settings").select("company_id,drivercommission,currencysymbol,driverreject,timezone,primarycolour,buttoncolour,companylogo").eq("company_id",s.company_id).maybeSingle(),
+    db.from("bookings").select([
+      "id","company_id","driver_id","booking_reference","journey_date","journey_time","status",
+      "pickup_name","pickup_address","dropoff_name","dropoff_address","airport","flight_number",
+      "passengers","suitcases","hand_luggage","vehicle_tier","vehicle_type","customer_name","phone",
+      "notes","payment_method","payment_status","amount_paid","balance_due","price","job_price",
+      "driver_amount","dispatched_at","accepted_at","on_way_at","passenger_onboard_at","completed_at",
+      "cancelled_at","cancellation_reason","no_show_at","route_duration_minutes"
+    ].join(",")).eq("company_id",s.company_id).eq("driver_id",s.driver_id).or(`status.not.in.(completed,cancelled,canceled,no_show),journey_date.gte.${historyCutoff}`).order("journey_date").order("journey_time"),
+    db.from("driver_unavailability").select("id,company_id,driver_id,from_datetime,to_datetime,reason,active,created_at").eq("company_id",s.company_id).eq("driver_id",s.driver_id).order("from_datetime",{ascending:false})
   ]);
   for(const result of [driverResult,companyResult,settingsResult,jobsResult,unavailableResult]) if(result.error)throw result.error;
   const jobs=jobsResult.data||[];const ids=jobs.map(j=>j.id);let stops:Record<string,unknown>[]=[];
-  if(ids.length){const r=await db.from("booking_stops").select("*").eq("company_id",s.company_id).in("booking_id",ids).order("stop_order");if(r.error)throw r.error;stops=r.data||[];}
+  if(ids.length){const r=await db.from("booking_stops").select("booking_id,stop_order,label,address_name,formatted_address,postcode").eq("company_id",s.company_id).in("booking_id",ids).order("stop_order");if(r.error)throw r.error;stops=r.data||[];}
+  const timezone=String(settingsResult.data?.timezone||"Europe/London");
   const driverJobs=jobs.map(j=>{
     const {price,job_price,driver_amount,account_customer_id,account_po_reference,...safeJob}=j;
     const visibleAmount=driver_amount==null?(price??job_price??null):driver_amount;
     const cashCollectionAmount=["cash","pay in car","pay by cash"].includes(String(j.payment_method||"").trim().toLowerCase())?price:null;
-    return {...safeJob,price:visibleAmount,driver_amount:driver_amount??null,cash_collection_amount:cashCollectionAmount,via_stops:stops.filter(x=>x.booking_id===j.id)};
+    return {...safeJob,price:visibleAmount,driver_amount:driver_amount??null,cash_collection_amount:cashCollectionAmount,operational_available_at:activationAt(j.journey_date,j.journey_time,timezone),via_stops:stops.filter(x=>x.booking_id===j.id)};
   });
-  return reply({ok:true,driver:driverResult.data,company:companyResult.data,settings:settingsResult.data,jobs:driverJobs,unavailability:unavailableResult.data||[]});
+  return reply({ok:true,driver:driverResult.data,company:companyResult.data,settings:settingsResult.data,jobs:driverJobs,unavailability:unavailableResult.data||[],server_time:new Date().toISOString()});
 }
 
 async function setOnline(s:DriverSession,online:boolean){const {error}=await db.from("drivers").update({online}).eq("company_id",s.company_id).eq("id",s.driver_id);if(error)throw error;return reply({ok:true,online});}
 async function saveGps(s:DriverSession,b:Record<string,unknown>){const lat=Number(b.latitude),lng=Number(b.longitude);if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180)throw new ApiError(400,"Invalid location");const {error}=await db.from("drivers").update({latitude:lat,longitude:lng,location_updated_at:new Date().toISOString()}).eq("company_id",s.company_id).eq("id",s.driver_id).eq("online",true);if(error)throw error;return reply({ok:true});}
-async function setJobStatus(s:DriverSession,b:Record<string,unknown>){const id=String(b.booking_id||"");const status=String(b.status||"").toLowerCase();const allowed=["accepted","on_way","passenger_onboard","completed","declined"];if(!id||!allowed.includes(status))throw new ApiError(400,"Invalid job status");const update:Record<string,unknown>=status==="declined"?{status:"waiting",driver_id:null,dispatched_at:null}:{status};if(status==="accepted")update.accepted_at=new Date().toISOString();if(status==="on_way")update.on_way_at=new Date().toISOString();if(status==="passenger_onboard")update.passenger_onboard_at=new Date().toISOString();if(status==="completed")update.completed_at=new Date().toISOString();const {data,error}=await db.from("bookings").update(update).eq("company_id",s.company_id).eq("driver_id",s.driver_id).eq("id",id).select("id").maybeSingle();if(error)throw error;if(!data)throw new ApiError(404,"Assigned job not found");return reply({ok:true});}
+async function setJobStatus(s:DriverSession,b:Record<string,unknown>){
+  const id=String(b.booking_id||"");
+  const status=String(b.status||"").toLowerCase();
+  if(!id||!["accepted","on_way","passenger_onboard","completed","declined"].includes(status))throw new ApiError(400,"Invalid job status");
+  const {data,error}=await db.rpc("transition_driver_booking",{target_company_id:s.company_id,target_driver_id:s.driver_id,target_booking_id:id,requested_status:status});
+  if(error){
+    if(/Assigned job not found/i.test(error.message))throw new ApiError(404,"Assigned job not found");
+    if(/cannot decline/i.test(error.message))throw new ApiError(403,error.message);
+    if(/can be started|Invalid job transition|Only an allocated|overlaps another/i.test(error.message))throw new ApiError(409,error.message);
+    if(/bookings_one_active_job_per_driver|duplicate key/i.test(error.message))throw new ApiError(409,"Finish the current active job before starting another one.");
+    throw error;
+  }
+  const result=Array.isArray(data)?data[0]:data;
+  if(!result)throw new ApiError(404,"Assigned job not found");
+  return reply({ok:true,job:result,server_time:new Date().toISOString()});
+}
 async function markCashPaid(s:DriverSession,b:Record<string,unknown>){const id=String(b.booking_id||"");if(!id)throw new ApiError(400,"Booking is required");const {data,error}=await db.rpc("mark_driver_cash_booking_paid",{target_company_id:s.company_id,target_driver_id:s.driver_id,target_booking_id:id});if(error){if(/Only Pay in Car/i.test(error.message))throw new ApiError(403,error.message);if(/stage/i.test(error.message))throw new ApiError(400,error.message);throw error}if(!data)throw new ApiError(404,"Assigned job not found");return reply({ok:true});}
 async function createUnavailability(s:DriverSession,b:Record<string,unknown>){const from=new Date(String(b.from_datetime||"")),to=new Date(String(b.to_datetime||""));if(isNaN(from.valueOf())||isNaN(to.valueOf())||to<=from)throw new ApiError(400,"Invalid unavailable period");const {error}=await db.from("driver_unavailability").insert({company_id:s.company_id,driver_id:s.driver_id,from_datetime:from.toISOString(),to_datetime:to.toISOString(),reason:clean(b.reason),active:true});if(error)throw error;await db.from("drivers").update({online:false}).eq("company_id",s.company_id).eq("id",s.driver_id);return reply({ok:true});}
 async function endUnavailability(s:DriverSession){const now=new Date().toISOString();const {error}=await db.from("driver_unavailability").update({active:false,to_datetime:now}).eq("company_id",s.company_id).eq("driver_id",s.driver_id).eq("active",true);if(error)throw error;return reply({ok:true});}
@@ -119,5 +143,19 @@ async function logout(s:DriverSession){await db.from("drivers").update({online:f
 function safeDriver(companyId:string,driverId:string){return db.from("drivers").select("id,company_id,driver_number,full_name,phone,email,vehicle,licence_number,licence_expiry,status,online,latitude,longitude,location_updated_at,pay_type,commission_percent,fixed_job_amount").eq("company_id",companyId).eq("id",driverId).maybeSingle();}
 const clean=(v:unknown)=>String(v??"").trim()||null;
 const numberOrNull=(v:unknown)=>v===""||v==null?null:Number(v);
+function activationAt(dateValue:unknown,timeValue:unknown,timezone:string){
+  const date=String(dateValue||""),time=String(timeValue||"");
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d{2}:\d{2}/.test(time))return null;
+  const [year,month,day]=date.split("-").map(Number),[hour,minute,second=0]=time.slice(0,8).split(":").map(Number);
+  const target=Date.UTC(year,month-1,day,hour,minute,second);let guess=target;
+  try{
+    for(let attempts=0;attempts<3;attempts+=1){
+      const parts=new Intl.DateTimeFormat("en-GB",{timeZone:timezone,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(new Date(guess));
+      const values=Object.fromEntries(parts.map(part=>[part.type,Number(part.value)]));
+      guess+=target-Date.UTC(values.year,values.month-1,values.day,values.hour,values.minute,values.second);
+    }
+    return new Date(guess-3.5*60*60*1000).toISOString();
+  }catch{return null;}
+}
 async function sha256(value:string){return toHex(new Uint8Array(await crypto.subtle.digest("SHA-256",encoder.encode(value))));}
 function toHex(bytes:Uint8Array){return [...bytes].map(x=>x.toString(16).padStart(2,"0")).join("");}

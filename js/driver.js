@@ -3,15 +3,22 @@ const driverdb = getSupabase();
 let currentCompany = null;
 let currentDriver = null;
 let currentJob = null;
+let selectedJob = null;
 let driverBookings = [];
 let driverUnavailable = false;
 let driverCommissionDefault = 0;
 let driverCurrencySymbol = "£";
 let driverSessionToken = null;
 let driverUnavailability = [];
+let driverSettings = {};
+let serverClockOffset = 0;
+let lastSuccessfulRefresh = null;
+let refreshFailures = 0;
+const pendingJobActions = new Set();
 
 let gpsWatchId = null;
 let driverRefreshTimer = null;
+let driverStaleTimer = null;
 
 document.addEventListener("DOMContentLoaded", () => {
     bindDriverUI();
@@ -25,18 +32,24 @@ function bindDriverUI() {
     document.getElementById("closeMenuButton")?.addEventListener("click", closeSideMenu);
     document.getElementById("menuOverlay")?.addEventListener("click", closeSideMenu);
     document.getElementById("availabilityButton")?.addEventListener("click", toggleAvailability);
-    document.getElementById("acceptJobButton")?.addEventListener("click", acceptCurrentJob);
-    document.getElementById("declineJobButton")?.addEventListener("click", declineCurrentJob);
-    document.getElementById("onWayButton")?.addEventListener("click", setOnWay);
     document.getElementById("pobButton")?.addEventListener("click", setPOB);
     document.getElementById("dropOffButton")?.addEventListener("click", completeCurrentJob);
     document.getElementById("markPaidButton")?.addEventListener("click", () => markJobPaid(currentJob));
-    document.getElementById("detailMarkPaidButton")?.addEventListener("click", () => markJobPaid(currentJob));
+    document.getElementById("detailMarkPaidButton")?.addEventListener("click", () => markJobPaid(selectedJob));
+    document.getElementById("detailNavigateButton")?.addEventListener("click", () => selectedJob && openJobRoute(selectedJob));
     document.getElementById("viewCurrentJobButton")?.addEventListener("click", () => currentJob && openJobDetails(currentJob));
+    document.getElementById("navigateCurrentJobButton")?.addEventListener("click", () => currentJob && openJobRoute(currentJob));
     document.getElementById("closeJobDetailsButton")?.addEventListener("click", closeJobDetails);
     document.getElementById("jobDetailsOverlay")?.addEventListener("click", closeJobDetails);
     document.getElementById("holidayForm")?.addEventListener("submit", saveDriverHoliday);
     document.getElementById("imBackButton")?.addEventListener("click", endDriverHoliday);
+    document.getElementById("refreshDiaryButton")?.addEventListener("click", () => refreshDriverPortal(true));
+    document.getElementById("awaitingJobsList")?.addEventListener("click", handleDiaryAction);
+    document.getElementById("acceptedJobsList")?.addEventListener("click", handleDiaryAction);
+    document.getElementById("completedJobsList")?.addEventListener("click", handleDiaryAction);
+    window.addEventListener("online", () => { showConnectionMessage("Connection restored. Refreshing…", false); refreshDriverPortal(true); });
+    window.addEventListener("offline", () => showConnectionMessage("You are offline. Displayed jobs may be out of date.", true));
+    document.addEventListener("visibilitychange", () => { if (!document.hidden && driverSessionToken) refreshDriverPortal(); });
 
     document.querySelectorAll("[data-view]").forEach(btn => {
         btn.addEventListener("click", () => {
@@ -104,6 +117,8 @@ async function enterDriverPortal() {
 
     if (driverRefreshTimer) clearInterval(driverRefreshTimer);
     driverRefreshTimer = setInterval(refreshDriverPortal, 7000);
+    if (driverStaleTimer) clearInterval(driverStaleTimer);
+    driverStaleTimer = setInterval(updateLastUpdatedText, 5000);
 
     if (isDriverOnline(currentDriver) && !driverUnavailable) startGpsTracking();
 }
@@ -111,6 +126,7 @@ async function enterDriverPortal() {
 async function driverLogout() {
     stopGpsTracking();
     if (driverRefreshTimer) clearInterval(driverRefreshTimer);
+    if (driverStaleTimer) clearInterval(driverStaleTimer);
 
     if (driverSessionToken) await driverPortalRequest("logout").catch(error => console.warn("Driver logout:", error));
 
@@ -173,27 +189,68 @@ function applyDriverPortalData(data) {
     driverUnavailability = data.unavailability || [];
     driverCommissionDefault = Number(data.settings?.drivercommission || 0);
     driverCurrencySymbol = data.settings?.currencysymbol || "£";
+    driverSettings = data.settings || driverSettings;
+    if (data.server_time) serverClockOffset = new Date(data.server_time).getTime() - Date.now();
     const now = new Date();
     driverUnavailable = driverUnavailability.some(row => row.active !== false && new Date(row.from_datetime) <= now && new Date(row.to_datetime) >= now);
     renderHolidayList(driverUnavailability);
     document.getElementById("imBackButton")?.classList.toggle("hidden", !driverUnavailable);
     populateDriverHeader();
+    applyCompanyBranding();
 }
 
-async function refreshDriverPortal() {
+async function refreshDriverPortal(showLoading = false) {
     if (!driverSessionToken) return;
+    const refreshButton = document.getElementById("refreshDiaryButton");
+    if (showLoading) refreshButton?.classList.add("loading");
     try {
         applyDriverPortalData(await driverPortalRequest("refresh"));
     } catch (error) {
         console.error("Driver refresh:", error);
         if (/session/i.test(error.message)) await driverLogout();
+        refreshFailures += 1;
+        showConnectionMessage("Unable to refresh. Showing the last successful diary.", true);
         return;
+    } finally {
+        refreshButton?.classList.remove("loading");
     }
 
+    refreshFailures = 0;
+    lastSuccessfulRefresh = new Date();
+    showConnectionMessage("", false);
     renderCurrentJob();
-    renderUpcomingBookings();
+    renderDiary();
     renderEarnings();
     refreshAvailabilityUI();
+    updateLastUpdatedText();
+}
+
+function applyCompanyBranding() {
+    const primary = safeColour(driverSettings.primarycolour);
+    const button = safeColour(driverSettings.buttoncolour);
+    if (primary) document.documentElement.style.setProperty("--brand", primary);
+    if (button) document.documentElement.style.setProperty("--blue", button);
+    const logo = String(driverSettings.companylogo || "").trim();
+    const image = document.getElementById("loginCompanyLogo");
+    if (image && /^https:\/\//i.test(logo)) { image.src = logo; image.classList.remove("hidden"); document.getElementById("loginFallbackIcon")?.classList.add("hidden"); }
+}
+
+function safeColour(value) { return /^#[0-9a-f]{6}$/i.test(String(value || "")) ? String(value) : ""; }
+
+function showConnectionMessage(message, error) {
+    const banner = document.getElementById("connectionBanner");
+    if (!banner) return;
+    banner.textContent = message;
+    banner.classList.toggle("hidden", !message);
+    banner.classList.toggle("error", Boolean(error));
+}
+
+function updateLastUpdatedText() {
+    const text = lastSuccessfulRefresh ? `Updated ${lastSuccessfulRefresh.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : "Waiting for an update…";
+    setText("lastUpdatedText", text);
+    if (lastSuccessfulRefresh && Date.now() - lastSuccessfulRefresh.getTime() > 30000 && !refreshFailures) {
+        showConnectionMessage("Updates appear delayed. Tap refresh before taking action.", true);
+    }
 }
 
 function isDriverOnline(driver) {
@@ -281,7 +338,7 @@ async function saveDriverPosition(position) {
 }
 
 function renderCurrentJob() {
-    const active = ["assigned", "accepted", "on_way", "passenger_onboard"];
+    const active = ["on_way", "passenger_onboard"];
 
     currentJob =
         driverBookings.find(job => active.includes(normaliseStatus(job.status))) || null;
@@ -303,7 +360,9 @@ function renderCurrentJob() {
     setText("currentPickup", pickup(currentJob));
     setText("currentDestination", destination(currentJob));
     setText("currentJobTime", formatTime(currentJob.journey_time));
+    setText("currentPassenger", currentJob.customer_name || "-");
     setText("currentPassengers", currentJob.passengers ?? "-");
+    setText("currentFlight", currentJob.flight_number || "-");
     setText("currentFare", money(jobPrice(currentJob)));
     setText("currentPayment", `${currentJob.payment_method || "-"} — ${prettyStatus(currentJob.payment_status || "unpaid")}`);
 
@@ -314,13 +373,10 @@ function renderJobActions() {
     if (!currentJob) return;
 
     const status = normaliseStatus(currentJob.status);
-    const offer = document.getElementById("jobOfferActions");
     const progress = document.getElementById("jobProgressActions");
 
-    offer?.classList.toggle("hidden", status !== "assigned");
-    progress?.classList.toggle("hidden", status === "assigned");
+    progress?.classList.remove("hidden");
 
-    document.getElementById("onWayButton")?.classList.toggle("hidden", status !== "accepted");
     document.getElementById("pobButton")?.classList.toggle("hidden", status !== "on_way");
     document.getElementById("dropOffButton")?.classList.toggle("hidden", status !== "passenger_onboard");
     document.getElementById("markPaidButton")?.classList.toggle("hidden", !canDriverMarkPaid(currentJob));
@@ -340,69 +396,38 @@ function canWork() {
     return true;
 }
 
-async function acceptCurrentJob() {
-    if (!canWork()) return;
-    await updateCurrentJobStatus("accepted");
-    renderJobActions();
-}
-
-async function declineCurrentJob() {
-    if (!currentJob || !confirm("Decline this job?")) return;
-
-    try { await driverPortalRequest("job_status", { booking_id: currentJob.id, status: "declined" }); }
-    catch (error) { console.error(error); return alert("Unable to decline this job."); }
-
-    currentJob = null;
-    await refreshDriverPortal();
-}
-
-async function setOnWay() {
-    if (!canWork()) return;
-
-    if (await updateCurrentJobStatus("on_way", {
-        on_way_at: new Date().toISOString()
-    })) {
-        openNavigation(pickup(currentJob));
-        renderJobActions();
-    }
-}
-
 async function setPOB() {
-    if (!canWork()) return;
-
-    if (await updateCurrentJobStatus("passenger_onboard", {
-        passenger_onboard_at: new Date().toISOString()
-    })) {
+    if (await transitionJob(currentJob, "passenger_onboard")) {
         openJobRoute(currentJob);
-        renderJobActions();
     }
 }
 
 async function completeCurrentJob() {
-    if (!canWork() || !confirm("Mark this job dropped off and completed?")) return;
-
-    if (await updateCurrentJobStatus("completed", {
-        completed_at: new Date().toISOString()
-    })) {
+    if (await transitionJob(currentJob, "completed")) {
         currentJob = null;
-        await refreshDriverPortal();
     }
 }
 
-async function updateCurrentJobStatus(status, extra = {}) {
-    if (!currentJob) return false;
-
-    const update = { status, ...extra };
-    try { await driverPortalRequest("job_status", { booking_id: currentJob.id, status }); }
-    catch (error) {
-        console.error(error);
-        alert("Unable to update this job.");
+async function transitionJob(job, status) {
+    if (!job || pendingJobActions.has(String(job.id))) return false;
+    if (["on_way", "passenger_onboard", "completed"].includes(status) && !canWork()) return false;
+    if (status === "declined" && !confirm(`Decline ${job.booking_reference || "this job"}? It will return to the office for reallocation.`)) return false;
+    if (status === "passenger_onboard" && !confirm("Confirm the passengers are on board?")) return false;
+    if (status === "completed" && !confirm("Confirm this journey is completed?")) return false;
+    pendingJobActions.add(String(job.id));
+    renderDiary();
+    try {
+        const data = await driverPortalRequest("job_status", { booking_id: job.id, status });
+        if (data.server_time) serverClockOffset = new Date(data.server_time).getTime() - Date.now();
+        await refreshDriverPortal();
+        return true;
+    } catch (error) {
+        alert(error.message || "Unable to update this job.");
         return false;
+    } finally {
+        pendingJobActions.delete(String(job.id));
+        renderDiary();
     }
-
-    Object.assign(currentJob, update);
-    setText("currentJobStatus", prettyStatus(status));
-    return true;
 }
 
 function canDriverMarkPaid(job) {
@@ -415,20 +440,28 @@ function canDriverMarkPaid(job) {
 
 async function markJobPaid(job) {
     if (!job || !canDriverMarkPaid(job)) return;
+    const actionKey = `payment:${job.id}`;
+    if (pendingJobActions.has(actionKey)) return;
     const amount = Number(job.cash_collection_amount);
     const prompt = Number.isFinite(amount)
         ? `Confirm ${money(amount)} has been received from the customer?`
         : "Confirm the full cash fare has been received from the customer?";
     if (!confirm(prompt)) return;
+    pendingJobActions.add(actionKey);
     try {
         await driverPortalRequest("mark_cash_paid", { booking_id: job.id });
-        Object.assign(job, { payment_status: "paid", balance_due: 0, paid_at: new Date().toISOString() });
+        await refreshDriverPortal();
+        const authoritativeJob = driverBookings.find(row => String(row.id) === String(job.id)) || job;
+        Object.assign(job, authoritativeJob);
+        if (selectedJob && String(selectedJob.id) === String(job.id)) selectedJob = authoritativeJob;
         setText("detailPayment", "Paid");
-        setText("currentPayment", "Paid");
+        if (currentJob && String(currentJob.id) === String(job.id)) setText("currentPayment", "Paid");
         renderJobActions();
         document.getElementById("detailMarkPaidButton")?.classList.add("hidden");
     } catch (error) {
         alert(error.message || "Unable to mark this booking paid.");
+    } finally {
+        pendingJobActions.delete(actionKey);
     }
 }
 
@@ -463,8 +496,10 @@ function openJobDetails(job) {
     setText("detailFlightNumber", job.flight_number || "-");
     setText("detailFare", money(jobPrice(job)));
     setText("detailPayment", `${job.payment_method || "-"} — ${prettyStatus(job.payment_status || "unpaid")}`);
-    currentJob = job;
+    selectedJob = job;
     document.getElementById("detailMarkPaidButton")?.classList.toggle("hidden", !canDriverMarkPaid(job));
+    setText("detailStatus", prettyStatus(job.status));
+    setText("detailActivation", normaliseStatus(job.status) === "accepted" ? activationLabel(job) : "—");
     setText("detailNotes", job.notes || "-");
 
     const phone = job.phone ?? job.customer_phone ?? "";
@@ -478,37 +513,80 @@ function openJobDetails(job) {
 function closeJobDetails() {
     document.getElementById("jobDetailsDrawer")?.classList.remove("open");
     document.getElementById("jobDetailsOverlay")?.classList.remove("open");
+    selectedJob = null;
 }
 
-function renderUpcomingBookings() {
-    const list = document.getElementById("upcomingBookingsList");
+function renderDiary() {
+    const diary = window.DriverWorkflow.classifyJobs(driverBookings);
+    setText("awaitingCount", diary.awaiting.length);
+    setText("acceptedCount", diary.accepted.length);
+    renderDiaryList("awaitingJobsList", diary.awaiting, "awaiting");
+    renderDiaryList("acceptedJobsList", diary.accepted, "accepted");
+    renderDiaryList("completedJobsList", diary.completed.slice().reverse(), "completed");
+}
+
+function renderDiaryList(id, jobs, kind) {
+    const list = document.getElementById(id);
     if (!list) return;
-
-    const jobs = driverBookings
-        .filter(job => !["completed", "cancelled", "declined"].includes(normaliseStatus(job.status)))
-        .sort(compareJobs);
-
     if (!jobs.length) {
-        list.innerHTML = '<div class="empty-list">No upcoming bookings.</div>';
+        const labels = { awaiting: "No jobs awaiting your response.", accepted: "No accepted upcoming jobs.", completed: "No completed jobs yet." };
+        list.innerHTML = `<div class="empty-list">${labels[kind]}</div>`;
         return;
     }
+    if (kind === "accepted") {
+        const groups = groupJobsByDate(jobs);
+        list.innerHTML = Object.entries(groups).map(([label, rows]) => `<div class="date-group"><h3>${escapeHtml(label)}</h3>${rows.map(row => diaryCard(row, kind)).join("")}</div>`).join("");
+    } else list.innerHTML = jobs.map(row => diaryCard(row, kind)).join("");
+}
 
-    list.innerHTML = jobs.map(job => `
-        <button class="upcoming-job-card" type="button" data-job-id="${escapeHtml(String(job.id))}">
-            <div>
-                <strong>${escapeHtml(formatDate(job.journey_date))} • ${escapeHtml(formatTime(job.journey_time))}</strong>
-                <span>${escapeHtml(pickup(job))} → ${escapeHtml(destination(job))}</span>
-            </div>
-            <span>${escapeHtml(prettyStatus(job.status || "assigned"))}</span>
-        </button>
-    `).join("");
+function diaryCard(job, kind) {
+    const busy = pendingJobActions.has(String(job.id));
+    const decline = kind === "awaiting" && window.DriverWorkflow.canDecline(driverSettings, job);
+    const startReady = kind === "accepted" && window.DriverWorkflow.canStart(job, trustedNow(), driverSettings.timezone || "Europe/London");
+    const payment = `${job.payment_method || "—"} · ${prettyStatus(job.payment_status || "unpaid")}`;
+    return `<article class="diary-card ${busy ? "busy" : ""}">
+        <div class="diary-card-top"><div><time>${escapeHtml(formatTime(job.journey_time))}</time><span>${escapeHtml(formatDate(job.journey_date))}</span></div><span class="status-pill">${escapeHtml(prettyStatus(job.status))}</span></div>
+        <strong class="booking-reference">${escapeHtml(job.booking_reference || shortId(job.id))}</strong>
+        <div class="compact-route"><span><b>A</b>${escapeHtml(pickup(job))}</span><span><b>B</b>${escapeHtml(destination(job))}</span></div>
+        <div class="job-meta"><span>${escapeHtml(String(job.passengers ?? "—"))} passengers</span><span>${escapeHtml(money(jobPrice(job)))}</span><span>${escapeHtml(payment)}</span></div>
+        ${kind === "accepted" ? `<p class="activation-note ${startReady ? "ready" : ""}">${escapeHtml(startReady ? "Ready to start" : activationLabel(job))}</p>` : ""}
+        <div class="card-actions">
+          ${kind === "awaiting" ? `<button class="btn btn-success" data-job-action="accepted" data-job-id="${escapeHtml(job.id)}" ${busy ? "disabled" : ""}>${busy ? "Working…" : "Accept"}</button>` : ""}
+          ${decline ? `<button class="btn btn-danger" data-job-action="declined" data-job-id="${escapeHtml(job.id)}" ${busy ? "disabled" : ""}>Decline</button>` : ""}
+          ${kind === "accepted" ? `<button class="btn btn-primary" data-job-action="on_way" data-job-id="${escapeHtml(job.id)}" ${busy || !startReady ? "disabled" : ""}>On Route</button>` : ""}
+          <button class="btn btn-secondary" data-job-action="details" data-job-id="${escapeHtml(job.id)}">View Details</button>
+        </div>
+    </article>`;
+}
 
-    list.querySelectorAll("[data-job-id]").forEach(button => {
-        button.addEventListener("click", () => {
-            const job = driverBookings.find(x => String(x.id) === String(button.dataset.jobId));
-            if (job) openJobDetails(job);
-        });
-    });
+function handleDiaryAction(event) {
+    const button = event.target.closest("[data-job-action]");
+    if (!button) return;
+    const job = driverBookings.find(row => String(row.id) === String(button.dataset.jobId));
+    if (!job) return;
+    if (button.dataset.jobAction === "details") openJobDetails(job);
+    else transitionJob(job, button.dataset.jobAction).then(ok => { if (ok && button.dataset.jobAction === "on_way") openNavigation(pickup(job)); });
+}
+
+function trustedNow() { return new Date(Date.now() + serverClockOffset); }
+
+function activationLabel(job) {
+    const date = window.DriverWorkflow.activationAt(job, driverSettings.timezone || "Europe/London");
+    return date && !Number.isNaN(date.getTime()) ? `Available ${date.toLocaleString("en-GB", { timeZone: driverSettings.timezone || "Europe/London", weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}` : "Activation time unavailable";
+}
+
+function groupJobsByDate(jobs) {
+    const now = trustedNow();
+    const formatter = new Intl.DateTimeFormat("en-GB", { timeZone: driverSettings.timezone || "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" });
+    const dateKey = value => {
+        const parts = Object.fromEntries(formatter.formatToParts(value).map(part => [part.type, part.value]));
+        return `${parts.year}-${parts.month}-${parts.day}`;
+    };
+    const today = dateKey(now), tomorrowDate = new Date(now.getTime() + 86400000), tomorrow = dateKey(tomorrowDate);
+    return jobs.reduce((groups, job) => {
+        const label = job.journey_date === today ? "Today" : job.journey_date === tomorrow ? "Tomorrow" : "Later";
+        (groups[label] ||= []).push(job); return groups;
+    }, {});
 }
 
 function renderEarnings() {
@@ -637,7 +715,7 @@ function showDriverView(name) {
     document.getElementById(`view-${name}`)?.classList.add("active");
 
     if (name === "earnings") renderEarnings();
-    if (name === "upcoming") renderUpcomingBookings();
+    if (name === "completed") renderDiary();
     if (name === "holidays") refreshHolidayStatus();
 
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -774,4 +852,5 @@ function escapeHtml(value) {
 window.addEventListener("beforeunload", () => {
     stopGpsTracking();
     if (driverRefreshTimer) clearInterval(driverRefreshTimer);
+    if (driverStaleTimer) clearInterval(driverStaleTimer);
 });
