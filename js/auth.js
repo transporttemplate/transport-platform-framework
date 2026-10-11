@@ -10,7 +10,57 @@ async function adminLogout() {
     document.body?.classList.remove("admin-authenticated");
     const { error } = await adminDb.auth.signOut();
     if (error) console.error("Admin logout failed:", error);
-    window.location.replace("login.html");
+    window.location.replace(adminAuthUrl("login.html"));
+}
+
+const ADMIN_IDLE_LIMIT_MS = 30 * 60 * 1000;
+const ADMIN_IDLE_WARNING_MS = 2 * 60 * 1000;
+let adminIdleCleanup = null;
+
+function startAdminInactivity(session) {
+    adminIdleCleanup?.();
+    const activityKey = `transport_admin_activity:${session.user.id}`;
+    const logoutKey = `transport_admin_logout:${session.user.id}`;
+    let warningTimer = null, logoutTimer = null, lastRecorded = 0, expired = false;
+    const dialog = document.createElement("dialog");
+    dialog.className = "admin-idle-dialog";
+    dialog.setAttribute("aria-labelledby", "adminIdleTitle");
+    dialog.innerHTML = `<h2 id="adminIdleTitle">Still working?</h2><p>You will be signed out in 2 minutes because there has been no Admin activity.</p><div><button type="button" data-stay>Stay Logged In</button><button type="button" data-logout>Log Out</button></div>`;
+    document.body.appendChild(dialog);
+    const style = document.createElement("style");
+    style.textContent = `.admin-idle-dialog{width:min(92vw,430px);padding:22px;border:0;border-radius:14px;box-shadow:0 24px 70px rgba(15,23,42,.3);color:#172033}.admin-idle-dialog::backdrop{background:rgba(15,23,42,.62)}.admin-idle-dialog h2{margin:0 0 8px}.admin-idle-dialog p{line-height:1.5;color:#526174}.admin-idle-dialog div{display:flex;gap:8px;justify-content:flex-end}.admin-idle-dialog button{min-height:42px;padding:9px 14px;border:0;border-radius:8px;font-weight:750;cursor:pointer}.admin-idle-dialog [data-stay]{background:#2563eb;color:#fff}`;
+    document.head.appendChild(style);
+    const readActivity = () => Number(localStorage.getItem(activityKey) || Date.now());
+    const schedule = () => {
+        clearTimeout(warningTimer); clearTimeout(logoutTimer);
+        const remaining = Math.max(0, ADMIN_IDLE_LIMIT_MS - (Date.now() - readActivity()));
+        if (remaining <= 0) return expire();
+        if (remaining <= ADMIN_IDLE_WARNING_MS) { if (!dialog.open) dialog.showModal(); }
+        else warningTimer = setTimeout(() => { if (!expired && !dialog.open) dialog.showModal(); }, remaining - ADMIN_IDLE_WARNING_MS);
+        logoutTimer = setTimeout(expire, remaining);
+    };
+    const recordActivity = () => {
+        if (expired || Date.now() - lastRecorded < 1000) return;
+        lastRecorded = Date.now(); localStorage.setItem(activityKey, String(lastRecorded));
+        if (dialog.open) dialog.close(); schedule();
+    };
+    async function expire() {
+        if (expired) return; expired = true;
+        localStorage.setItem(logoutKey, String(Date.now()));
+        await adminLogout();
+    }
+    const events = ["pointerdown", "keydown", "touchstart", "scroll"];
+    events.forEach(name => window.addEventListener(name, recordActivity, { passive: true, capture: true }));
+    const onStorage = event => {
+        if (event.key === activityKey) { if (dialog.open) dialog.close(); schedule(); }
+        if (event.key === logoutKey) expire();
+    };
+    window.addEventListener("storage", onStorage);
+    dialog.querySelector("[data-stay]").addEventListener("click", recordActivity);
+    dialog.querySelector("[data-logout]").addEventListener("click", expire);
+    localStorage.setItem(activityKey, String(Date.now()));
+    schedule();
+    adminIdleCleanup = () => { clearTimeout(warningTimer); clearTimeout(logoutTimer); events.forEach(name => window.removeEventListener(name, recordActivity, { capture: true })); window.removeEventListener("storage", onStorage); dialog.remove(); style.remove(); };
 }
 
 document.addEventListener("click", event => {
@@ -23,14 +73,18 @@ document.addEventListener("click", event => {
 }, true);
 
 window.addEventListener("pagehide", () => {
+    adminIdleCleanup?.();
     document.body?.classList.remove("admin-authenticated");
 });
 
 window.addEventListener("pageshow", async event => {
     if (!event.persisted) return;
-    const { data: { user } } = await adminDb.auth.getUser();
-    if (!user) redirectToLogin();
-    else document.body?.classList.add("admin-authenticated");
+    const { data: { session } } = await adminDb.auth.getSession();
+    if (!session?.user) redirectToLogin();
+    else {
+        startAdminInactivity(session);
+        document.body?.classList.add("admin-authenticated");
+    }
 });
 
 window.ADMIN_COMPANY_ID = null;
@@ -127,6 +181,8 @@ window.adminCompanyReadyPromise = (async () => {
     window.ADMIN_ROLE = companyUser.role || "admin";
     window.ADMIN_PLATFORM_ROLE = String(user.app_metadata?.platform_role || "");
     window.ADMIN_COMPANIES = memberships;
+
+    startAdminInactivity(session);
 
     document.body?.classList.add("admin-authenticated");
 

@@ -193,6 +193,7 @@ let settingsCompanyId = null;
 let settingsCompanyCode = null;
 let settingsRowId = null;
 let settingsLoaded = false;
+let savedPaymentSettings = null;
 let savedCompanyLogo = "";
 let pendingCompanyLogoFile = null;
 let pendingCompanyLogoPreviewUrl = "";
@@ -362,6 +363,16 @@ async function loadSettings() {
         enablecardbookingfee: data.enablecardbookingfee ?? false,
         cardbookingfeepercent: data.cardbookingfeepercent ?? 0
     };
+    if (document.getElementById("stripePublishableKey")) {
+        savedPaymentSettings = {
+            stripepublishablekey: loadedData.stripepublishablekey || "",
+            enablestripe: Boolean(loadedData.enablestripe),
+            enablecardbookingfee: Boolean(loadedData.enablecardbookingfee),
+            cardbookingfeepercent: Number(loadedData.cardbookingfeepercent || 0),
+            requirepaymentbeforetravel: Boolean(loadedData.requirepaymentbeforetravel),
+            defaultpaymentmethod: loadedData.defaultpaymentmethod || ""
+        };
+    }
 
     savedCompanyLogo = loadedData.companylogo || "";
     renderCompanyLogoPreview(savedCompanyLogo);
@@ -427,12 +438,22 @@ async function saveSettings() {
     const stripePublishableInput = document.getElementById("stripePublishableKey");
     if (stripeEnabledInput && stripePublishableInput) {
         const publishableKey = stripePublishableInput.value.trim();
+        if (/^sk_(test|live)_/i.test(publishableKey)) {
+            alert("Secret Stripe keys must never be entered in this browser-visible setting."); stripePublishableInput.focus(); return;
+        }
         if (stripeEnabledInput.checked && !/^pk_(test|live)_/.test(publishableKey)) {
             alert("Enable Stripe requires a valid publishable key beginning pk_test_ or pk_live_.");
             stripePublishableInput.focus();
             return;
         }
         settings.stripepublishablekey = publishableKey || null;
+        const changes = paymentSettingChanges(settings);
+        if (changes.length) {
+            const mode = publishableKey.startsWith("pk_live_") ? "LIVE" : publishableKey.startsWith("pk_test_") ? "TEST" : "UNKNOWN";
+            const companyName = window.ADMIN_COMPANY?.trading_name || window.ADMIN_COMPANY?.name || "Company";
+            const companyCode = window.ADMIN_COMPANY?.company_code || settingsCompanyCode || "—";
+            if (!confirm(`${companyName} (${companyCode})\nStripe mode: ${mode}\n\nPayment settings changing:\n• ${changes.join("\n• ")}\n\nConfirm these settings are for the correct company and Stripe account.`)) return;
+        }
     }
 
     const closureCheckbox = document.getElementById("acceptAdvanceBookings") || document.getElementById("bookWhileClosed");
@@ -521,6 +542,17 @@ async function saveSettings() {
         renderCompanyMediaPreview(config, savedUrl);
     });
 
+    if (stripePublishableInput) {
+        savedPaymentSettings = {
+            stripepublishablekey: result.data.stripepublishablekey || "",
+            enablestripe: Boolean(result.data.enablestripe),
+            enablecardbookingfee: Boolean(result.data.enablecardbookingfee),
+            cardbookingfeepercent: Number(result.data.cardbookingfeepercent || 0),
+            requirepaymentbeforetravel: Boolean(result.data.requirepaymentbeforetravel),
+            defaultpaymentmethod: result.data.defaultpaymentmethod || ""
+        };
+    }
+
     alert("Settings saved successfully.");
 }
 
@@ -530,6 +562,10 @@ function normaliseSortCode(value) {
 }
 
 function validateCardBookingFee() {
+    const enabled = document.getElementById("enableCardBookingFee");
+    if (enabled?.checked) {
+        alert("Consumer card surcharges are not supported. Disable the card payment fee before saving."); enabled.focus(); return false;
+    }
     const input = document.getElementById("cardBookingFeePercent");
     if (!input || input.value === "") return true;
     const percent = Number(input.value);
@@ -537,6 +573,12 @@ function validateCardBookingFee() {
         alert("Card payment fee must be between 0% and 100%."); input.focus(); return false;
     }
     return true;
+}
+
+function paymentSettingChanges(settings) {
+    if (!savedPaymentSettings) return [];
+    const labels = { stripepublishablekey:"Stripe publishable key", enablestripe:"Enable Stripe", enablecardbookingfee:"Card surcharge", cardbookingfeepercent:"Card surcharge percentage", requirepaymentbeforetravel:"Require payment before travel", defaultpaymentmethod:"Default payment method" };
+    return Object.keys(labels).filter(key => key in settings && String(settings[key] ?? "") !== String(savedPaymentSettings[key] ?? "")).map(key => labels[key]);
 }
 
 function validateInvoiceBankDetails() {

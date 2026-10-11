@@ -37,6 +37,13 @@
 </div>
 <div style="margin-bottom:20px;"><a href="settings.html">← Back to Settings</a></div>
 
+<style>.payment-warning{margin:0 0 12px;padding:13px 15px;border:1px solid #ef4444;border-left:5px solid #dc2626;border-radius:9px;background:#fff1f2;color:#7f1d1d}.payment-warning h3{margin:0 0 5px;font-size:14px}.payment-warning p{margin:0;line-height:1.45}</style>
+<section class="payment-warning" role="alert"><h3>LIVE PAYMENT CONFIGURATION</h3><p>Changes to Stripe settings may immediately affect customers’ ability to pay online. Verify the company, Stripe account and Test/Live mode before saving.</p></section>
+<section class="payment-warning" role="alert"><h3>STRIPE API KEY WARNING</h3><p>The publishable key must belong to the correct company and match the server-side Stripe account and mode. Never enter a secret key into a browser-visible setting.</p></section>
+<section class="payment-warning" role="alert"><h3>ENABLE STRIPE WARNING</h3><p>Do not enable online payments until the correct company-specific Stripe secret, webhook signing secret and payment configuration have been verified.</p></section>
+<section class="payment-warning" role="alert"><h3>DISABLE STRIPE WARNING</h3><p>Disabling Stripe stops new online payments but does not automatically cancel or reconcile existing payments.</p></section>
+<section class="payment-warning" role="alert"><h3>CARD SURCHARGE WARNING</h3><p>Card surcharges may be prohibited for consumer payments under UK law. Unsupported consumer card surcharges cannot be enabled here.</p></section>
+
 <div class="card"><h3>💳 Payment Settings</h3><div class="grid-2"><div>
 <label>Stripe Publishable Key</label><input id="stripePublishableKey" type="text" placeholder="pk_test_… or pk_live_…" autocomplete="off"><small>Enter this company's test or live publishable key. Never enter a Stripe secret key here.</small>
 <label>Default Payment Method</label><select id="defaultPaymentMethod"><option>Pay in Car</option><option>Pay Online</option><option>Account Customer</option></select>

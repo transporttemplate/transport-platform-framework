@@ -352,7 +352,10 @@ async function loadDrivers() {
                 online,
                 latitude,
                 longitude,
-                location_updated_at
+                location_updated_at,
+                pay_type,
+                commission_percent,
+                fixed_job_amount
             `)
             .eq(
                 "company_id",
@@ -410,7 +413,7 @@ function populateDriverDropdown() {
 async function loadQuotePricing() {
     const [settingsResult, airportsResult] = await Promise.all([
         bookingsDb.from("settings")
-            .select("company_id,airportpricing,distancecalculator,minimumfare,firstmile,mileband1,mileband2,mileband3,mileband4,mileband5,mileband6,bookingfee,airportviasurcharge,currencysymbol")
+            .select("company_id,airportpricing,distancecalculator,minimumfare,firstmile,mileband1,mileband2,mileband3,mileband4,mileband5,mileband6,bookingfee,airportviasurcharge,currencysymbol,drivercommission")
             .eq("company_id", adminCompanyId)
             .maybeSingle(),
         bookingsDb.from("airports")
@@ -735,6 +738,7 @@ function bookingRowHtml(booking) {
         >
             View
         </button>
+        <button type="button" class="booking-menu-trigger" data-booking-menu="${escapeHtml(booking.id)}" aria-label="More actions for booking ${escapeHtml(booking.booking_reference || shortId(booking.id))}">⋮</button>
         <button type="button" onclick="beginBookingEdit('${booking.id}')">Edit</button>
 
         ${
@@ -776,7 +780,7 @@ function bookingRowHtml(booking) {
     `;
 
     return `
-        <tr class="${paymentClass}">
+        <tr class="${paymentClass}" data-booking-id="${escapeHtml(booking.id)}">
 
             <td data-label="Date">
                 ${escapeHtml(

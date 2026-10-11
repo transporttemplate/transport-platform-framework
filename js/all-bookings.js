@@ -345,7 +345,10 @@ async function loadDrivers() {
                 online,
                 latitude,
                 longitude,
-                location_updated_at
+                location_updated_at,
+                pay_type,
+                commission_percent,
+                fixed_job_amount
             `)
             .eq(
                 "company_id",
@@ -736,6 +739,7 @@ function bookingRowHtml(booking) {
         >
             View
         </button>
+        <button type="button" class="booking-menu-trigger" data-booking-menu="${escapeHtml(booking.id)}" aria-label="More actions for booking ${escapeHtml(booking.booking_reference || shortId(booking.id))}">⋮</button>
         <button type="button" onclick="location.href='bookings.html?edit=${encodeURIComponent(booking.id)}'">Edit</button>
 
         ${
@@ -777,7 +781,7 @@ function bookingRowHtml(booking) {
     `;
 
     return `
-        <tr class="${paymentClass}">
+        <tr class="${paymentClass}" data-booking-id="${escapeHtml(booking.id)}">
 
             <td data-label="Date">
                 ${escapeHtml(
@@ -1539,8 +1543,7 @@ async function openBookingView(id) {
     );
     setText("viewJourneyFare", money(booking.journey_fare ?? booking.price ?? booking.job_price));
     setText("viewCardFee", money(booking.card_booking_fee_amount || 0));
-    const driverBase = Number(booking.driver_amount ?? booking.price ?? booking.job_price ?? 0);
-    setText("viewDriverCommission", `${Number(quoteSettings.drivercommission || 0).toFixed(2)}% (${money(driverBase * Number(quoteSettings.drivercommission || 0) / 100)})`);
+    setText("viewDriverCommission", driverCommissionDisplay(booking));
 
     setText("viewDriverAmount", booking.driver_amount == null ? "Not set — existing fare behavior" : money(booking.driver_amount));
     const driverAmountInput = document.getElementById("editDriverAmount");
@@ -2281,6 +2284,16 @@ function canonicalPaymentMethod(value) {
 function accountBookingLabel(booking) {
     const account = allAccountCustomers.find(row => String(row.id) === String(booking.account_customer_id));
     return account ? `${account.account_code} — ${account.business_name}` : "Account customer";
+}
+
+function driverCommissionDisplay(booking) {
+    const companyRate = Number(quoteSettings.drivercommission || 0);
+    if (!booking?.driver_id) return `Not applied — default company commission: ${companyRate.toFixed(2)}% if assigned`;
+    const driver = allDrivers.find(row => String(row.id) === String(booking.driver_id));
+    if (driver?.pay_type === "fixed") return `Fixed driver payment: ${money(driver.fixed_job_amount || 0)}`;
+    const rate = Number(driver?.commission_percent ?? companyRate);
+    const base = Number(booking.driver_amount ?? booking.price ?? booking.job_price ?? 0);
+    return `${rate.toFixed(2)}% company commission (${money(base * rate / 100)})`;
 }
 
 function bookingAddressDisplay(detail,address) {
