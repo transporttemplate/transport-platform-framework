@@ -22,6 +22,8 @@ let quoteTimer = null;
 let customerPriceManual = false;
 let settingCustomerPrice = false;
 let lastRouteQuote = null;
+let editingBooking = null;
+let editInitialSnapshot = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
     try {
@@ -40,6 +42,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         ]);
 
         await initialiseDispatchMap();
+        const requestedEdit = new URLSearchParams(location.search).get("edit");
+        if (requestedEdit) beginBookingEdit(requestedEdit);
         startLiveRefresh();
 
     } catch (error) {
@@ -60,12 +64,16 @@ function bindBookingEvents() {
     document.getElementById("recalculateQuote")?.addEventListener("click", () => calculateRouteQuote(true));
     document.getElementById("paymentMethod")?.addEventListener("change", updateAdminAccountSelector);
     document.getElementById("editPaymentMethod")?.addEventListener("change", updateEditAccountSelector);
+    document.getElementById("editBookingButton")?.addEventListener("click", () => beginBookingEdit(document.getElementById("editBookingButton")?.dataset.bookingId));
+    document.getElementById("cancelBookingEdit")?.addEventListener("click", () => cancelBookingEdit(true));
+    document.getElementById("returnJourney")?.addEventListener("change", updateReturnFields);
 
     document.getElementById("passengers")?.addEventListener("change", () => calculateRouteQuote(false));
     document.getElementById("passengers")?.addEventListener("input", clearPassengerValidation);
     document.getElementById("passengers")?.addEventListener("invalid", showPassengerValidation);
     document.getElementById("jobPrice")?.addEventListener("input", () => {
         if (!settingCustomerPrice) customerPriceManual = true;
+        updatePriceOverrideUi();
     });
 
     document
@@ -157,6 +165,9 @@ function bindBookingEvents() {
         );
 
     updateStatusFilterForTab();
+    window.addEventListener("beforeunload", event => {
+        if (editingBooking && adminBookingFormDirty) { event.preventDefault(); event.returnValue = ""; }
+    });
 }
 
 async function loadAccountCustomers() {
@@ -724,6 +735,7 @@ function bookingRowHtml(booking) {
         >
             View
         </button>
+        <button type="button" onclick="beginBookingEdit('${booking.id}')">Edit</button>
 
         ${
             isHistory
@@ -940,9 +952,139 @@ async function assignBookingDriver(
 }
 
 
+function updateReturnFields() {
+    const enabled = Boolean(document.getElementById("returnJourney")?.checked);
+    const fields = document.getElementById("returnFields");
+    if (fields) fields.hidden = !enabled;
+    for (const id of ["returnDate", "returnTime"]) {
+        const input = document.getElementById(id);
+        if (input) input.required = enabled;
+    }
+}
+
+function setAddressFromBooking(id, booking, prefix) {
+    window.TransportAddressAutocomplete.setMetadata(id, {
+        formattedAddress: booking[`${prefix}_address`] || "",
+        canonicalAddress: booking[`${prefix}_address`] || "",
+        placeId: booking[`${prefix}_place_id`] || "",
+        latitude: booking[`${prefix}_lat`],
+        longitude: booking[`${prefix}_lng`],
+        postcode: booking[`${prefix}_postcode`] || "",
+        placeName: ""
+    });
+}
+
+function addLoadedStop(stop) {
+    const kind = String(stop.label || "").toLowerCase().includes("pickup") ? "pickup" : "dropoff";
+    addAdminStop(kind);
+    const container = document.getElementById(kind === "pickup" ? "adminPickupStops" : "adminDropoffStops");
+    const input = [...container.querySelectorAll(".admin-stop-address")].at(-1);
+    window.TransportAddressAutocomplete.setMetadata(input, {
+        formattedAddress: stop.formatted_address,
+        canonicalAddress: stop.formatted_address,
+        placeId: stop.place_id,
+        latitude: stop.latitude,
+        longitude: stop.longitude,
+        postcode: stop.postcode,
+        placeName: stop.address_name
+    });
+}
+
+async function beginBookingEdit(id) {
+    let booking = allBookings.find(row => String(row.id) === String(id));
+    if (!booking && id) {
+        const [bookingResult, stopsResult] = await Promise.all([
+            bookingsDb.from("bookings").select("*").eq("id", id).eq("company_id", adminCompanyId).maybeSingle(),
+            bookingsDb.from("booking_stops").select("*").eq("booking_id", id).eq("company_id", adminCompanyId).order("stop_order")
+        ]);
+        if (bookingResult.error || !bookingResult.data) return alert("This company booking could not be loaded.");
+        booking = { ...bookingResult.data, via_stops: stopsResult.data || [] };
+    }
+    if (!booking) return alert("This company booking could not be loaded.");
+    const status = bookingStatus(booking);
+    if (["accepted", "on_way", "passenger_onboard", "completed", "cancelled", "canceled", "no_show"].includes(status)) {
+        return alert("This booking is active or closed. Journey, fare and allocation changes are locked to protect the driver workflow and payment history.");
+    }
+    editingBooking = booking;
+    editInitialSnapshot = JSON.stringify(editableBookingValues(booking));
+    document.getElementById("adminBookingForm")?.reset();
+    document.getElementById("adminPickupStops").innerHTML = "";
+    document.getElementById("adminDropoffStops").innerHTML = "";
+    adminStopCounters = { pickup: 0, dropoff: 0 };
+    const values = {
+        customerName: booking.customer_name || booking.full_name || "", customerPhone: booking.customer_phone || booking.phone || "",
+        customerEmail: booking.customer_email || booking.email || "", pickupName: booking.pickup_name || "", dropoffName: booking.dropoff_name || "",
+        journeyDate: booking.journey_date || "", journeyTime: String(booking.journey_time || "").slice(0,5), passengers: booking.passengers ?? "",
+        suitcases: booking.suitcases ?? 0, handLuggage: booking.hand_luggage ?? 0, jobPrice: booking.price ?? booking.job_price ?? "",
+        driverAmount: booking.driver_amount ?? "", driverSelect: booking.driver_id || "", paymentMethod: canonicalPaymentMethod(booking.payment_method),
+        bookingStatus: status, accountCustomerSelect: booking.account_customer_id || "", accountPoReference: booking.account_po_reference || "",
+        notes: booking.notes || "", flightNumber: booking.flight_number || "", returnDate: booking.return_date || "",
+        returnTime: String(booking.return_time || "").slice(0,5)
+    };
+    Object.entries(values).forEach(([id, value]) => { const input=document.getElementById(id); if(input) input.value=value; });
+    document.getElementById("returnJourney").checked = Boolean(booking.return_journey);
+    updateReturnFields(); updateAdminAccountSelector();
+    setAddressFromBooking("pickupAddress", booking, "pickup");
+    setAddressFromBooking("dropoffAddress", booking, "dropoff");
+    (booking.via_stops || []).forEach(addLoadedStop);
+    lastRouteQuote = booking.route_distance_miles == null ? null : { miles:Number(booking.route_distance_miles), minutes:Number(booking.route_duration_minutes || 0), fare:Number(booking.price || 0), method:booking.pricing_method || "Existing" };
+    customerPriceManual = false;
+    document.getElementById("bookingFormTitle").textContent = `Edit Booking ${booking.booking_reference || shortId(booking.id)}`;
+    document.getElementById("saveBookingButton").textContent = "Save Changes";
+    document.getElementById("cancelBookingEdit").hidden = false;
+    const notice=document.getElementById("bookingEditNotice"); notice.hidden=false; notice.textContent=`Editing ${booking.booking_reference || shortId(booking.id)}. Payment records and status will not be changed. Customer/driver notifications are not sent automatically.`;
+    const paid=String(booking.payment_status||"").toLowerCase()==="paid" || Number(booking.amount_paid||0)>0;
+    const warning=document.getElementById("paidFareWarning"); warning.hidden=!paid; warning.textContent=paid ? `Paid ${money(Number(booking.amount_paid||booking.price||0))}. Changing the fare will not charge or refund the customer.` : "";
+    updatePriceOverrideUi(); closeBookingView(); adminBookingFormDirty=false;
+    document.getElementById("newBookingPanel")?.scrollIntoView({behavior:"smooth"});
+}
+
+function editableBookingValues(booking) {
+    return { id:booking.id, reference:booking.booking_reference, version:Number(booking.edit_version||0), price:Number(booking.price??booking.job_price??0) };
+}
+
+function updatePriceOverrideUi() {
+    const changed = editingBooking && Number(document.getElementById("jobPrice")?.value || 0) !== Number(editingBooking.price ?? editingBooking.job_price ?? 0);
+    const matchesQuote = lastRouteQuote?.fare != null && Math.abs(Number(document.getElementById("jobPrice")?.value || 0)-Number(lastRouteQuote.fare)) < 0.005;
+    const field=document.getElementById("priceOverrideReasonField"); if(field) field.hidden=!(changed && !matchesQuote);
+    const reason=document.getElementById("priceOverrideReason"); if(reason) reason.required=Boolean(changed && !matchesQuote);
+}
+
+function cancelBookingEdit(confirmDirty=false) {
+    if (confirmDirty && adminBookingFormDirty && !confirm("Discard unsaved booking changes?")) return;
+    editingBooking=null; editInitialSnapshot=null; adminBookingFormDirty=false; customerPriceManual=false; lastRouteQuote=null;
+    const form=document.getElementById("adminBookingForm"); form?.reset();
+    document.getElementById("adminPickupStops").innerHTML=""; document.getElementById("adminDropoffStops").innerHTML="";
+    document.getElementById("bookingFormTitle").textContent="New Admin Booking"; document.getElementById("saveBookingButton").textContent="Save Job";
+    document.getElementById("cancelBookingEdit").hidden=true; document.getElementById("bookingEditNotice").hidden=true; document.getElementById("paidFareWarning").hidden=true; document.getElementById("priceOverrideReasonField").hidden=true;
+    document.getElementById("suitcases").value="0"; document.getElementById("handLuggage").value="0"; updateReturnFields(); clearRouteQuote();
+    history.replaceState({}, "", location.pathname);
+}
+
+async function saveAdminBookingEdit() {
+    const message=document.getElementById("bookingMessage"), button=document.getElementById("saveBookingButton");
+    const pickup=window.TransportAddressAutocomplete.metadata("pickupAddress"), dropoff=window.TransportAddressAutocomplete.metadata("dropoffAddress");
+    const routeChanged = document.getElementById("pickupAddress").value.trim() !== String(editingBooking.pickup_address||"").trim() || document.getElementById("dropoffAddress").value.trim() !== String(editingBooking.dropoff_address||"").trim() || JSON.stringify(collectAdminViaStops().map(s=>s.formatted_address)) !== JSON.stringify((editingBooking.via_stops||[]).map(s=>s.formatted_address));
+    if (routeChanged && (!pickup.placeId || !dropoff.placeId)) { message.textContent="Select changed pickup and destination addresses from Google suggestions."; return; }
+    if (routeChanged && !lastRouteQuote) { message.textContent="Recalculate the route before saving address changes."; return; }
+    updatePriceOverrideUi();
+    if (!document.getElementById("adminBookingForm").reportValidity()) return;
+    const price=Number(document.getElementById("jobPrice").value||0), oldPrice=Number(editingBooking.price??editingBooking.job_price??0);
+    const manualOverride=price!==oldPrice && !(lastRouteQuote?.fare!=null && Math.abs(price-Number(lastRouteQuote.fare))<0.005);
+    const changes={customer_name:document.getElementById("customerName").value.trim(),customer_email:document.getElementById("customerEmail").value.trim()||null,customer_phone:document.getElementById("customerPhone").value.trim()||null,pickup_address:pickup.formattedAddress,pickup_name:document.getElementById("pickupName").value.trim()||null,pickup_postcode:pickup.postcode,pickup_place_id:pickup.placeId,pickup_lat:pickup.latitude,pickup_lng:pickup.longitude,dropoff_address:dropoff.formattedAddress,dropoff_name:document.getElementById("dropoffName").value.trim()||null,dropoff_postcode:dropoff.postcode,dropoff_place_id:dropoff.placeId,dropoff_lat:dropoff.latitude,dropoff_lng:dropoff.longitude,journey_date:document.getElementById("journeyDate").value,journey_time:document.getElementById("journeyTime").value,passengers:Number(document.getElementById("passengers").value),suitcases:Number(document.getElementById("suitcases").value||0),hand_luggage:Number(document.getElementById("handLuggage").value||0),flight_number:document.getElementById("flightNumber").value.trim()||null,notes:document.getElementById("notes").value.trim()||null,price,driver_id:document.getElementById("driverSelect").value||null,driver_amount:document.getElementById("driverAmount").value===""?null:Number(document.getElementById("driverAmount").value),payment_method:document.getElementById("paymentMethod").value,account_customer_id:document.getElementById("paymentMethod").value==="account"?(document.getElementById("accountCustomerSelect").value||null):null,account_po_reference:document.getElementById("paymentMethod").value==="account"?(document.getElementById("accountPoReference").value.trim()||null):null,return_journey:document.getElementById("returnJourney").checked,return_date:document.getElementById("returnJourney").checked?document.getElementById("returnDate").value:null,return_time:document.getElementById("returnJourney").checked?document.getElementById("returnTime").value:null,route_distance_miles:lastRouteQuote?.miles??editingBooking.route_distance_miles,route_duration_minutes:lastRouteQuote?.minutes==null?editingBooking.route_duration_minutes:Math.round(lastRouteQuote.minutes),pricing_method:lastRouteQuote?.method||editingBooking.pricing_method};
+    button.disabled=true; message.textContent="Saving changes…";
+    const fareReason = manualOverride ? document.getElementById("priceOverrideReason").value.trim() : (price!==oldPrice ? "Route recalculated using company pricing" : null);
+    const {data,error}=await bookingsDb.rpc("admin_edit_booking",{target_company_id:adminCompanyId,target_booking_id:editingBooking.id,expected_edit_version:Number(editingBooking.edit_version||0),requested_changes:changes,requested_stops:collectAdminViaStops(),override_reason:fareReason});
+    button.disabled=false;
+    if(error){message.textContent=error.message.includes("conflict")?"This booking was changed elsewhere. Reload and review it before trying again.":`Could not save: ${error.message}`;return;}
+    const id=editingBooking.id; adminBookingFormDirty=false; cancelBookingEdit(false); await loadBookings(); message.textContent="Booking changes saved. Notify the customer or driver if required."; openBookingView(id);
+}
+
 async function createAdminBooking(event) {
 
     event.preventDefault();
+
+    if (editingBooking) return saveAdminBookingEdit(event);
 
     const message =
         document.getElementById(
@@ -1128,6 +1270,11 @@ async function createAdminBooking(event) {
                 .getElementById("notes")
                 ?.value
                 .trim() || null,
+
+        flight_number: document.getElementById("flightNumber")?.value.trim() || null,
+        return_journey: Boolean(document.getElementById("returnJourney")?.checked),
+        return_date: document.getElementById("returnJourney")?.checked ? (document.getElementById("returnDate")?.value || null) : null,
+        return_time: document.getElementById("returnJourney")?.checked ? (document.getElementById("returnTime")?.value || null) : null,
 
         booking_source:
             "admin"
@@ -1396,6 +1543,8 @@ async function openBookingView(id) {
         );
 
     if (!booking) return;
+    const editButton = document.getElementById("editBookingButton");
+    if (editButton) editButton.dataset.bookingId = booking.id;
 
     const resendButton = document.getElementById("resendBookingConfirmation");
     if (resendButton) resendButton.dataset.bookingId = booking.id;

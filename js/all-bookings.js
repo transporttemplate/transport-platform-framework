@@ -736,6 +736,7 @@ function bookingRowHtml(booking) {
         >
             View
         </button>
+        <button type="button" onclick="location.href='bookings.html?edit=${encodeURIComponent(booking.id)}'">Edit</button>
 
         ${
             isHistory

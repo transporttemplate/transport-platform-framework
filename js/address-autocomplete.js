@@ -149,6 +149,20 @@
         resolveBrowserMapsKey,
         attach,
         metadata,
+        setMetadata(inputOrId, details = {}) {
+            const input = typeof inputOrId === "string" ? document.getElementById(inputOrId) : inputOrId;
+            if (!input) return;
+            applyDetails(input, {
+                formattedAddress: details.formattedAddress || "",
+                canonicalAddress: details.canonicalAddress || details.formattedAddress || "",
+                placeId: details.placeId || "",
+                latitude: details.latitude ?? "",
+                longitude: details.longitude ?? "",
+                postcode: details.postcode || "",
+                placeName: details.placeName || ""
+            });
+        },
+        clearMetadata,
         registerProvider(provider) { if (provider && !providers.includes(provider)) providers.push(provider); }
     };
 })();

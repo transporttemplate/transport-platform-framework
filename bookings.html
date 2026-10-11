@@ -214,6 +214,9 @@
 .route-quote div{min-width:0;padding:4px 6px;border-radius:6px;background:#fff}.route-quote small{display:block;color:#64748b;font-size:9px}.route-quote strong{font-size:12px;white-space:nowrap}
 .route-quote button{min-height:34px;padding:5px 9px;white-space:nowrap;font-size:11px}
 .job-form textarea{height:52px;min-height:52px;resize:vertical}
+.edit-form-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}.edit-form-heading h3{margin:0!important}
+.booking-edit-notice,.paid-fare-warning{padding:8px 10px;border-radius:7px;background:#eff6ff;color:#1e3a8a;font-size:12px;font-weight:650}
+.paid-fare-warning{background:#fff7ed;color:#9a3412}.return-toggle{display:flex!important;align-items:center;gap:7px;min-height:34px}.return-toggle input{width:auto!important;min-height:0!important}
 .save-job-button{min-height:52px;border-radius:7px;font-weight:800;font-size:13px;box-shadow:0 3px 9px rgba(37,99,235,.16)}
 #bookingMessage{font-size:12px;font-weight:650;color:#334155}
 .form-footer-grid #bookingMessage{grid-column:1/-1}
@@ -433,7 +436,8 @@
 <div class="dispatch-grid">
 
 <section class="dispatch-panel" id="newBookingPanel">
-<h3>New Admin Booking</h3>
+<div class="edit-form-heading"><h3 id="bookingFormTitle">New Admin Booking</h3><button id="cancelBookingEdit" type="button" hidden>Cancel Edit</button></div>
+<div id="bookingEditNotice" class="booking-edit-notice" hidden></div>
 
 <form id="adminBookingForm" class="job-form">
 
@@ -455,6 +459,15 @@
 <div class="form-field"><label for="journeyTime">Pickup time</label><input id="journeyTime" type="time" required></div>
 </div>
 
+<div class="schedule-grid">
+<div class="form-field"><label for="flightNumber">Flight number</label><input id="flightNumber" maxlength="40" placeholder="Optional"></div>
+<div class="form-field"><label class="return-toggle"><input id="returnJourney" type="checkbox"> Return journey</label></div>
+</div>
+<div class="schedule-grid" id="returnFields" hidden>
+<div class="form-field"><label for="returnDate">Return date</label><input id="returnDate" type="date"></div>
+<div class="form-field"><label for="returnTime">Return time</label><input id="returnTime" type="time"></div>
+</div>
+
 <div class="passenger-luggage-grid">
 <div class="form-field"><label for="passengers">Passengers</label><input id="passengers" type="number" min="1" max="52" step="1" required inputmode="numeric" placeholder="Passengers" aria-describedby="passengersError"><span class="field-error" id="passengersError" role="alert"></span></div>
 <div class="form-field"><label for="suitcases">Suitcases</label><input id="suitcases" type="number" min="0" max="100" step="1" value="0" inputmode="numeric" placeholder="Suitcases"></div>
@@ -467,6 +480,8 @@
 <div class="form-field"><label for="jobPrice">Customer price</label><input id="jobPrice" type="number" min="0" step="0.01" placeholder="£0.00"></div>
 <div class="form-field"><label for="driverAmount">Driver amount <span class="driver-select-note">(optional)</span></label><input id="driverAmount" type="number" min="0" step="0.01" placeholder="£0.00"></div>
 </div>
+<div class="form-field" id="priceOverrideReasonField" hidden><label for="priceOverrideReason">Manual fare override reason</label><input id="priceOverrideReason" maxlength="500" placeholder="Required when changing the calculated fare"></div>
+<div id="paidFareWarning" class="paid-fare-warning" hidden></div>
 
 <div class="allocation-grid">
 <div class="form-field"><label for="driverSelect">Driver <span class="driver-select-note">(online marked)</span></label><select id="driverSelect">
@@ -493,7 +508,7 @@
 
 <div class="form-footer-grid">
 <div class="form-field"><label for="notes">Notes</label><textarea id="notes" rows="2" placeholder="Driver or booking notes"></textarea></div>
-<button class="save-job-button" type="submit">Save Job</button>
+<button id="saveBookingButton" class="save-job-button" type="submit">Save Job</button>
 <div id="bookingMessage" role="status" aria-live="polite"></div>
 </div>
 
@@ -765,7 +780,7 @@ Loading bookings…
 <strong id="viewDriverAmount">-</strong>
 </div>
 
-<div class="booking-detail-item wide">
+<div class="booking-detail-item wide" hidden>
 <label for="editDriverAmount"><small>Edit optional driver-visible / commissionable amount</small></label>
 <div class="two-col">
 <input id="editDriverAmount" type="number" min="0" step="0.01" placeholder="Leave blank for existing fare behavior">
@@ -788,7 +803,7 @@ Loading bookings…
 <strong id="viewAccount">—</strong>
 </div>
 
-<div class="booking-detail-item wide">
+<div class="booking-detail-item wide" hidden>
 <label for="editPaymentMethod"><small>Change payment method</small></label>
 <div class="two-col">
 <select id="editPaymentMethod">
@@ -898,6 +913,7 @@ Loading bookings…
 </div>
 </section>
 
+<button id="editBookingButton" type="button">Edit Booking</button>
 <button id="resendBookingConfirmation" type="button">Resend Confirmation Email</button>
 
 </div>
