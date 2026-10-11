@@ -32,8 +32,8 @@
 .bookings-page .main{min-width:0}
 .dispatch-grid{
     display:grid;
-    grid-template-columns:minmax(420px,480px) minmax(0,1fr);
-    gap:16px;
+    grid-template-columns:minmax(560px,600px) minmax(0,1fr);
+    gap:12px;
     align-items:start;
 }
 .dispatch-panel,
@@ -43,19 +43,19 @@
     border:1px solid #d9dee7;
     border-radius:10px;
 }
-.dispatch-panel{padding:18px;background:#fff;border-color:#d7dee8;box-shadow:0 8px 24px rgba(15,23,42,.06)}
-.dispatch-panel>h3{margin:0 0 16px;color:#172033;font-size:18px;letter-spacing:-.01em}
+.dispatch-panel{padding:12px 14px;background:#fff;border-color:#d7dee8;box-shadow:0 8px 24px rgba(15,23,42,.06)}
+.dispatch-panel>h3{margin:0 0 8px;color:#172033;font-size:16px;letter-spacing:-.01em}
 .map-panel{align-self:start;background:#fff;border-color:#d7dee8;overflow:hidden;box-shadow:0 8px 24px rgba(15,23,42,.06)}
 
-.job-form{display:grid;gap:12px}
+.job-form{display:grid;gap:7px}
 .job-form input,
 .job-form select,
 .job-form textarea{
     width:100%;
     box-sizing:border-box;
-    min-height:42px;
+    min-height:34px;
     margin:0;
-    padding:9px 11px;
+    padding:6px 8px;
     border:1px solid #cbd5e1;
     border-radius:8px;
     background:#fff;
@@ -65,30 +65,31 @@
 }
 .job-form input:focus,.job-form select:focus,.job-form textarea:focus{outline:0;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.13)}
 .job-form input:user-invalid{border-color:#dc2626}
-.form-field{display:grid;gap:5px;min-width:0}
-.form-field>label{color:#475569;font-size:11px;font-weight:750;letter-spacing:.025em}
+.form-field{display:grid;gap:3px;min-width:0}
+.form-field>label{color:#475569;font-size:10px;font-weight:750;line-height:1.15;letter-spacing:.02em}
 .field-error{min-height:0;color:#b91c1c;font-size:11px;font-weight:650}
 .field-error:empty{display:none}
-.two-col{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:8px;
-}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .form-heading{
-    padding-top:3px;
-    font-size:11px;
+    padding-top:1px;
+    font-size:10px;
     font-weight:800;
     color:#526174;
     letter-spacing:.08em;
 }
-.passenger-luggage-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.admin-location-group{padding:12px;border:1px solid #d8e0e9;border-radius:10px;background:#f8fafc}
-.admin-location-title{margin-bottom:4px;font-size:12px;font-weight:800;color:#475569}
-.admin-location-group label{display:block;margin:3px 0;font-size:11px;color:#475569}
-.admin-location-group input{margin-bottom:5px}
-.admin-location-group .admin-property-detail{min-height:32px;font-size:12px}
-.admin-add-stop{min-height:32px;padding:5px 8px;font-size:12px}
-.admin-extra-stops{margin-top:4px}
+.customer-grid{display:grid;grid-template-columns:1.2fr .85fr 1.35fr;gap:7px}
+.schedule-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:7px}
+.passenger-luggage-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.pricing-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.allocation-grid{display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:7px}
+.form-footer-grid{display:grid;grid-template-columns:minmax(0,1fr) 145px;gap:7px;align-items:end}
+.admin-location-group{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(140px,.8fr) auto;gap:5px 7px;align-items:end;padding:7px 8px;border:1px solid #d8e0e9;border-radius:8px;background:#f8fafc}
+.admin-location-title{grid-column:1/-1;margin:0;font-size:10px;font-weight:800;color:#475569;letter-spacing:.045em}
+.admin-location-group .form-field label{margin:0}
+.admin-location-group input{margin:0}
+.admin-location-group .admin-property-detail{min-height:34px;font-size:12px}
+.admin-add-stop{min-height:34px;padding:5px 8px;font-size:11px;white-space:nowrap}
+.admin-extra-stops{grid-column:1/-1;margin-top:0}
 .admin-stop-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px;align-items:end;padding-top:5px;margin-top:5px;border-top:1px solid #cbd5e1}
 .admin-stop-row label{grid-column:1/-1;margin:0}
 .admin-stop-row input{margin:0}
@@ -96,7 +97,7 @@
 
 #dispatchMap{
     width:100%;
-    height:340px;
+    height:300px;
 }
 .map-message{
     padding:10px 12px;
@@ -108,7 +109,7 @@
     display:flex;
     gap:12px;
     flex-wrap:wrap;
-    padding:9px 12px;
+    padding:7px 10px;
     border-bottom:1px solid #e5e7eb;
     font-size:12px;
 }
@@ -154,7 +155,7 @@
     gap:8px;
     align-items:end;
     flex-wrap:wrap;
-    padding:12px;
+    padding:7px 8px;
     background:#f6f7f9;
     border-bottom:1px solid #ddd;
 }
@@ -206,14 +207,17 @@
     grid-template-columns:repeat(3,minmax(0,1fr)) auto;
     gap:8px;
     align-items:center;
-    padding:12px;
+    padding:7px 8px;
     background:#f8fafc;
     border-top:1px solid #cbd5e1;
 }
-.route-quote div{min-width:0;padding:6px 8px;border-radius:7px;background:#fff}.route-quote small{display:block;color:#64748b;font-size:10px}.route-quote strong{font-size:14px;white-space:nowrap}
-.route-quote button{min-height:38px;padding:7px 11px;white-space:nowrap}
-.save-job-button{min-height:46px;border-radius:9px;font-weight:800;font-size:14px;box-shadow:0 4px 12px rgba(37,99,235,.18)}
+.route-quote div{min-width:0;padding:4px 6px;border-radius:6px;background:#fff}.route-quote small{display:block;color:#64748b;font-size:9px}.route-quote strong{font-size:12px;white-space:nowrap}
+.route-quote button{min-height:34px;padding:5px 9px;white-space:nowrap;font-size:11px}
+.job-form textarea{height:52px;min-height:52px;resize:vertical}
+.save-job-button{min-height:52px;border-radius:7px;font-weight:800;font-size:13px;box-shadow:0 3px 9px rgba(37,99,235,.16)}
 #bookingMessage{font-size:12px;font-weight:650;color:#334155}
+.form-footer-grid #bookingMessage{grid-column:1/-1}
+.conditional-field:has(>select[hidden]),.conditional-field:has(>input[hidden]){display:none}
 .pac-container{z-index:99999!important}
 
 /* VIEW BOOKING MODAL */
@@ -331,13 +335,17 @@
 
 @media(max-width:1050px){
     .dispatch-grid{grid-template-columns:1fr}
-    #dispatchMap{height:300px}
+    #dispatchMap{height:260px}
 }
 @media(max-width:700px){
-    .two-col{grid-template-columns:1fr}
-    .dispatch-panel{padding:14px}
+    .two-col,.customer-grid,.pricing-grid,.allocation-grid{grid-template-columns:1fr}
+    .schedule-grid{grid-template-columns:1fr 1fr}
+    .dispatch-panel{padding:12px}
+    .admin-location-group{grid-template-columns:1fr 1fr}
+    .admin-location-group .admin-location-title + .form-field{grid-column:1/-1}
+    .admin-add-stop{width:100%}
     .admin-stop-row{grid-template-columns:minmax(0,1fr) auto}
-    #dispatchMap{height:210px}
+    #dispatchMap{height:220px}
     .route-quote{grid-template-columns:1fr 1fr}.route-quote button{width:100%}
     .booking-toolbar{align-items:stretch}.booking-toolbar label{flex:1 1 140px}.booking-toolbar button{width:100%}
     .booking-detail-grid{grid-template-columns:1fr}
@@ -356,8 +364,12 @@
     .jobs-panel td.empty-row::before{content:none!important}
 }
 @media(max-width:520px){
-    .passenger-luggage-grid{grid-template-columns:1fr}
-    #dispatchMap{height:230px}
+    .passenger-luggage-grid{gap:5px}
+    .passenger-luggage-grid .form-field>label{font-size:9px;letter-spacing:0}
+    .passenger-luggage-grid input{padding-inline:6px}
+    .form-footer-grid{grid-template-columns:1fr}
+    .job-form textarea,.save-job-button{height:42px;min-height:42px}
+    #dispatchMap{height:210px}
     .route-quote{grid-template-columns:1fr 1fr}
     .route-quote button{grid-column:1/-1}
 }
@@ -427,19 +439,18 @@
 
 <div class="form-heading">CUSTOMER</div>
 
-<div class="two-col">
+<div class="customer-grid">
 <div class="form-field"><label for="customerName">Customer name</label><input id="customerName" required placeholder="Full name"></div>
 <div class="form-field"><label for="customerPhone">Phone</label><input id="customerPhone" inputmode="tel" placeholder="Phone number"></div>
-</div>
-
 <div class="form-field"><label for="customerEmail">Email</label><input id="customerEmail" type="email" placeholder="Email address"></div>
+</div>
 
 <div class="form-heading">JOURNEY</div>
 
-<div class="admin-location-group"><div class="admin-location-title">PICKUP</div><label for="pickupName">Property/detail <small>(optional)</small></label><input id="pickupName" class="admin-property-detail" placeholder="House, flat, unit or reception"><label for="pickupAddress">Pickup address</label><input id="pickupAddress" required placeholder="Search address, postcode or place" autocomplete="off"><button id="addAdminPickup" class="admin-add-stop" type="button">+ Add pickup</button><div id="adminPickupStops" class="admin-extra-stops"></div></div>
-<div class="admin-location-group"><div class="admin-location-title">DROP-OFF</div><label for="dropoffName">Property/detail <small>(optional)</small></label><input id="dropoffName" class="admin-property-detail" placeholder="House, flat, unit or reception"><label for="dropoffAddress">Drop-off address</label><input id="dropoffAddress" required placeholder="Search address, postcode or place" autocomplete="off"><button id="addAdminDropoff" class="admin-add-stop" type="button">+ Add drop-off</button><div id="adminDropoffStops" class="admin-extra-stops"></div></div>
+<div class="admin-location-group"><div class="admin-location-title">PICKUP</div><div class="form-field"><label for="pickupAddress">Pickup address</label><input id="pickupAddress" required placeholder="Search address, postcode or place" autocomplete="off"></div><div class="form-field"><label for="pickupName">Property/detail <small>(optional)</small></label><input id="pickupName" class="admin-property-detail" placeholder="House, flat or reception"></div><button id="addAdminPickup" class="admin-add-stop" type="button">+ Pickup</button><div id="adminPickupStops" class="admin-extra-stops"></div></div>
+<div class="admin-location-group"><div class="admin-location-title">DESTINATION</div><div class="form-field"><label for="dropoffAddress">Destination address</label><input id="dropoffAddress" required placeholder="Search address, postcode or place" autocomplete="off"></div><div class="form-field"><label for="dropoffName">Property/detail <small>(optional)</small></label><input id="dropoffName" class="admin-property-detail" placeholder="House, flat or reception"></div><button id="addAdminDropoff" class="admin-add-stop" type="button">+ Drop-off</button><div id="adminDropoffStops" class="admin-extra-stops"></div></div>
 
-<div class="two-col">
+<div class="schedule-grid">
 <div class="form-field"><label for="journeyDate">Journey date</label><input id="journeyDate" type="date" required></div>
 <div class="form-field"><label for="journeyTime">Pickup time</label><input id="journeyTime" type="time" required></div>
 </div>
@@ -449,46 +460,42 @@
 <div class="form-field"><label for="suitcases">Suitcases</label><input id="suitcases" type="number" min="0" max="100" step="1" value="0" inputmode="numeric" placeholder="Suitcases"></div>
 <div class="form-field"><label for="handLuggage">Hand luggage</label><input id="handLuggage" type="number" min="0" max="100" step="1" value="0" inputmode="numeric" placeholder="Hand luggage"></div>
 </div>
-<div class="two-col">
+
+<div class="form-heading">PRICING &amp; ALLOCATION</div>
+
+<div class="pricing-grid">
 <div class="form-field"><label for="jobPrice">Customer price</label><input id="jobPrice" type="number" min="0" step="0.01" placeholder="£0.00"></div>
-<div class="form-field"><label for="driverAmount">Driver amount <span class="driver-select-note">(optional)</span></label><input id="driverAmount" type="number" min="0" step="0.01" placeholder="£0.00"><span class="driver-select-note">Driver-visible commission base.</span></div>
+<div class="form-field"><label for="driverAmount">Driver amount <span class="driver-select-note">(optional)</span></label><input id="driverAmount" type="number" min="0" step="0.01" placeholder="£0.00"></div>
 </div>
 
-<div class="form-heading">DRIVER</div>
-
-<div class="form-field"><label for="driverSelect">Assign driver</label><select id="driverSelect">
+<div class="allocation-grid">
+<div class="form-field"><label for="driverSelect">Driver <span class="driver-select-note">(online marked)</span></label><select id="driverSelect">
 <option value="">Unassigned</option>
 </select></div>
-
-<div class="driver-select-note">
-Drivers for this company only. Online drivers are marked ONLINE.
-</div>
-
-<div class="two-col">
-
 <div class="form-field"><label for="paymentMethod">Payment method</label><select id="paymentMethod">
 <option value="cash">Pay in car / Cash</option>
 <option value="card">Card</option>
 <option value="account">Account</option>
 </select></div>
-
-<select id="accountCustomerSelect" hidden>
-<option value="">Select account customer</option>
-</select>
-<input id="accountPoReference" hidden placeholder="Account PO / reference">
-
 <div class="form-field"><label for="bookingStatus">Booking status</label><select id="bookingStatus">
 <option value="waiting">Waiting</option>
 <option value="booked">Booked</option>
 <option value="assigned">Assigned</option>
 </select></div>
-
 </div>
 
-<div class="form-field"><label for="notes">Notes</label><textarea id="notes" rows="3" placeholder="Driver or booking notes"></textarea></div>
+<div class="allocation-grid">
+<div class="form-field conditional-field"><label for="accountCustomerSelect">Account customer</label><select id="accountCustomerSelect" hidden>
+<option value="">Select account customer</option>
+</select></div>
+<div class="form-field conditional-field"><label for="accountPoReference">Account PO / reference</label><input id="accountPoReference" hidden placeholder="Account PO / reference"></div>
+</div>
 
+<div class="form-footer-grid">
+<div class="form-field"><label for="notes">Notes</label><textarea id="notes" rows="2" placeholder="Driver or booking notes"></textarea></div>
 <button class="save-job-button" type="submit">Save Job</button>
 <div id="bookingMessage" role="status" aria-live="polite"></div>
+</div>
 
 </form>
 </section>

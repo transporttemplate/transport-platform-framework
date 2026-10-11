@@ -32,9 +32,18 @@ test("admin luggage controls are bounded and persisted in the booking payload", 
 });
 
 test("admin booking layout has coordinated responsive form and map panels", () => {
+    assert.match(html, /class="schedule-grid"/);
+    assert.match(html, /\.schedule-grid\{display:grid;grid-template-columns:1\.15fr \.85fr/);
     assert.match(html, /class="passenger-luggage-grid"/);
+    assert.match(html, /\.passenger-luggage-grid\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+    assert.match(html, /min-height:34px/);
+    assert.match(html, /class="customer-grid"/);
+    assert.match(html, /class="allocation-grid"/);
+    assert.match(html, /class="form-footer-grid"/);
     assert.match(html, /\.map-panel\{align-self:start/);
-    assert.match(html, /@media\(max-width:520px\)[\s\S]*\.passenger-luggage-grid\{grid-template-columns:1fr\}/);
+    assert.match(html, /@media\(max-width:520px\)[\s\S]*\.form-footer-grid\{grid-template-columns:1fr\}/);
+    assert.doesNotMatch(html, /@media\(max-width:520px\)[\s\S]*\.passenger-luggage-grid\{grid-template-columns:1fr\}/);
+    assert.match(html, /\.admin-location-group \.admin-location-title \+ \.form-field\{grid-column:1\/-1\}/);
     assert.match(html, /id="dispatchMap"/);
     assert.match(html, /id="recalculateQuote"/);
     assert.match(html, /class="driver-dot"/);
