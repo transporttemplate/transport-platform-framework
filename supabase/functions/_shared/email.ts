@@ -56,7 +56,8 @@ export function formatCompanyLocalDateTime(dateValue: unknown, timeValue: unknow
   return { date: formattedDate, time: formattedTime, dateTime: `${formattedDate} at ${formattedTime}` };
 }
 
-export type EmailOptions = { html?: string; replyTo?: string; senderName?: string; senderEmail?: string };
+export type EmailOptions = { html?: string; replyTo?: string; senderName?: string; senderEmail?: string; idempotencyKey?: string };
+export class EmailDeliveryUncertainError extends Error {}
 
 export async function deliverEmail(to: string, subject: string, text: string, options: EmailOptions = {}) {
   const apiKey = Deno.env.get("EMAIL_PROVIDER_API_KEY");
@@ -84,7 +85,18 @@ export async function deliverEmail(to: string, subject: string, text: string, op
     sender: companySenderEmail ? "company_valid" : "global_fallback",
     reply_to: replyToResolution,
   });
-  const response = await fetch(endpoint, { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+  const headers: Record<string, string> = { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" };
+  const idempotencyKey = String(options.idempotencyKey || "").trim();
+  if (idempotencyKey) {
+    if (idempotencyKey.length > 256) throw new Error("Email idempotency key is too long.");
+    headers["Idempotency-Key"] = idempotencyKey;
+  }
+  let response: Response;
+  try {
+    response = await fetch(endpoint, { method: "POST", headers, body: JSON.stringify(payload) });
+  } catch {
+    throw new EmailDeliveryUncertainError("Email provider response was not received; manual review is required.");
+  }
   console.info("Email provider responded", { provider: providerName(endpoint), status: response.status });
   const responseText = await response.text();
   let result: Record<string, unknown> = {};

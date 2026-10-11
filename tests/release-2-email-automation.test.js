@@ -12,6 +12,9 @@ const settings = read('js/settings-email.js');
 const usageClient = read('js/email-usage.js');
 const adminNavigation = read('js/admin.js');
 const hotfixMigration = read('supabase/migrations/202610110003_email_service_role_grants.sql');
+const schedulerMigration = read('supabase/migrations/202610110005_email_scheduler_safety.sql');
+const sharedEmail = read('supabase/functions/_shared/email.ts');
+const schedulerEndpoint = read('api/email-dispatcher-cron.js');
 
 test('driver emails expose one driver amount with customer financial fields blank', () => {
   assert.match(driverEmail, /driver_amount:\s*money\(booking\.driver_amount == null \? total : booking\.driver_amount\)/);
@@ -30,38 +33,38 @@ test('all five company reminder controls are persisted with safe defaults', () =
 });
 
 test('dispatcher implements 24h office, 12h driver and 48h plus 24h unassigned windows', () => {
-  assert.match(dispatcher, /minutes<=1440/);
-  assert.match(dispatcher, /minutes<=720/);
-  assert.match(dispatcher, /minutes<=2880/);
+  assert.match(dispatcher, /inWindow\(minutes, 1440\)/);
+  assert.match(dispatcher, /inWindow\(minutes, 720\)/);
+  assert.match(dispatcher, /inWindow\(minutes, 2880\)/);
   assert.match(dispatcher, /office_booking_reminder_24h/);
   assert.match(dispatcher, /driver_booking_reminder_12h/);
 });
 
 test('dispatcher suppresses cancelled, completed, no-show and past-pickup reminders', () => {
-  assert.match(dispatcher, /"completed","cancelled","canceled","no_show"/);
-  assert.match(dispatcher, /journey\.getTime\(\)<=Date\.now\(\)/);
+  assert.match(dispatcher, /"completed", "cancelled", "canceled", "no_show"/);
+  assert.match(dispatcher, /journey\.getTime\(\) <= Date\.now\(\)/);
 });
 
 test('reassignment and unassigned state are revalidated at delivery time', () => {
-  assert.match(dispatcher, /message\.category\.startsWith\("unassigned"\)&&booking\.driver_id/);
-  assert.match(dispatcher, /message\.recipient_type==="driver"&&\(!driver/);
+  assert.match(dispatcher, /message\.category\.startsWith\("unassigned"\) && booking\.driver_id/);
+  assert.match(dispatcher, /message\.recipient_type === "driver" && \(!driver/);
 });
 
 test('document alerts are office-only and exactly three calendar days ahead', () => {
-  assert.match(dispatcher, /const target=addDays\(today,3\)/);
-  assert.match(dispatcher, /"driver_document_expiry","office"/);
+  assert.match(dispatcher, /const target = addDays\(today, 3\)/);
+  assert.match(dispatcher, /"driver_document_expiry", "office"/);
   assert.match(migration, /dbs_recheck/);
 });
 
 test('timezone conversion is explicit and defaults safely to Europe London', () => {
   assert.match(dispatcher, /Intl\.DateTimeFormat/);
-  assert.match(dispatcher, /return"Europe\/London"/);
-  assert.match(dispatcher, /represented=Date\.UTC/);
+  assert.match(dispatcher, /return "Europe\/London"/);
+  assert.match(dispatcher, /represented = Date\.UTC/);
 });
 
 test('queue identity is stable and atomically unique per company', () => {
   assert.match(migration, /unique \(company_id, idempotency_key\)/);
-  assert.match(dispatcher, /onConflict:"company_id,idempotency_key",ignoreDuplicates:true/);
+  assert.match(dispatcher, /onConflict: "company_id,idempotency_key", ignoreDuplicates: true/);
   assert.match(migration, /for update skip locked/);
 });
 
@@ -72,7 +75,7 @@ test('overlapping claims recover safely and remain bounded', () => {
 });
 
 test('retry schedule is 5 minutes, 30 minutes and 2 hours with four attempts maximum', () => {
-  assert.match(dispatcher, /\[0,5,30,120\]\[attempt\]/);
+  assert.match(dispatcher, /\[0, 5, 30, 120\]\[attempt\]/);
   assert.match(migration, /max_attempts integer not null default 4/);
 });
 
@@ -86,8 +89,43 @@ test('webhook verifies signed raw payload and resolves tenancy only by provider 
 
 test('quota is fetched server-side and dispatch halts at 95 percent', () => {
   assert.match(dispatcher, /https:\/\/api\.resend\.com\/usage/);
-  assert.match(dispatcher, /ratio>=\.95/);
+  assert.match(dispatcher, /limit \* \.95 - used/);
+  assert.match(dispatcher, /emails\?\.daily/);
+  assert.match(dispatcher, /emails\?\.monthly/);
   assert.doesNotMatch(read('js/email-usage.js'), /EMAIL_PROVIDER_API_KEY/);
+});
+
+test('scheduler is server-only, authenticated twice and disabled by default', () => {
+  assert.match(schedulerEndpoint, /process\.env\.CRON_SECRET/);
+  assert.match(schedulerEndpoint, /process\.env\.EMAIL_DISPATCHER_SECRET/);
+  assert.match(schedulerEndpoint, /EMAIL_AUTOMATION_ENABLED !== "true"/);
+  assert.doesNotMatch(schedulerEndpoint, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(dispatcher, /EMAIL_AUTOMATION_ENABLED/);
+  assert.match(dispatcher, /EMAIL_AUTOMATION_NOT_BEFORE/);
+  assert.equal(fs.existsSync('vercel.json'), false, 'a deployed cron would activate automatic sending');
+});
+
+test('provider and database duplicate controls cover overlaps, retries and uncertain sends', () => {
+  assert.match(sharedEmail, /Idempotency-Key/);
+  assert.match(dispatcher, /idempotencyKey: `reminder\/\$\{message\.id\}`/);
+  assert.match(schedulerMigration, /for update skip locked/);
+  assert.match(schedulerMigration, /claimed_at >= now\(\)-interval '23 hours'/);
+  assert.match(schedulerMigration, /state='uncertain'/);
+  assert.match(schedulerMigration, /complete_email_attempt/);
+});
+
+test('queued work revalidates company, settings, cancellation, reassignment and office recipient', () => {
+  assert.match(dispatcher, /company\?\.company_status !== "active"/);
+  assert.match(dispatcher, /reminderAllowed\(settings, message\.category\)/);
+  assert.match(dispatcher, /document\.expiry_date !== addDays/);
+  assert.match(dispatcher, /message\.recipient_type === "office"/);
+});
+
+test('dispatcher records sanitised run monitoring while telemetry cleanup remains unscheduled', () => {
+  assert.match(schedulerMigration, /create table if not exists public\.email_dispatch_runs/);
+  assert.match(schedulerMigration, /revoke all on public\.email_dispatch_runs from public,anon,authenticated/);
+  assert.match(dispatcher, /provider_usage_unavailable/);
+  assert.doesNotMatch(schedulerMigration, /delete_expired_email_telemetry|cron\.schedule/);
 });
 
 test('tenant RLS and aggregate-only platform reporting are explicit', () => {
