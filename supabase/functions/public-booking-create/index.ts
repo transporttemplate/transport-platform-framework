@@ -212,12 +212,12 @@ Deno.serve(async (request) => {
       account_customer_id: account?.id || null,
       account_po_reference: account ? clean(booking.account_po_reference) : null,
       booking_source: "website",
-      pickup_address: route.origin.formattedAddress,
+      pickup_address: route.origin.displayAddress,
       pickup_postcode: route.origin.postcode,
       pickup_place_id: route.origin.placeId,
       pickup_lat: route.origin.latitude,
       pickup_lng: route.origin.longitude,
-      dropoff_address: route.destination.formattedAddress,
+      dropoff_address: route.destination.displayAddress,
       dropoff_postcode: route.destination.postcode,
       dropoff_place_id: route.destination.placeId,
       dropoff_lat: route.destination.latitude,
@@ -266,7 +266,7 @@ Deno.serve(async (request) => {
         stop_order: stopIndex + 1,
         label: clean(stop.label) || "Via",
         address_name: clean(stop.address_name),
-        formatted_address: clean(stop.formattedAddress),
+        formatted_address: clean(stop.displayAddress),
         postcode: clean(stop.postcode),
         latitude: numberOrNull(stop.latitude),
         longitude: numberOrNull(stop.longitude),
@@ -481,10 +481,15 @@ async function verifiedLocation(source: Row | null, address: unknown, apiKey: st
   const location = result.results?.[0];
   if (!location?.place_id || !location?.geometry?.location) throw new ApiError(400, "A journey address could not be verified");
   const component = location.address_components?.find((item: Row) => item.types?.includes("postal_code"));
+  const canonicalAddress = String(location.formatted_address || address || "");
+  const selectedDisplayAddress = clean(placeId)
+    ? String(address || "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 300)
+    : "";
   return {
     label: clean(source?.label) || "Via",
     address_name: clean(source?.address_name),
-    formattedAddress: String(location.formatted_address || address || ""),
+    formattedAddress: canonicalAddress,
+    displayAddress: String(selectedDisplayAddress || canonicalAddress),
     postcode: String(component?.long_name || ""),
     placeId: String(location.place_id),
     latitude: Number(location.geometry.location.lat),

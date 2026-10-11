@@ -2074,7 +2074,10 @@ async function calculateRouteQuote(forcePrice) {
 
 function estimateAdminFare(miles, origin, destination) {
     const passengers = Number(document.getElementById("passengers")?.value || 1);
-    const text = `${origin} ${destination}`.toLowerCase();
+    const pickup = window.TransportAddressAutocomplete.metadata("pickupAddress");
+    const dropoff = window.TransportAddressAutocomplete.metadata("dropoffAddress");
+    const text = [origin, destination, pickup.placeName, dropoff.placeName, pickup.displayAddress, dropoff.displayAddress]
+        .filter(Boolean).join(" ").toLowerCase();
     const airport = quoteSettings.airportpricing === true
         ? quoteAirports.find(item => [item.name, item.code].filter(Boolean).some(value => text.includes(String(value).toLowerCase())))
         : null;

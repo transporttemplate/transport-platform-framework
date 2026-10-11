@@ -64,12 +64,22 @@
         delete input.dataset.lng;
         delete input.dataset.postcode;
         delete input.dataset.placeName;
+        delete input.dataset.displayAddress;
+        delete input.dataset.canonicalAddress;
     }
 
-    function placeDetails(place) {
+    function displayAddress(selectedLabel, fallback) {
+        return String(selectedLabel || fallback || "")
+            .trim()
+            .replace(/,\s*UK$/i, "");
+    }
+
+    function placeDetails(place, selectedLabel) {
         const location = place?.geometry?.location;
+        const canonicalAddress = place?.formatted_address || place?.name || "";
         return {
-            formattedAddress: place?.formatted_address || place?.name || "",
+            formattedAddress: displayAddress(selectedLabel, canonicalAddress),
+            canonicalAddress,
             placeId: place?.place_id || "",
             latitude: location ? location.lat() : null,
             longitude: location ? location.lng() : null,
@@ -85,6 +95,8 @@
         input.dataset.lng = details.longitude ?? "";
         input.dataset.postcode = details.postcode;
         input.dataset.placeName = details.placeName;
+        input.dataset.displayAddress = details.formattedAddress;
+        input.dataset.canonicalAddress = details.canonicalAddress;
     }
 
     function attach(inputOrId, options = {}) {
@@ -110,7 +122,8 @@
         autocomplete.addListener("place_changed", () => {
             const place = autocomplete.getPlace();
             if (!place?.geometry?.location) return;
-            const details = placeDetails(place);
+            const selectedLabel = input.value;
+            const details = placeDetails(place, selectedLabel);
             applyDetails(input, details);
             options.onSelect?.(details, input, place);
         });
@@ -125,7 +138,9 @@
             latitude: input?.dataset.lat ? Number(input.dataset.lat) : null,
             longitude: input?.dataset.lng ? Number(input.dataset.lng) : null,
             postcode: input?.dataset.postcode || null,
-            placeName: input?.dataset.placeName || null
+            placeName: input?.dataset.placeName || null,
+            displayAddress: input?.dataset.displayAddress || input?.value.trim() || "",
+            canonicalAddress: input?.dataset.canonicalAddress || null
         };
     }
 
