@@ -62,6 +62,8 @@ function bindBookingEvents() {
     document.getElementById("editPaymentMethod")?.addEventListener("change", updateEditAccountSelector);
 
     document.getElementById("passengers")?.addEventListener("change", () => calculateRouteQuote(false));
+    document.getElementById("passengers")?.addEventListener("input", clearPassengerValidation);
+    document.getElementById("passengers")?.addEventListener("invalid", showPassengerValidation);
     document.getElementById("jobPrice")?.addEventListener("input", () => {
         if (!settingCustomerPrice) customerPriceManual = true;
     });
@@ -952,6 +954,37 @@ async function createAdminBooking(event) {
             "Saving…";
     }
 
+    const passengersInput = document.getElementById("passengers");
+    const passengers = Number(passengersInput?.value);
+    const passengerError = document.getElementById("passengersError");
+    if (!passengersInput?.value || !Number.isInteger(passengers) || passengers < 1 || passengers > 52) {
+        const validationMessage = !passengersInput?.value
+            ? "Enter the number of passengers."
+            : "Passengers must be a whole number between 1 and 52.";
+        passengersInput?.setCustomValidity(validationMessage);
+        if (passengerError) passengerError.textContent = validationMessage;
+        if (message) message.textContent = validationMessage;
+        passengersInput?.focus();
+        passengersInput?.reportValidity();
+        return;
+    }
+
+    const luggageValues = {};
+    for (const [id, key, label] of [["suitcases", "suitcases", "Suitcases"], ["handLuggage", "hand_luggage", "Hand luggage"]]) {
+        const input = document.getElementById(id);
+        const value = Number(input?.value ?? 0);
+        if (!Number.isInteger(value) || value < 0 || value > 100) {
+            const validationMessage = `${label} must be a whole number between 0 and 100.`;
+            input?.setCustomValidity(validationMessage);
+            if (message) message.textContent = validationMessage;
+            input?.focus();
+            input?.reportValidity();
+            return;
+        }
+        input?.setCustomValidity("");
+        luggageValues[key] = value;
+    }
+
     const driverId =
         document
             .getElementById("driverSelect")
@@ -1054,12 +1087,11 @@ async function createAdminBooking(event) {
                 .getElementById("journeyTime")
                 ?.value || null,
 
-        passengers:
-            Number(
-                document
-                    .getElementById("passengers")
-                    ?.value || 1
-            ),
+        passengers,
+
+        suitcases: luggageValues.suitcases,
+
+        hand_luggage: luggageValues.hand_luggage,
 
         price:
             document
@@ -1152,6 +1184,8 @@ async function createAdminBooking(event) {
     }
 
     event.target.reset();
+    document.getElementById("suitcases").value = "0";
+    document.getElementById("handLuggage").value = "0";
     adminBookingFormDirty = false;
     customerPriceManual = false;
     clearRouteQuote();
@@ -1164,6 +1198,24 @@ async function createAdminBooking(event) {
     populateDriverDropdown();
 
     await loadBookings();
+}
+
+function clearPassengerValidation() {
+    const input = document.getElementById("passengers");
+    input?.setCustomValidity("");
+    const error = document.getElementById("passengersError");
+    if (error) error.textContent = "";
+}
+
+function showPassengerValidation() {
+    const input = document.getElementById("passengers");
+    if (!input) return;
+    const message = input.value
+        ? "Passengers must be a whole number between 1 and 52."
+        : "Enter the number of passengers.";
+    input.setCustomValidity(message);
+    const error = document.getElementById("passengersError");
+    if (error) error.textContent = message;
 }
 
 
