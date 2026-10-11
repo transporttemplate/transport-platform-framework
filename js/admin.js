@@ -122,6 +122,8 @@ function initialiseAdminNavigation() {
     if (!sidebar) return;
     sidebar.id ||= "adminSidebar";
 
+    initialiseEmailNavigation(sidebar);
+
     if (!sidebar.querySelector('a[href="contracts.html"]')) {
         const customersLink = sidebar.querySelector('a[href="customers.html"]');
         const link = document.createElement("a");
@@ -174,6 +176,39 @@ function initialiseAdminNavigation() {
     sidebar.querySelectorAll("a").forEach(link => link.addEventListener("click", close));
     document.addEventListener("keydown", event => { if (event.key === "Escape") close(); });
     window.addEventListener("resize", () => { if (window.innerWidth > 900) close(); });
+}
+
+function initialiseEmailNavigation(sidebar) {
+    if (sidebar.querySelector(".admin-email-nav")) return;
+    const current = location.pathname.split("/").pop() || "";
+    const entries = [
+        ["email-usage.html", "Email Usage"],
+        ["email-templates.html#delivery-history", "Delivery History"],
+        ["email-templates.html", "Email Templates"],
+        ["settings-email.html", "Email Settings"],
+    ];
+    for (const link of sidebar.querySelectorAll('a[href^="email-usage.html"],a[href^="email-templates.html"],a[href^="settings-email.html"]')) link.remove();
+    const group = document.createElement("nav");
+    group.className = "admin-email-nav";
+    group.setAttribute("aria-label", "Emails");
+    const heading = document.createElement("span");
+    heading.className = "admin-nav-heading";
+    heading.textContent = "Emails";
+    group.appendChild(heading);
+    for (const [href, label] of entries) {
+        const link = document.createElement("a");
+        link.href = href;
+        link.textContent = label;
+        const page = href.split("#")[0];
+        if (current === page && !(current === "email-templates.html" && href.includes("#"))) link.classList.add("active");
+        group.appendChild(link);
+    }
+    const settingsLink = sidebar.querySelector('a[href^="settings.html"]');
+    sidebar.insertBefore(group, settingsLink || null);
+    if (current === "email-templates.html") {
+        const deliveryHeading = [...document.querySelectorAll("h3")].find(heading => heading.textContent.trim() === "Recent deliveries");
+        if (deliveryHeading?.parentElement) deliveryHeading.parentElement.id = "delivery-history";
+    }
 }
 
 async function loadAdminCompanyTheme() {

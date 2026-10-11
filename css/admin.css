@@ -71,6 +71,13 @@ body{
     color:#fff;
 }
 
+.admin-email-nav{margin:10px 0;padding:8px 0;border-top:1px solid rgba(255,255,255,.18);border-bottom:1px solid rgba(255,255,255,.18)}
+.admin-email-nav .admin-nav-heading{display:block;padding:4px 14px 6px;color:rgba(255,255,255,.7);font-size:.72rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase}
+.admin-email-nav a{padding-left:22px}
+.email-usage-status{margin:0 0 14px;padding:10px 12px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff;color:#1e3a8a}
+.email-usage-status.is-error{border-color:#fecaca;background:#fef2f2;color:#991b1b}
+.usage-unavailable{color:#92400e}
+
 .main{
     padding:30px;
 }

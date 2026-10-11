@@ -9,6 +9,9 @@ const webhook = read('supabase/functions/resend-webhook/index.ts');
 const usage = read('supabase/functions/email-usage/index.ts');
 const migration = read('supabase/migrations/202610110002_email_automation.sql');
 const settings = read('js/settings-email.js');
+const usageClient = read('js/email-usage.js');
+const adminNavigation = read('js/admin.js');
+const hotfixMigration = read('supabase/migrations/202610110003_email_service_role_grants.sql');
 
 test('driver emails expose one driver amount with customer financial fields blank', () => {
   assert.match(driverEmail, /driver_amount:\s*money\(booking\.driver_amount == null \? total : booking\.driver_amount\)/);
@@ -102,4 +105,23 @@ test('retention cleanup is available but is not scheduled', () => {
   assert.match(migration, /delete_expired_email_telemetry/);
   assert.match(migration, /interval '12 months'/);
   assert.doesNotMatch(migration, /cron\.schedule/);
+});
+
+test('server-side email telemetry access is explicitly granted without weakening tenant RLS', () => {
+  assert.match(hotfixMigration, /grant select, insert, update, delete on public\.driver_documents, public\.email_messages, public\.email_attempts to service_role/);
+  assert.doesNotMatch(hotfixMigration, /to anon|disable row level security/i);
+});
+
+test('Email Usage reports sanitised failures without hiding existing dashboard data', () => {
+  assert.match(usageClient, /usageErrorMessage/);
+  assert.match(usageClient, /Provider quota unavailable/);
+  assert.match(usageClient, /Company delivery history above remains available and is not a zero-usage result/);
+  assert.doesNotMatch(usageClient, /alert\(/);
+  assert.doesNotMatch(usageClient, /EMAIL_PROVIDER_API_KEY|SUPABASE_SERVICE_ROLE_KEY/);
+});
+
+test('Admin navigation provides one reusable Emails section and keeps driver documents separate', () => {
+  for (const label of ['Email Usage', 'Delivery History', 'Email Templates', 'Email Settings']) assert.ok(adminNavigation.includes(label));
+  assert.match(adminNavigation, /aria-label", "Emails"/);
+  assert.doesNotMatch(adminNavigation, /Driver Documents/);
 });
