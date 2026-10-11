@@ -114,8 +114,11 @@ async function deliverQueued(db: any, message: Row) {
     const permanent = error instanceof PermanentError || /invalid|suppression|not found|no longer eligible|invalid[_ ]idempotent/i.test(text);
     const ambiguous = error instanceof EmailDeliveryUncertainError;
     if (ambiguous) {
-      await completeAttempt(db, message, attempt, "uncertain", "uncertain", null, text, null);
-      return { id: message.id, status: "uncertain" };
+      const final = attempt >= 4;
+      const delay = [0, 5, 30, 120][attempt] || 120;
+      const next = new Date(Date.now() + delay * 60000).toISOString();
+      await completeAttempt(db, message, attempt, "uncertain", final ? "uncertain" : "failed", null, text, final ? null : next);
+      return { id: message.id, status: final ? "uncertain" : "retry_scheduled" };
     }
     const final = permanent || attempt >= 4;
     const delay = [0, 5, 30, 120][attempt] || 120;

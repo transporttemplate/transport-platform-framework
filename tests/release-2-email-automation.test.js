@@ -112,6 +112,8 @@ test('provider and database duplicate controls cover overlaps, retries and uncer
   assert.match(schedulerMigration, /claimed_at >= now\(\)-interval '23 hours'/);
   assert.match(schedulerMigration, /state='uncertain'/);
   assert.match(schedulerMigration, /complete_email_attempt/);
+  assert.match(dispatcher, /EmailDeliveryUncertainError/);
+  assert.match(dispatcher, /final \? "uncertain" : "failed"/);
 });
 
 test('queued work revalidates company, settings, cancellation, reassignment and office recipient', () => {
