@@ -29,7 +29,7 @@ Deno.serve(async request => {
       today: countSince(rows, now - 86400000), week: countSince(rows, now - 7 * 86400000),
       month: countMonth(rows), year: rows.length,
       pending: rows.filter(row => ["pending", "processing", "delayed"].includes(row.state)).length,
-      failed: rows.filter(row => ["failed", "bounced", "complained"].includes(row.state)).length,
+      failed: rows.filter(row => ["failed", "bounced", "complained", "suppressed"].includes(row.state)).length,
       delivered: rows.filter(row => row.state === "delivered").length,
       accepted: rows.filter(row => ["accepted", "delivered"].includes(row.state)).length,
       retries: Math.max(0, startedAttempts - rows.filter(row => row.source === "queue").length),
@@ -69,7 +69,7 @@ function legacyCategory(key: string, type: string) { if (key?.includes("invoice"
 function platformAggregate(companies: Row[], messages: Row[], legacy: Row[]) {
   return companies.map(company => {
     const rows = combine(messages.filter(row => row.company_id === company.id), legacy.filter(row => row.company_id === company.id));
-    return { company_code: company.company_code, company_name: company.trading_name || company.name, total: rows.length, month: countMonth(rows), accepted: rows.filter(row => ["accepted", "delivered"].includes(row.state)).length, failed: rows.filter(row => ["failed", "bounced", "complained"].includes(row.state)).length, categories: group(rows, "category") };
+    return { company_code: company.company_code, company_name: company.trading_name || company.name, total: rows.length, month: countMonth(rows), accepted: rows.filter(row => ["accepted", "delivered"].includes(row.state)).length, failed: rows.filter(row => ["failed", "bounced", "complained", "suppressed"].includes(row.state)).length, categories: group(rows, "category") };
   });
 }
 async function resendUsage() {

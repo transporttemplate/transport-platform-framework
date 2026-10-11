@@ -80,7 +80,7 @@ test('webhook verifies signed raw payload and resolves tenancy only by provider 
   assert.match(webhook, /request\.text\(\)/);
   assert.match(webhook, /svix-signature/);
   assert.match(webhook, /crypto\.subtle\.sign/);
-  assert.match(webhook, /\.eq\("provider_message_id",providerId\)/);
+  assert.match(webhook, /p_provider_message_id: providerId/);
   assert.doesNotMatch(webhook, /company_id.*event/);
 });
 
