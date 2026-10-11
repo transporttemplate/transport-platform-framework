@@ -83,14 +83,18 @@ Deno.serve(async (request) => {
       const template = (templates || []).find((row: Row) => row.template_key === recipient.template);
       if (template?.active === false) { sent.push({ recipient_type: recipient.type, status: "template_disabled" }); continue; }
       const recipientValues = { ...values, driver_name: recipient.driver?.full_name || values.driver_name };
+      const renderValues = recipient.type === "driver"
+        ? { ...recipientValues, price: "", amount_paid: "", balance_due: "", payment_method: "", payment_status: "", payment_summary: "" }
+        : recipientValues;
       const defaults = defaultTemplate(recipient.template);
-      const subject = render(template?.subject || defaults.subject, recipientValues);
+      const subject = render(template?.subject || defaults.subject, renderValues);
       const templateBody = template?.body || defaults.body;
-      const text = render(templateBody, recipientValues);
+      const text = render(templateBody, renderValues).replace(/\n{3,}/g, "\n\n").trim();
       const htmlText = recipient.type === "customer"
-        ? render(templateBody, { ...recipientValues, journey_summary: "", payment_summary: "" }).replace(/\n{3,}/g, "\n\n").trim()
+        ? render(templateBody, { ...renderValues, journey_summary: "", payment_summary: "" }).replace(/\n{3,}/g, "\n\n").trim()
         : text;
-      const html = brandedEmail(settings, `<div style="font-size:16px">${textToHtml(htmlText)}</div>${journeyHtml(booking, stopsResult.data || [], settings, String(recipientValues.journey_datetime || ""))}${paymentHtml(booking, settings)}`);
+      const financialHtml = recipient.type === "driver" ? "" : paymentHtml(booking, settings);
+      const html = brandedEmail(settings, `<div style="font-size:16px">${textToHtml(htmlText)}</div>${journeyHtml(booking, stopsResult.data || [], settings, String(recipientValues.journey_datetime || ""))}${financialHtml}`);
       const companyEmail = companyEmailAddress(settings);
       try {
         const result = await logDelivery(companyId, recipient.template, recipient.email, {

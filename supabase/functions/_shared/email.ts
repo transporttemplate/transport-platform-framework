@@ -104,7 +104,19 @@ export async function deliverEmail(to: string, subject: string, text: string, op
 
 export async function logDelivery(companyId: string, templateKey: string, recipient: string, links: Record<string, unknown>, task: () => Promise<string | null>) {
   const db = adminClient();
-  const fullRecord = { company_id: companyId, template_key: templateKey, recipient, status: "queued", ...links };
+  const relation = links.booking_id || links.invoice_id || links.driver_statement_id || links.receipt_id || "standalone";
+  const eventKey = String(links.event_key || `${templateKey}:${relation}:${String(recipient).trim().toLowerCase()}`);
+  const logicalRecord = { company_id: companyId, category: emailCategory(templateKey, links.recipient_type), recipient_type: links.recipient_type || recipientType(templateKey), recipient, template_key: templateKey, idempotency_key: eventKey, subject: links.subject || null, booking_id: links.booking_id || null, metadata: links.metadata || {}, state: "processing", scheduled_for: new Date().toISOString(), claimed_at: new Date().toISOString(), attempt_count: 1 };
+  let logical = await db.from("email_messages").insert(logicalRecord).select("id,state,attempt_count").single();
+  if (logical.error?.code === "23505") {
+    const existing = await db.from("email_messages").select("id,state,attempt_count").eq("company_id", companyId).eq("idempotency_key", eventKey).maybeSingle();
+    if (existing.data && ["processing","accepted","delivered"].includes(existing.data.state)) return "duplicate";
+    logical = existing;
+  }
+  const logicalId = logical.data?.id || null;
+  const attemptNumber = Number(logical.data?.attempt_count || 1);
+  if (logicalId) await db.from("email_attempts").upsert({ company_id: companyId, message_id: logicalId, attempt_number: attemptNumber, state: "started" }, { onConflict: "message_id,attempt_number" });
+  const fullRecord = { company_id: companyId, template_key: templateKey, recipient, status: "queued", ...links, event_key: eventKey, metadata: { ...((links.metadata as Record<string, unknown>) || {}), logical_message_id: logicalId } };
   let insert = await db.from("email_deliveries").insert(fullRecord).select("id").single();
   if (isMissingEmailAuditColumn(insert.error)) {
     const { recipient_type: _recipientType, event_key: _eventKey, retry_count: _retryCount, metadata: _metadata, ...legacyRecord } = fullRecord as Record<string, unknown>;
@@ -113,15 +125,27 @@ export async function logDelivery(companyId: string, templateKey: string, recipi
   }
   if (insert.error?.code === "23505") return "duplicate";
   if (insert.error || !insert.data) throw insert.error || new Error("Email delivery log could not be created.");
-  try { const providerId = await task(); await db.from("email_deliveries").update({ status: "sent", sent_at: new Date().toISOString(), provider_message_id: providerId }).eq("id", insert.data.id).eq("company_id", companyId); return providerId; }
-  catch (error) { await db.from("email_deliveries").update({ status: "failed", error_message: error instanceof Error ? error.message : "Delivery failed" }).eq("id", insert.data.id).eq("company_id", companyId); throw error; }
+  try {
+    const providerId = await task(); const now = new Date().toISOString();
+    await db.from("email_deliveries").update({ status: "sent", sent_at: now, provider_message_id: providerId }).eq("id", insert.data.id).eq("company_id", companyId);
+    if (logicalId) await Promise.all([db.from("email_messages").update({ state: "accepted", provider_message_id: providerId, accepted_at: now, updated_at: now }).eq("id", logicalId).eq("company_id", companyId),db.from("email_attempts").update({ state: "accepted", provider_message_id: providerId, completed_at: now }).eq("message_id", logicalId).eq("attempt_number", attemptNumber)]);
+    return providerId;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Delivery failed"; const now = new Date().toISOString();
+    await db.from("email_deliveries").update({ status: "failed", error_message: message }).eq("id", insert.data.id).eq("company_id", companyId);
+    if (logicalId) await Promise.all([db.from("email_messages").update({ state: "failed", last_error: message, next_attempt_at: new Date(Date.now()+300000).toISOString(), updated_at: now }).eq("id", logicalId).eq("company_id", companyId),db.from("email_attempts").update({ state: "failed", error_message: message, completed_at: now }).eq("message_id", logicalId).eq("attempt_number", attemptNumber)]);
+    throw error;
+  }
 }
+
+function recipientType(templateKey: string) { if (templateKey.startsWith("driver_")) return "driver"; if (templateKey.startsWith("office_")) return "office"; if (templateKey.startsWith("customer_") || templateKey === "receipt" || templateKey === "invoice_sent") return "customer"; return "admin_test"; }
+function emailCategory(templateKey: string, type: unknown) { if (templateKey.includes("unallocated")) return templateKey.includes("24h") ? "unassigned_24h" : "unassigned_48h"; if (templateKey.includes("document")) return "driver_document_expiry"; if (templateKey.includes("reminder")) return String(type || recipientType(templateKey)) === "driver" ? "driver_booking_reminder" : "office_booking_reminder"; if (templateKey === "invoice_sent" || templateKey === "receipt" || templateKey.includes("statement")) return templateKey; return String(type || recipientType(templateKey)); }
 
 export function brandedEmail(settings: Record<string, unknown>, contentHtml: string) {
   const company = escapeHtml(settings.tradingname || settings.companyname || "Transport Company");
   const logo = safeUrl(settings.companylogo);
   const accent = safeColour(settings.primarycolour) || "#14b8a6";
-  const contact = [settings.companyphone, settings.companyemail, settings.companywebsite].filter(Boolean).map(escapeHtml).join(" · ");
+  const contact = [settings.companyaddress, settings.companyphone, settings.companyemail, settings.companywebsite].filter(Boolean).map(escapeHtml).join(" · ");
   return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta charset="utf-8"></head><body style="margin:0;background:#f1f5f9;font-family:Arial,sans-serif;color:#172033"><div style="display:none;max-height:0;overflow:hidden">${company} booking notification</div><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f5f9"><tr><td style="padding:24px 10px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:auto;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="height:7px;background:${accent}"></td></tr><tr><td style="padding:26px 24px;text-align:center">${logo ? `<img src="${logo}" alt="${company}" style="max-width:180px;max-height:72px;width:auto;height:auto">` : `<div style="font-size:22px;font-weight:800">${company}</div>`}</td></tr><tr><td style="padding:0 24px 28px;line-height:1.55">${contentHtml}</td></tr><tr><td style="padding:18px 24px;background:#f8fafc;text-align:center;color:#64748b;font-size:13px">${company}${contact ? `<br>${contact}` : ""}</td></tr></table></td></tr></table></body></html>`;
 }
 
