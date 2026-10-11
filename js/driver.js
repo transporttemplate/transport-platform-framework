@@ -11,6 +11,7 @@ let driverCurrencySymbol = "£";
 let driverSessionToken = null;
 let driverUnavailability = [];
 let driverSettings = {};
+let driverNavigationConfig = { enabled: false, browser_maps_key: null };
 let serverClockOffset = 0;
 let lastSuccessfulRefresh = null;
 let refreshFailures = 0;
@@ -19,6 +20,13 @@ const pendingJobActions = new Set();
 let gpsWatchId = null;
 let driverRefreshTimer = null;
 let driverStaleTimer = null;
+let latestDriverPosition = null;
+let navigationController = null;
+let navigationMap = null;
+let navigationMarker = null;
+let navigationRouteLine = null;
+let mapsLoaderPromise = null;
+let mapsLoaderKey = null;
 
 document.addEventListener("DOMContentLoaded", () => {
     bindDriverUI();
@@ -36,9 +44,13 @@ function bindDriverUI() {
     document.getElementById("dropOffButton")?.addEventListener("click", completeCurrentJob);
     document.getElementById("markPaidButton")?.addEventListener("click", () => markJobPaid(currentJob));
     document.getElementById("detailMarkPaidButton")?.addEventListener("click", () => markJobPaid(selectedJob));
-    document.getElementById("detailNavigateButton")?.addEventListener("click", () => selectedJob && openJobRoute(selectedJob));
+    document.getElementById("detailNavigateButton")?.addEventListener("click", () => selectedJob && navigateJob(selectedJob));
     document.getElementById("viewCurrentJobButton")?.addEventListener("click", () => currentJob && openJobDetails(currentJob));
-    document.getElementById("navigateCurrentJobButton")?.addEventListener("click", () => currentJob && openJobRoute(currentJob));
+    document.getElementById("navigateCurrentJobButton")?.addEventListener("click", () => currentJob && navigateJob(currentJob));
+    document.getElementById("closeNavigationButton")?.addEventListener("click", () => navigationController?.stop());
+    document.getElementById("navigationVoiceButton")?.addEventListener("click", () => navigationController?.setVoice(!navigationController.voiceEnabled));
+    document.getElementById("navigationPobButton")?.addEventListener("click", setPOB);
+    document.getElementById("navigationCompleteButton")?.addEventListener("click", completeCurrentJob);
     document.getElementById("closeJobDetailsButton")?.addEventListener("click", closeJobDetails);
     document.getElementById("jobDetailsOverlay")?.addEventListener("click", closeJobDetails);
     document.getElementById("holidayForm")?.addEventListener("submit", saveDriverHoliday);
@@ -49,7 +61,9 @@ function bindDriverUI() {
     document.getElementById("completedJobsList")?.addEventListener("click", handleDiaryAction);
     window.addEventListener("online", () => { showConnectionMessage("Connection restored. Refreshing…", false); refreshDriverPortal(true); });
     window.addEventListener("offline", () => showConnectionMessage("You are offline. Displayed jobs may be out of date.", true));
-    document.addEventListener("visibilitychange", () => { if (!document.hidden && driverSessionToken) refreshDriverPortal(); });
+    document.addEventListener("visibilitychange", () => { if (!document.hidden && driverSessionToken) { refreshDriverPortal(); if (navigationController?.active) navigationController.acquireWakeLock(); } });
+
+    initialiseIntegratedNavigation();
 
     document.querySelectorAll("[data-view]").forEach(btn => {
         btn.addEventListener("click", () => {
@@ -124,6 +138,8 @@ async function enterDriverPortal() {
 }
 
 async function driverLogout() {
+    const reloadForMapIsolation = Boolean(mapsLoaderKey);
+    navigationController?.stop();
     stopGpsTracking();
     if (driverRefreshTimer) clearInterval(driverRefreshTimer);
     if (driverStaleTimer) clearInterval(driverStaleTimer);
@@ -142,6 +158,7 @@ async function driverLogout() {
 
     document.getElementById("driverApp")?.classList.add("hidden");
     document.getElementById("driverLoginScreen")?.classList.remove("hidden");
+    if (reloadForMapIsolation) location.reload();
 }
 
 function driverName(driver) {
@@ -190,6 +207,7 @@ function applyDriverPortalData(data) {
     driverCommissionDefault = Number(data.settings?.drivercommission || 0);
     driverCurrencySymbol = data.settings?.currencysymbol || "£";
     driverSettings = data.settings || driverSettings;
+    driverNavigationConfig = data.navigation || { enabled: data.settings?.driver_integrated_navigation === true, browser_maps_key: null };
     if (data.server_time) serverClockOffset = new Date(data.server_time).getTime() - Date.now();
     const now = new Date();
     driverUnavailable = driverUnavailability.some(row => row.active !== false && new Date(row.from_datetime) <= now && new Date(row.to_datetime) >= now);
@@ -197,6 +215,10 @@ function applyDriverPortalData(data) {
     document.getElementById("imBackButton")?.classList.toggle("hidden", !driverUnavailable);
     populateDriverHeader();
     applyCompanyBranding();
+    if (navigationController?.active) {
+        const updatedJob = driverBookings.find(job => String(job.id) === String(navigationController.job?.id));
+        navigationController.authoritativeJob(updatedJob);
+    }
 }
 
 async function refreshDriverPortal(showLoading = false) {
@@ -333,6 +355,9 @@ async function saveDriverPosition(position) {
         location_updated_at: new Date().toISOString()
     };
 
+    latestDriverPosition = { lat: update.latitude, lng: update.longitude, accuracy: Number(position.coords.accuracy || 0), heading: Number(position.coords.heading), speed: Number(position.coords.speed), timestamp: Number(position.timestamp || Date.now()) };
+    navigationController?.update(latestDriverPosition);
+
     try { await driverPortalRequest("gps", update); Object.assign(currentDriver, update); }
     catch (error) { console.warn("Driver GPS update:", error); }
 }
@@ -398,12 +423,13 @@ function canWork() {
 
 async function setPOB() {
     if (await transitionJob(currentJob, "passenger_onboard")) {
-        openJobRoute(currentJob);
+        navigateJob(currentJob);
     }
 }
 
 async function completeCurrentJob() {
     if (await transitionJob(currentJob, "completed")) {
+        navigationController?.stop("Journey completed.");
         currentJob = null;
     }
 }
@@ -474,11 +500,150 @@ function openNavigation(address) {
 }
 
 function openJobRoute(job) {
-    const stops = (job?.via_stops || []).map(stop => stop.formatted_address).filter(Boolean);
-    const params = new URLSearchParams({ api: "1", travelmode: "driving", destination: destination(job) });
-    if (stops.length) params.set("waypoints", stops.join("|"));
-    window.location.href = `https://www.google.com/maps/dir/?${params.toString()}`;
+    const url = window.DriverNavigation.externalMapsUrl(job);
+    if (!url) return alert("No address saved for this job.");
+    window.location.href = url;
 }
+
+async function navigateJob(job) {
+    if (!driverNavigationConfig.enabled) return openJobRoute(job);
+    if (!window.DriverNavigation.canNavigate(job)) return alert("This job is not currently available for navigation.");
+    try {
+        closeJobDetails();
+        const position = await currentNavigationPosition();
+        if (navigationController?.active) await navigationController.authoritativeJob(job);
+        else await navigationController.start(job, position);
+    } catch (error) {
+        console.warn("Integrated navigation:", error);
+        alert(`${error.message || "Unable to start integrated navigation."} You can still use Google Maps.`);
+    }
+}
+
+function initialiseIntegratedNavigation() {
+    if (!window.DriverNavigation?.Controller) return;
+    navigationController = new window.DriverNavigation.Controller({
+        routeRequest: (job, position, reason, progress) => driverPortalRequest("navigation_route", { booking_id: job.id, latitude: position.lat, longitude: position.lng, accuracy: position.accuracy, completed_stop_count: progress?.completedStops || 0, reason }),
+        onStart: (job, externalUrl) => {
+            document.body.classList.add("driver-navigation-active");
+            document.getElementById("driverNavigationView")?.classList.remove("hidden");
+            updateNavigationJob(job, externalUrl);
+            setNavigationStatus("Loading live map…", false);
+            loadNavigationMap().catch(error => {
+                console.warn("Navigation map:", error);
+                document.getElementById("driverNavigationMap")?.classList.add("hidden");
+                document.getElementById("navigationMapFallback")?.classList.remove("hidden");
+                setNavigationStatus("Live map unavailable. Written route remains active.", true);
+            });
+        },
+        onRoute: (route, path, steps) => {
+            drawNavigationRoute(path);
+            renderNavigationSteps(steps, 0);
+            setText("navigationDistance", window.DriverNavigation.formatDistance(route.distance_meters));
+            setText("navigationDuration", window.DriverNavigation.formatDuration(route.duration_seconds));
+        },
+        onPosition: updateNavigationMarker,
+        onProgress: progress => {
+            setText("navigationCurrentInstruction", progress.current?.instruction || "Continue on the route");
+            setText("navigationNextInstruction", progress.next ? `Then: ${progress.next.instruction}` : "Continue to your destination");
+            setText("navigationManeuver", maneuverSymbol(progress.current?.maneuver));
+            setText("navigationDistance", window.DriverNavigation.formatDistance(progress.metrics.metres));
+            setText("navigationDuration", window.DriverNavigation.formatDuration(progress.metrics.seconds));
+            setText("navigationEta", progress.eta.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
+            renderNavigationSteps(navigationController.steps, progress.index);
+        },
+        onStatus: setNavigationStatus,
+        onVoice: enabled => {
+            const button = document.getElementById("navigationVoiceButton");
+            if (!button) return;
+            button.textContent = enabled ? "🔊" : "🔇";
+            button.classList.toggle("voice-off", !enabled);
+            button.setAttribute("aria-pressed", String(enabled));
+            button.setAttribute("aria-label", enabled ? "Turn spoken directions off" : "Turn spoken directions on");
+        },
+        onJob: updateNavigationJob,
+        onStop: message => {
+            document.body.classList.remove("driver-navigation-active");
+            document.getElementById("driverNavigationView")?.classList.add("hidden");
+            if (message) showConnectionMessage(message, false);
+        }
+    });
+}
+
+async function currentNavigationPosition() {
+    if (latestDriverPosition && Date.now() - latestDriverPosition.timestamp < 60000) return latestDriverPosition;
+    const savedLat = Number(currentDriver?.latitude), savedLng = Number(currentDriver?.longitude);
+    const savedAt = Date.parse(String(currentDriver?.location_updated_at || ""));
+    if (Number.isFinite(savedLat) && Number.isFinite(savedLng) && Date.now() - savedAt < 60000) return { lat: savedLat, lng: savedLng, accuracy: 100, timestamp: savedAt };
+    if (!navigator.geolocation) throw new Error("Location is not supported on this device.");
+    setNavigationStatus("Waiting for an accurate GPS position…", false);
+    return await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(position => {
+        latestDriverPosition = { lat: position.coords.latitude, lng: position.coords.longitude, accuracy: position.coords.accuracy, heading: position.coords.heading, speed: position.coords.speed, timestamp: position.timestamp || Date.now() };
+        resolve(latestDriverPosition);
+    }, error => reject(new Error(error.code === 1 ? "Location permission is required for integrated navigation." : "A current GPS position could not be obtained.")), { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }));
+}
+
+async function loadNavigationMap() {
+    const key = String(driverNavigationConfig.browser_maps_key || "").trim();
+    if (!key) throw new Error("The company browser Maps key is not configured.");
+    if (mapsLoaderKey && mapsLoaderKey !== key) throw new Error("Reload the Driver Portal before switching company navigation.");
+    mapsLoaderKey = key;
+    if (!mapsLoaderPromise) mapsLoaderPromise = new Promise((resolve, reject) => {
+        if (window.google?.maps) return resolve(window.google.maps);
+        const callback = `driverMapsReady_${Date.now()}`;
+        window[callback] = () => { delete window[callback]; resolve(window.google.maps); };
+        const script = document.createElement("script");
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=${callback}&v=weekly`;
+        script.async = true; script.onerror = () => { delete window[callback]; mapsLoaderPromise = null; reject(new Error("Google Maps could not be loaded.")); };
+        document.head.appendChild(script);
+    });
+    const maps = await mapsLoaderPromise;
+    document.getElementById("driverNavigationMap")?.classList.remove("hidden");
+    document.getElementById("navigationMapFallback")?.classList.add("hidden");
+    if (!navigationMap) navigationMap = new maps.Map(document.getElementById("driverNavigationMap"), { center: latestDriverPosition || { lat: 51.5, lng: -3.2 }, zoom: 16, disableDefaultUI: true, zoomControl: true, gestureHandling: "greedy", clickableIcons: false });
+    updateNavigationMarker(latestDriverPosition);
+    if (navigationController?.routePath?.length) drawNavigationRoute(navigationController.routePath);
+    return navigationMap;
+}
+
+function drawNavigationRoute(path) {
+    if (!navigationMap || !window.google?.maps || !path?.length) return;
+    navigationRouteLine?.setMap(null);
+    navigationRouteLine = new google.maps.Polyline({ path, map: navigationMap, strokeColor: "#2563eb", strokeOpacity: 0.95, strokeWeight: 7 });
+    const bounds = new google.maps.LatLngBounds(); path.forEach(point => bounds.extend(point)); if (latestDriverPosition) bounds.extend(latestDriverPosition);
+    navigationMap.fitBounds(bounds, 44);
+}
+
+function updateNavigationMarker(position) {
+    if (!position || !navigationMap || !window.google?.maps) return;
+    const point = { lat: Number(position.lat), lng: Number(position.lng) };
+    if (!navigationMarker) navigationMarker = new google.maps.Marker({ map: navigationMap, position: point, title: "Your location", zIndex: 10, icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 6, fillColor: "#0f172a", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2, rotation: Number.isFinite(position.heading) ? position.heading : 0 } });
+    else { navigationMarker.setPosition(point); const icon = navigationMarker.getIcon(); if (icon && Number.isFinite(position.heading)) navigationMarker.setIcon({ ...icon, rotation: position.heading }); }
+}
+
+function updateNavigationJob(job, externalUrl) {
+    const target = window.DriverNavigation.navigationTarget(job);
+    setText("navigationTargetLabel", target === "pickup" ? "Navigating to pickup" : "Navigating to destination");
+    setText("navigationDestination", target === "pickup" ? pickup(job) : destination(job));
+    setText("navigationPassenger", job.customer_name || job.passenger_name || "Passenger");
+    setText("navigationReference", job.booking_reference || shortId(job.id));
+    setText("navigationPassengerCount", job.passengers ?? "-");
+    setText("navigationLuggage", `${job.suitcases ?? 0} cases · ${job.hand_luggage ?? 0} hand`);
+    setText("navigationFlight", job.flight_number || "-");
+    setText("navigationNotes", job.notes || "");
+    const phone = String(job.phone || job.customer_phone || "").trim();
+    const phoneLink = document.getElementById("navigationPassengerPhone"); if (phoneLink) { phoneLink.textContent = phone || "-"; phoneLink.href = phone ? `tel:${phone.replace(/\s+/g, "")}` : "#"; }
+    const external = document.getElementById("navigationExternalButton"); if (external) external.href = externalUrl || window.DriverNavigation.externalMapsUrl(job) || "#";
+    const status = normaliseStatus(job.status);
+    document.getElementById("navigationPobButton")?.classList.toggle("hidden", status !== "on_way");
+    document.getElementById("navigationCompleteButton")?.classList.toggle("hidden", status !== "passenger_onboard");
+}
+
+function renderNavigationSteps(steps, activeIndex) {
+    const list = document.getElementById("navigationSteps"); if (!list) return;
+    list.innerHTML = (steps || []).map((step, index) => `<li class="${index === activeIndex ? "active" : ""}">${escapeHtml(step.instruction || "Continue")} · ${escapeHtml(window.DriverNavigation.formatDistance(step.distance_meters || 0))}</li>`).join("") || "<li>Directions are loading…</li>";
+}
+function setNavigationStatus(message, error) { const element = document.getElementById("navigationStatus"); if (!element) return; element.textContent = message; element.classList.toggle("error", Boolean(error)); }
+function maneuverSymbol(value) { const name = String(value || "").toUpperCase(); if (name.includes("LEFT")) return "↰"; if (name.includes("RIGHT")) return "↱"; if (name.includes("UTURN")) return "↶"; if (name.includes("ROUNDABOUT")) return "⟳"; if (name.includes("MERGE")) return "⤴"; return "↑"; }
 
 function openJobDetails(job) {
     setText("detailReference", job.booking_reference || shortId(job.id));
@@ -565,7 +730,7 @@ function handleDiaryAction(event) {
     const job = driverBookings.find(row => String(row.id) === String(button.dataset.jobId));
     if (!job) return;
     if (button.dataset.jobAction === "details") openJobDetails(job);
-    else transitionJob(job, button.dataset.jobAction).then(ok => { if (ok && button.dataset.jobAction === "on_way") openNavigation(pickup(job)); });
+    else transitionJob(job, button.dataset.jobAction).then(ok => { if (ok && button.dataset.jobAction === "on_way") navigateJob(driverBookings.find(row => String(row.id) === String(job.id)) || job); });
 }
 
 function trustedNow() { return new Date(Date.now() + serverClockOffset); }

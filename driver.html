@@ -184,6 +184,48 @@
 
 </main>
 
+<section id="driverNavigationView" class="driver-navigation hidden" aria-label="Integrated navigation">
+    <header class="navigation-header">
+        <button id="closeNavigationButton" class="navigation-icon-button" type="button" aria-label="Return to job details">‹</button>
+        <div><small id="navigationTargetLabel">Navigating to pickup</small><strong id="navigationDestination">-</strong></div>
+        <button id="navigationVoiceButton" class="navigation-icon-button voice-off" type="button" aria-pressed="false" aria-label="Turn spoken directions on">🔇</button>
+    </header>
+    <div id="driverNavigationMap" class="navigation-map" role="application" aria-label="Live driving route"></div>
+    <div id="navigationMapFallback" class="navigation-map-fallback hidden">The live map is unavailable. Written directions and Google Maps remain available.</div>
+    <div id="navigationStatus" class="navigation-status" role="status">Waiting for GPS…</div>
+    <section class="navigation-bottom-panel">
+        <div class="navigation-instruction">
+            <span id="navigationManeuver" aria-hidden="true">↑</span>
+            <div><strong id="navigationCurrentInstruction">Calculating route…</strong><small id="navigationNextInstruction">Keep this page visible while navigating.</small></div>
+        </div>
+        <div class="navigation-stats">
+            <div><strong id="navigationEta">--:--</strong><span>ETA</span></div>
+            <div><strong id="navigationDistance">--</strong><span>Remaining</span></div>
+            <div><strong id="navigationDuration">--</strong><span>Driving</span></div>
+        </div>
+        <details class="navigation-booking-panel">
+            <summary><span><strong id="navigationPassenger">Passenger</strong><small id="navigationReference">Booking</small></span><span>Journey details</span></summary>
+            <div class="navigation-booking-grid">
+                <div><small>Phone</small><a id="navigationPassengerPhone" href="#">-</a></div>
+                <div><small>Passengers</small><strong id="navigationPassengerCount">-</strong></div>
+                <div><small>Luggage</small><strong id="navigationLuggage">-</strong></div>
+                <div><small>Flight</small><strong id="navigationFlight">-</strong></div>
+            </div>
+            <p id="navigationNotes" class="navigation-notes"></p>
+        </details>
+        <details class="navigation-steps-panel">
+            <summary>All driving instructions</summary>
+            <ol id="navigationSteps"></ol>
+        </details>
+        <div class="navigation-actions">
+            <button id="navigationPobButton" class="btn btn-primary hidden" type="button">Passengers On Board</button>
+            <button id="navigationCompleteButton" class="btn btn-success hidden" type="button">Complete Job</button>
+            <a id="navigationExternalButton" class="btn btn-secondary" href="#" target="_blank" rel="noopener">Open in Google Maps</a>
+        </div>
+        <p class="navigation-safety">Foreground browser navigation only. If GPS or speech pauses, use Google Maps. Do not interact with the phone while driving.</p>
+    </section>
+</section>
+
 <div id="jobDetailsOverlay" class="overlay details-overlay"></div>
 
 <aside id="jobDetailsDrawer" class="job-drawer">
@@ -223,6 +265,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
 <script src="js/driver-workflow.js"></script>
+<script src="js/driver-navigation.js"></script>
 <script src="js/driver.js"></script>
 </body>
 </html>

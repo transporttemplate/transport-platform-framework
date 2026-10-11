@@ -21,6 +21,7 @@
     --shadow:0 10px 25px rgba(0,0,0,.08);
     --radius:14px;
 }
+html{background:#eef2f7;color-scheme:light}
 .admin-via-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;margin:8px 0}
 .admin-via-row label{grid-column:1/-1;margin:0}
 
@@ -36,6 +37,7 @@ body{
     color:var(--text);
     overflow-x:hidden;
 }
+@media(prefers-reduced-motion:reduce){.sidebar,.overlay,.sidebar a{transition:none!important}}
 
 .admin-layout{
     display:grid;
