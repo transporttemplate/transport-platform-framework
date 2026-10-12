@@ -160,37 +160,45 @@ function recipientsFor(event: string, booking: Row, settings: Row, currentDriver
     if (email) result.push({ type, email, template, driver, eventKey: `${booking.id}:${suffix}:${template}:${type}` });
   };
   if (event === "new_booking") {
-    if (settings.customer_booking_emails !== false) add("customer", customer, "customer_booking_confirmation");
-    if (settings.office_new_booking_emails !== false) offices.forEach(email => add("office", email, "office_new_booking"));
-    if (currentDriver && settings.driver_assignment_emails !== false) add("driver", clean(currentDriver.email), "driver_assignment", currentDriver);
+    if (emailPreferenceEnabled(settings, "customer_booking_confirmation", settings.customer_booking_emails !== false)) add("customer", customer, "customer_booking_confirmation");
+    if (emailPreferenceEnabled(settings, "office_new_booking", settings.office_new_booking_emails !== false)) offices.forEach(email => add("office", email, "office_new_booking"));
+    if (currentDriver && emailPreferenceEnabled(settings, "driver_assignment", settings.driver_assignment_emails !== false)) add("driver", clean(currentDriver.email), "driver_assignment", currentDriver);
   } else if (event === "payment_received") {
-    if (settings.payment_confirmation_emails !== false) {
+    if (emailPreferenceEnabled(settings, "payment_confirmation", settings.payment_confirmation_emails !== false)) {
       add("customer", customer, "customer_payment_confirmation");
       offices.forEach(email => add("office", email, "office_payment_received"));
     }
   } else if (event === "booking_changed") {
-    if (settings.booking_change_emails !== false) {
+    if (emailPreferenceEnabled(settings, "booking_changes", settings.booking_change_emails !== false)) {
       add("customer", customer, "customer_booking_changed");
       offices.forEach(email => add("office", email, "office_booking_changed"));
       if (currentDriver) add("driver", clean(currentDriver.email), "driver_job_changed", currentDriver);
     }
   } else if (event === "booking_cancelled") {
-    if (settings.cancellation_emails !== false) {
+    if (emailPreferenceEnabled(settings, "cancellations", settings.cancellation_emails !== false)) {
       add("customer", customer, "customer_booking_cancelled");
       offices.forEach(email => add("office", email, "office_booking_cancelled"));
       if (currentDriver) add("driver", clean(currentDriver.email), "driver_job_cancelled", currentDriver);
     }
   } else if (event === "driver_assignment") {
-    if (settings.driver_assignment_emails !== false) {
+    if (emailPreferenceEnabled(settings, "driver_assignment", settings.driver_assignment_emails !== false)) {
       if (previousDriver && previousDriver.id !== currentDriver?.id) add("driver", clean(previousDriver.email), "driver_job_removed", previousDriver);
       if (currentDriver && previousDriver?.id !== currentDriver.id) add("driver", clean(currentDriver.email), "driver_assignment", currentDriver);
     }
   } else if (event === "unallocated_reminder" && settings.unallocated_reminder_emails !== false) {
     const threshold = Number(eventId.replace(/\D/g, ""));
     const template = threshold <= 1440 ? "office_unallocated_24h" : "office_unallocated_48h";
-    offices.forEach(email => add("office", email, template));
+    const enabled = threshold <= 1440
+      ? emailPreferenceEnabled(settings, "unassigned_24h", settings.unallocated_24h_emails !== false)
+      : emailPreferenceEnabled(settings, "unassigned_48h", settings.unallocated_48h_emails !== false);
+    if (enabled) offices.forEach(email => add("office", email, template));
   }
   return result;
+}
+
+function emailPreferenceEnabled(settings: Row, key: string, legacyEnabled: boolean) {
+  const configured = settings.notification_channels?.[key];
+  return Array.isArray(configured) ? configured.includes("email") : legacyEnabled;
 }
 
 function valuesFor(booking: Row, settings: Row, company: Row, stops: Row[], driver?: Row) {

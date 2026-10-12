@@ -10,7 +10,7 @@ Deno.serve(async (request) => {
   try {
     const db = adminClient();
     const { data: settingsRows, error: settingsError } = await db.from("settings")
-      .select("company_id,timezone,emailnotifications,unallocated_reminder_emails,unallocated_reminder_minutes")
+      .select("company_id,timezone,emailnotifications,notification_channels,unallocated_reminder_emails,unallocated_reminder_minutes,unallocated_48h_emails,unallocated_24h_emails")
       .eq("unallocated_reminder_emails", true);
     if (settingsError) throw settingsError;
     const base = Deno.env.get("SUPABASE_URL") || "";
@@ -35,6 +35,10 @@ Deno.serve(async (request) => {
         if (minutesUntil <= 0) continue;
         for (const threshold of thresholds) {
           if (minutesUntil > threshold) continue;
+          const enabled = threshold <= 1440
+            ? emailPreferenceEnabled(settings, "unassigned_24h", settings.unallocated_24h_emails !== false)
+            : emailPreferenceEnabled(settings, "unassigned_48h", settings.unallocated_48h_emails !== false);
+          if (!enabled) continue;
           const response = await fetch(`${base}/functions/v1/send-booking-email`, {
             method: "POST",
             headers: { "Content-Type": "application/json", apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
@@ -55,6 +59,7 @@ function normalThresholds(value: unknown) {
   const values = Array.isArray(value) ? value : [2880, 1440];
   return [...new Set(values.map(Number).filter(item => Number.isInteger(item) && item > 0 && item <= 10080))].sort((a, b) => b - a);
 }
+function emailPreferenceEnabled(settings: Record<string, any>, key: string, legacyEnabled: boolean) { const configured = settings.notification_channels?.[key]; return Array.isArray(configured) ? configured.includes("email") : legacyEnabled; }
 function localDate(date: Date, timezone: string) { const parts = new Intl.DateTimeFormat("en-CA", { timeZone: validZone(timezone), year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date); const get = (type: string) => parts.find(part => part.type === type)?.value; return `${get("year")}-${get("month")}-${get("day")}`; }
 function addDays(date: string, days: number) { const value = new Date(`${date}T12:00:00Z`); value.setUTCDate(value.getUTCDate() + days); return value.toISOString().slice(0, 10); }
 function zonedDateTime(date: string, time: string, timezone: string) { const candidate = new Date(`${date}T${String(time || "00:00").slice(0, 8)}Z`); const formatter = new Intl.DateTimeFormat("en-GB", { timeZone: validZone(timezone), year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }); const parts = formatter.formatToParts(candidate); const get = (type: string) => Number(parts.find(part => part.type === type)?.value); const represented = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second")); return new Date(candidate.getTime() + (candidate.getTime() - represented)); }

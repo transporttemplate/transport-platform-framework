@@ -52,7 +52,7 @@ Deno.serve(async request => {
 async function scheduleDue(db: any) {
   const [{ data: companies, error: companyError }, { data: settings, error: settingsError }] = await Promise.all([
     db.from("companies").select("id,company_status").eq("company_status", "active"),
-    db.from("settings").select("company_id,timezone,emailnotifications,office_booking_reminder_emails,driver_booking_reminder_emails,unallocated_reminder_emails,unallocated_48h_emails,unallocated_24h_emails,driver_document_expiry_emails,office_notification_email,officeemail,companyemail"),
+    db.from("settings").select("company_id,timezone,emailnotifications,notification_channels,office_booking_reminder_emails,driver_booking_reminder_emails,unallocated_reminder_emails,unallocated_48h_emails,unallocated_24h_emails,driver_document_expiry_emails,office_notification_email,officeemail,companyemail"),
   ]);
   if (companyError || settingsError) throw companyError || settingsError;
   const active = new Set((companies || []).map((row: Row) => row.id));
@@ -71,17 +71,17 @@ async function scheduleDue(db: any) {
       const minutes = (journey.getTime() - Date.now()) / 60000;
       if (minutes <= 0) continue;
       const stamp = journey.toISOString();
-      if (office && config.office_booking_reminder_emails && inWindow(minutes, 1440)) count += await queue(db, config.company_id, "office_booking_reminder", "office", office, "office_booking_reminder_24h", `booking:${booking.id}:office:24h:${stamp}:to:${office}`, { booking_id: booking.id, scheduled_for: new Date(journey.getTime() - 86400000).toISOString(), priority: 80 });
-      if (booking.driver_id && config.driver_booking_reminder_emails && inWindow(minutes, 720)) {
+      if (office && emailPreferenceEnabled(config, "office_booking_reminder_24h", config.office_booking_reminder_emails === true) && inWindow(minutes, 1440)) count += await queue(db, config.company_id, "office_booking_reminder", "office", office, "office_booking_reminder_24h", `booking:${booking.id}:office:24h:${stamp}:to:${office}`, { booking_id: booking.id, scheduled_for: new Date(journey.getTime() - 86400000).toISOString(), priority: 80 });
+      if (booking.driver_id && emailPreferenceEnabled(config, "driver_booking_reminder_12h", config.driver_booking_reminder_emails === true) && inWindow(minutes, 720)) {
         const { data: driver } = await db.from("drivers").select("id,email").eq("company_id", config.company_id).eq("id", booking.driver_id).maybeSingle();
         if (driver?.email) count += await queue(db, config.company_id, "driver_booking_reminder", "driver", driver.email, "driver_booking_reminder_12h", `booking:${booking.id}:driver:12h:${driver.id}:${stamp}`, { booking_id: booking.id, scheduled_for: new Date(journey.getTime() - 43200000).toISOString(), priority: 85 });
       }
       if (!booking.driver_id && office && config.unallocated_reminder_emails !== false) {
-        if (config.unallocated_48h_emails !== false && inWindow(minutes, 2880)) count += await queue(db, config.company_id, "unassigned_48h", "office", office, "office_unallocated_48h", `booking:${booking.id}:unassigned:48h:${stamp}:to:${office}`, { booking_id: booking.id, scheduled_for: new Date(journey.getTime() - 172800000).toISOString(), priority: 90 });
-        if (config.unallocated_24h_emails !== false && inWindow(minutes, 1440)) count += await queue(db, config.company_id, "unassigned_24h", "office", office, "office_unallocated_24h", `booking:${booking.id}:unassigned:24h:${stamp}:to:${office}`, { booking_id: booking.id, scheduled_for: new Date(journey.getTime() - 86400000).toISOString(), priority: 95 });
+        if (emailPreferenceEnabled(config, "unassigned_48h", config.unallocated_48h_emails !== false) && inWindow(minutes, 2880)) count += await queue(db, config.company_id, "unassigned_48h", "office", office, "office_unallocated_48h", `booking:${booking.id}:unassigned:48h:${stamp}:to:${office}`, { booking_id: booking.id, scheduled_for: new Date(journey.getTime() - 172800000).toISOString(), priority: 90 });
+        if (emailPreferenceEnabled(config, "unassigned_24h", config.unallocated_24h_emails !== false) && inWindow(minutes, 1440)) count += await queue(db, config.company_id, "unassigned_24h", "office", office, "office_unallocated_24h", `booking:${booking.id}:unassigned:24h:${stamp}:to:${office}`, { booking_id: booking.id, scheduled_for: new Date(journey.getTime() - 86400000).toISOString(), priority: 95 });
       }
     }
-    if (office && config.driver_document_expiry_emails) {
+    if (office && emailPreferenceEnabled(config, "driver_document_expiry", config.driver_document_expiry_emails === true)) {
       const target = addDays(today, 3);
       const { data: documents, error } = await db.from("driver_documents").select("id,company_id,driver_id,expiry_date,status").eq("company_id", config.company_id).eq("status", "active").eq("expiry_date", target);
       if (error) throw error;
@@ -167,12 +167,17 @@ async function documentPayload(db: any, message: Row) {
 
 function reminderAllowed(settings: Row, category: string) {
   if (settings.emailnotifications === false) return false;
-  if (category === "office_booking_reminder") return settings.office_booking_reminder_emails === true;
-  if (category === "driver_booking_reminder") return settings.driver_booking_reminder_emails === true;
-  if (category === "unassigned_48h") return settings.unallocated_reminder_emails !== false && settings.unallocated_48h_emails !== false;
-  if (category === "unassigned_24h") return settings.unallocated_reminder_emails !== false && settings.unallocated_24h_emails !== false;
-  if (category === "driver_document_expiry") return settings.driver_document_expiry_emails === true;
+  if (category === "office_booking_reminder") return emailPreferenceEnabled(settings, "office_booking_reminder_24h", settings.office_booking_reminder_emails === true);
+  if (category === "driver_booking_reminder") return emailPreferenceEnabled(settings, "driver_booking_reminder_12h", settings.driver_booking_reminder_emails === true);
+  if (category === "unassigned_48h") return settings.unallocated_reminder_emails !== false && emailPreferenceEnabled(settings, "unassigned_48h", settings.unallocated_48h_emails !== false);
+  if (category === "unassigned_24h") return settings.unallocated_reminder_emails !== false && emailPreferenceEnabled(settings, "unassigned_24h", settings.unallocated_24h_emails !== false);
+  if (category === "driver_document_expiry") return emailPreferenceEnabled(settings, "driver_document_expiry", settings.driver_document_expiry_emails === true);
   return false;
+}
+
+function emailPreferenceEnabled(settings: Row, key: string, legacyEnabled: boolean) {
+  const configured = settings.notification_channels?.[key];
+  return Array.isArray(configured) ? configured.includes("email") : legacyEnabled;
 }
 
 async function compose(message: Row, settings: Row, values: Row, booking: Row | null, stops: Row[]) {
