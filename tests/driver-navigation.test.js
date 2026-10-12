@@ -61,6 +61,23 @@ test("spoken directions are off by default and duplicate instructions are suppre
     }
 });
 
+test("driver-follow camera uses stable heading and street-level speed-aware zoom", () => {
+    assert.equal(navigation.usableHeading(null), null);
+    assert.equal(navigation.smoothHeading(350, 10, 8), 8);
+    assert.equal(navigation.smoothHeading(90, null, 8), 90);
+    assert.equal(navigation.smoothHeading(90, 180, 0.5), 90);
+    assert.equal(navigation.navigationZoom(0, 1000, 10), 18);
+    assert.equal(navigation.navigationZoom(30, 1000, 10), 16.5);
+    assert.equal(navigation.navigationZoom(20, 100, 10), 18.5);
+    assert.equal(navigation.navigationZoom(5, 1000, 120), 16.5);
+});
+
+test("GPS loss is detected without discarding the last route", () => {
+    assert.equal(navigation.gpsIsStale({ timestamp: 1000 }, 30000), false);
+    assert.equal(navigation.gpsIsStale({ timestamp: 1000 }, 32000), true);
+    assert.equal(navigation.gpsIsStale(null, 32000), true);
+});
+
 test("route failures remain inside the portal with a sanitised fallback status", async () => {
     const statuses = [];
     const controller = new navigation.Controller({
@@ -150,6 +167,12 @@ test("Driver Portal contains integrated controls while preserving the existing w
     for (const label of ["Passengers On Board", "Complete Job", "Open in Google Maps", "All driving instructions"]) assert.match(html, new RegExp(label));
     assert.match(html, /navigationVoiceButton/);
     assert.match(html, /voice-off/);
+    assert.match(html, /navigationRecenterButton/);
+    assert.match(html, /navigationOverviewButton/);
+    assert.match(driver, /pauseNavigationFollow/);
+    assert.match(driver, /showNavigationOverview/);
+    assert.match(driver, /navigationMap\.fitBounds\(bounds, 48\)/);
+    assert.match(driver, /navigationController\.acquireWakeLock/);
     assert.match(driver, /mapsLoaderKey && mapsLoaderKey !== key/);
     assert.match(driver, /reloadForMapIsolation/);
 });

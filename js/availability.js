@@ -195,6 +195,7 @@ function blockLabel(block) {
 
 function openBlockForm(block=null) {
     const form=document.getElementById("availabilityBlockForm"); form.hidden=false;
+    form.closest(".block-layout")?.classList.add("form-open");
     setText("availabilityFormTitle",block?"Edit Fully Booked period":"Add Fully Booked period");
     document.getElementById("availabilityBlockId").value=block?.id||"";
     document.getElementById("availabilityWholeDay").checked=Boolean(block?.whole_day);
@@ -205,7 +206,7 @@ function openBlockForm(block=null) {
     document.getElementById("availabilityReason").value=block?.reason||""; setText("availabilityFormError","");
     form.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
-function closeBlockForm(){document.getElementById("availabilityBlockForm").hidden=true;}
+function closeBlockForm(){const form=document.getElementById("availabilityBlockForm");form.hidden=true;form.closest(".block-layout")?.classList.remove("form-open");}
 function applyWholeDay(){if(!document.getElementById("availabilityWholeDay").checked)return; const start=document.getElementById("availabilityStarts"),end=document.getElementById("availabilityEnds"); const date=(start.value||defaultLocalInput(1)).slice(0,10); start.value=`${date}T00:00`; const next=new Date(`${date}T12:00`);next.setDate(next.getDate()+1);end.value=`${localDate(next)}T00:00`;}
 
 async function saveBlock(event) {

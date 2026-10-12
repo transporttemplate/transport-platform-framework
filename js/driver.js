@@ -25,6 +25,11 @@ let navigationController = null;
 let navigationMap = null;
 let navigationMarker = null;
 let navigationRouteLine = null;
+let navigationFollowMode = true;
+let navigationCameraHeading = null;
+let navigationCameraChanging = false;
+let navigationDistanceToTurn = Infinity;
+let navigationGpsTimer = null;
 let mapsLoaderPromise = null;
 let mapsLoaderKey = null;
 
@@ -51,6 +56,8 @@ function bindDriverUI() {
     document.getElementById("navigationVoiceButton")?.addEventListener("click", () => navigationController?.setVoice(!navigationController.voiceEnabled));
     document.getElementById("navigationPobButton")?.addEventListener("click", setPOB);
     document.getElementById("navigationCompleteButton")?.addEventListener("click", completeCurrentJob);
+    document.getElementById("navigationRecenterButton")?.addEventListener("click", resumeNavigationFollow);
+    document.getElementById("navigationOverviewButton")?.addEventListener("click", showNavigationOverview);
     document.getElementById("closeJobDetailsButton")?.addEventListener("click", closeJobDetails);
     document.getElementById("jobDetailsOverlay")?.addEventListener("click", closeJobDetails);
     document.getElementById("holidayForm")?.addEventListener("submit", saveDriverHoliday);
@@ -355,7 +362,7 @@ async function saveDriverPosition(position) {
         location_updated_at: new Date().toISOString()
     };
 
-    latestDriverPosition = { lat: update.latitude, lng: update.longitude, accuracy: Number(position.coords.accuracy || 0), heading: Number(position.coords.heading), speed: Number(position.coords.speed), timestamp: Number(position.timestamp || Date.now()) };
+    latestDriverPosition = { lat: update.latitude, lng: update.longitude, accuracy: Number(position.coords.accuracy || 0), heading: position.coords.heading == null ? null : Number(position.coords.heading), speed: position.coords.speed == null ? null : Number(position.coords.speed), timestamp: Number(position.timestamp || Date.now()) };
     navigationController?.update(latestDriverPosition);
 
     try { await driverPortalRequest("gps", update); Object.assign(currentDriver, update); }
@@ -524,6 +531,7 @@ function initialiseIntegratedNavigation() {
     navigationController = new window.DriverNavigation.Controller({
         routeRequest: (job, position, reason, progress) => driverPortalRequest("navigation_route", { booking_id: job.id, latitude: position.lat, longitude: position.lng, accuracy: position.accuracy, completed_stop_count: progress?.completedStops || 0, reason }),
         onStart: (job, externalUrl) => {
+            navigationFollowMode = true; navigationCameraHeading = null; navigationDistanceToTurn = Infinity;
             document.body.classList.add("driver-navigation-active");
             document.getElementById("driverNavigationView")?.classList.remove("hidden");
             updateNavigationJob(job, externalUrl);
@@ -534,6 +542,8 @@ function initialiseIntegratedNavigation() {
                 document.getElementById("navigationMapFallback")?.classList.remove("hidden");
                 setNavigationStatus("Live map unavailable. Written route remains active.", true);
             });
+            clearInterval(navigationGpsTimer);
+            navigationGpsTimer = setInterval(checkNavigationGpsFreshness, 5000);
         },
         onRoute: (route, path, steps) => {
             drawNavigationRoute(path);
@@ -549,6 +559,10 @@ function initialiseIntegratedNavigation() {
             setText("navigationDistance", window.DriverNavigation.formatDistance(progress.metrics.metres));
             setText("navigationDuration", window.DriverNavigation.formatDuration(progress.metrics.seconds));
             setText("navigationEta", progress.eta.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
+            navigationDistanceToTurn = progress.current?.end_location && latestDriverPosition
+                ? window.DriverNavigation.metresBetween(latestDriverPosition, progress.current.end_location)
+                : Infinity;
+            updateNavigationCamera(latestDriverPosition);
             renderNavigationSteps(navigationController.steps, progress.index);
         },
         onStatus: setNavigationStatus,
@@ -562,6 +576,7 @@ function initialiseIntegratedNavigation() {
         },
         onJob: updateNavigationJob,
         onStop: message => {
+            clearInterval(navigationGpsTimer); navigationGpsTimer = null;
             document.body.classList.remove("driver-navigation-active");
             document.getElementById("driverNavigationView")?.classList.add("hidden");
             if (message) showConnectionMessage(message, false);
@@ -577,7 +592,7 @@ async function currentNavigationPosition() {
     if (!navigator.geolocation) throw new Error("Location is not supported on this device.");
     setNavigationStatus("Waiting for an accurate GPS position…", false);
     return await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(position => {
-        latestDriverPosition = { lat: position.coords.latitude, lng: position.coords.longitude, accuracy: position.coords.accuracy, heading: position.coords.heading, speed: position.coords.speed, timestamp: position.timestamp || Date.now() };
+        latestDriverPosition = { lat: position.coords.latitude, lng: position.coords.longitude, accuracy: position.coords.accuracy, heading: position.coords.heading == null ? null : Number(position.coords.heading), speed: position.coords.speed == null ? null : Number(position.coords.speed), timestamp: position.timestamp || Date.now() };
         resolve(latestDriverPosition);
     }, error => reject(new Error(error.code === 1 ? "Location permission is required for integrated navigation." : "A current GPS position could not be obtained.")), { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }));
 }
@@ -599,7 +614,11 @@ async function loadNavigationMap() {
     const maps = await mapsLoaderPromise;
     document.getElementById("driverNavigationMap")?.classList.remove("hidden");
     document.getElementById("navigationMapFallback")?.classList.add("hidden");
-    if (!navigationMap) navigationMap = new maps.Map(document.getElementById("driverNavigationMap"), { center: latestDriverPosition || { lat: 51.5, lng: -3.2 }, zoom: 16, disableDefaultUI: true, zoomControl: true, gestureHandling: "greedy", clickableIcons: false });
+    if (!navigationMap) {
+        navigationMap = new maps.Map(document.getElementById("driverNavigationMap"), { center: latestDriverPosition || { lat: 51.5, lng: -3.2 }, zoom: 18, heading: 0, tilt: 45, disableDefaultUI: true, zoomControl: true, gestureHandling: "greedy", clickableIcons: false, keyboardShortcuts: false });
+        navigationMap.addListener("dragstart", pauseNavigationFollow);
+        navigationMap.addListener("zoom_changed", () => { if (!navigationCameraChanging) pauseNavigationFollow(); });
+    }
     updateNavigationMarker(latestDriverPosition);
     if (navigationController?.routePath?.length) drawNavigationRoute(navigationController.routePath);
     return navigationMap;
@@ -609,8 +628,7 @@ function drawNavigationRoute(path) {
     if (!navigationMap || !window.google?.maps || !path?.length) return;
     navigationRouteLine?.setMap(null);
     navigationRouteLine = new google.maps.Polyline({ path, map: navigationMap, strokeColor: "#2563eb", strokeOpacity: 0.95, strokeWeight: 7 });
-    const bounds = new google.maps.LatLngBounds(); path.forEach(point => bounds.extend(point)); if (latestDriverPosition) bounds.extend(latestDriverPosition);
-    navigationMap.fitBounds(bounds, 44);
+    updateNavigationCamera(latestDriverPosition);
 }
 
 function updateNavigationMarker(position) {
@@ -618,6 +636,45 @@ function updateNavigationMarker(position) {
     const point = { lat: Number(position.lat), lng: Number(position.lng) };
     if (!navigationMarker) navigationMarker = new google.maps.Marker({ map: navigationMap, position: point, title: "Your location", zIndex: 10, icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 6, fillColor: "#0f172a", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2, rotation: Number.isFinite(position.heading) ? position.heading : 0 } });
     else { navigationMarker.setPosition(point); const icon = navigationMarker.getIcon(); if (icon && Number.isFinite(position.heading)) navigationMarker.setIcon({ ...icon, rotation: position.heading }); }
+    updateNavigationCamera(position);
+}
+
+function pauseNavigationFollow() {
+    if (!navigationController?.active) return;
+    navigationFollowMode = false;
+    document.getElementById("navigationRecenterButton")?.classList.remove("following");
+}
+
+function resumeNavigationFollow() {
+    navigationFollowMode = true;
+    document.getElementById("navigationRecenterButton")?.classList.add("following");
+    updateNavigationCamera(latestDriverPosition, true);
+}
+
+function updateNavigationCamera(position, force = false) {
+    if (!navigationMap || !position || (!navigationFollowMode && !force)) return;
+    if (Number(position.accuracy) > 150) return;
+    navigationCameraHeading = window.DriverNavigation.smoothHeading(navigationCameraHeading, position.heading, position.speed);
+    const zoom = window.DriverNavigation.navigationZoom(position.speed, navigationDistanceToTurn, position.accuracy);
+    navigationCameraChanging = true;
+    const camera = { center: { lat: Number(position.lat), lng: Number(position.lng) }, zoom };
+    if (navigationCameraHeading !== null) camera.heading = navigationCameraHeading;
+    if (typeof navigationMap.moveCamera === "function") navigationMap.moveCamera({ ...camera, tilt: navigationCameraHeading === null ? 0 : 45 });
+    else { navigationMap.panTo(camera.center); navigationMap.setZoom(zoom); if (navigationCameraHeading !== null) navigationMap.setHeading?.(navigationCameraHeading); }
+    requestAnimationFrame(() => { navigationMap.panBy?.(0, -Math.round((document.getElementById("driverNavigationMap")?.clientHeight || 300) * .12)); navigationCameraChanging = false; });
+}
+
+function showNavigationOverview() {
+    if (!navigationMap || !window.google?.maps || !navigationController?.routePath?.length) return;
+    pauseNavigationFollow(); navigationCameraChanging = true;
+    const bounds = new google.maps.LatLngBounds(); navigationController.routePath.forEach(point => bounds.extend(point)); if (latestDriverPosition) bounds.extend(latestDriverPosition);
+    navigationMap.setHeading?.(0); navigationMap.setTilt?.(0); navigationMap.fitBounds(bounds, 48);
+    google.maps.event.addListenerOnce(navigationMap, "idle", () => { navigationCameraChanging = false; });
+}
+
+function checkNavigationGpsFreshness() {
+    if (!navigationController?.active) return;
+    if (window.DriverNavigation.gpsIsStale(latestDriverPosition)) setNavigationStatus("GPS signal lost · holding the last known route", true);
 }
 
 function updateNavigationJob(job, externalUrl) {

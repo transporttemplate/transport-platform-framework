@@ -86,6 +86,24 @@
     }
     function formatDistance(metres) { return metres < 160 ? `${Math.max(0, Math.round(metres / 10) * 10)} m` : `${(metres / 1609.344).toFixed(metres < 1609 ? 1 : 1)} mi`; }
     function formatDuration(seconds) { const minutes = Math.max(1, Math.round(seconds / 60)); return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} hr ${minutes % 60} min`; }
+    function usableHeading(value) { if (value === null || value === undefined || value === "") return null; const heading = Number(value); return Number.isFinite(heading) && heading >= 0 && heading < 360 ? heading : null; }
+    function smoothHeading(previous, next, speed) {
+        const target = usableHeading(next), current = usableHeading(previous);
+        if (target === null || Number(speed) < 1.2) return current;
+        if (current === null) return target;
+        const delta = ((target - current + 540) % 360) - 180;
+        return (current + Math.max(-18, Math.min(18, delta)) + 360) % 360;
+    }
+    function navigationZoom(speed, distanceToTurn, accuracy) {
+        if (Number(accuracy) > 100) return 16.5;
+        if (Number(distanceToTurn) < 180) return 18.5;
+        const metresPerSecond = Math.max(0, Number(speed) || 0);
+        if (metresPerSecond >= 24) return 16.5;
+        if (metresPerSecond >= 14) return 17;
+        if (metresPerSecond >= 6) return 17.5;
+        return 18;
+    }
+    function gpsIsStale(position, now = Date.now()) { return !position || !Number.isFinite(Number(position.timestamp)) || now - Number(position.timestamp) > 30000; }
 
     class Controller {
         constructor(options) {
@@ -163,5 +181,5 @@
         }
     }
 
-    return { ACTIVE_STATUSES, normal, navigationTarget, canNavigate, externalMapsUrl, decodePolyline, metresBetween, distanceToPath, shouldReroute, progressForPosition, remainingMetrics, formatDistance, formatDuration, Controller };
+    return { ACTIVE_STATUSES, normal, navigationTarget, canNavigate, externalMapsUrl, decodePolyline, metresBetween, distanceToPath, shouldReroute, progressForPosition, remainingMetrics, formatDistance, formatDuration, usableHeading, smoothHeading, navigationZoom, gpsIsStale, Controller };
 });

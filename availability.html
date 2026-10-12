@@ -13,13 +13,14 @@
 .availability-status.on-break .availability-dot{background:#2563eb}
 .availability-status.offline .availability-dot{background:#dc2626}
 .availability-status.unavailable .availability-dot{background:#7c3aed}
-.availability-table-wrap{overflow:auto}
-.availability-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
-.availability-toolbar .primary{margin-left:auto;background:#111827;color:#fff}
-.block-layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(300px,.8fr);gap:18px}
+.availability-page{min-width:0}.availability-table-wrap{overflow:auto}
+.availability-toolbar{display:grid;grid-template-columns:auto minmax(130px,auto) auto auto auto minmax(240px,1fr) auto;gap:8px;align-items:end;margin-bottom:18px}.availability-toolbar label{display:grid;gap:4px;color:#475569;font-size:.76rem;font-weight:700}.availability-toolbar select{width:100%;min-height:44px}.availability-toolbar .primary{justify-self:end;background:#111827;color:#fff;white-space:nowrap}
+.block-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start}.block-layout.form-open{grid-template-columns:minmax(420px,1.35fr) minmax(320px,.8fr)}
 .block-list{display:grid;gap:10px}.block-row{border:1px solid #e2e8f0;border-left:5px solid #dc2626;border-radius:10px;padding:12px;display:flex;justify-content:space-between;gap:12px}.block-actions{display:flex;gap:6px;align-items:flex-start}.block-meta{color:#64748b;font-size:.86rem;margin-top:4px}.status-pill{display:inline-flex;border-radius:999px;padding:4px 9px;font-size:.78rem;font-weight:700;background:#fee2e2;color:#991b1b}
-.availability-form{display:grid;gap:12px}.availability-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.availability-form label{display:grid;gap:5px;font-weight:600}.availability-form input,.availability-form select,.availability-form textarea{width:100%;box-sizing:border-box}.form-check{display:flex!important;align-items:center;gap:8px}.form-check input{width:auto}.form-actions{display:flex;justify-content:flex-end;gap:8px}.form-error{color:#b91c1c;min-height:1.2em}.availability-calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}.availability-calendar-day{min-height:64px;border:1px solid #e2e8f0;border-radius:7px;padding:5px;font-size:.78rem}.availability-calendar-day strong{display:block}.availability-calendar-day.blocked{background:#fef2f2;border-color:#fca5a5}.availability-calendar-head{text-align:center;font-size:.75rem;font-weight:700;color:#64748b}.leave-warning{color:#b45309;font-weight:700}
-@media(max-width:850px){.block-layout{grid-template-columns:1fr}.availability-toolbar .primary{margin-left:0}.availability-form-grid{grid-template-columns:1fr}.block-row{flex-direction:column}.availability-calendar-day{min-height:48px}}
+.availability-form{display:grid;gap:12px;padding:17px;border:1px solid #dbe3ec;border-radius:12px;background:#f8fafc;position:sticky;top:16px}.availability-form h3{margin:0}.availability-form-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}.availability-form label{display:grid;gap:5px;min-width:0;font-weight:600}.availability-form input,.availability-form select,.availability-form textarea{width:100%;min-width:0;box-sizing:border-box}.form-check{display:flex!important;align-items:center;gap:8px;min-height:32px}.form-check input{width:auto}.form-actions{display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:0;padding-top:4px;background:#f8fafc}.form-actions button{min-width:110px}.form-error{color:#b91c1c;min-height:1.2em}.availability-calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;max-width:100%;overflow:hidden}.availability-calendar-day{min-width:0;min-height:72px;border:1px solid #e2e8f0;border-radius:7px;padding:6px;font-size:.76rem;overflow:hidden}.availability-calendar-day strong{display:block}.availability-calendar-day span{display:block;overflow:hidden;text-overflow:ellipsis}.availability-calendar-day.blocked{background:#fef2f2;border-color:#fca5a5}.availability-calendar-head{min-width:0;text-align:center;font-size:.72rem;font-weight:700;color:#64748b}.leave-warning{color:#b45309;font-weight:700}
+@media(max-width:1100px){.availability-toolbar{grid-template-columns:auto minmax(120px,1fr) auto auto auto}.availability-toolbar label{grid-column:1/4}.availability-toolbar .primary{grid-column:4/6}.block-layout.form-open{grid-template-columns:minmax(0,1fr) minmax(300px,.8fr)}}
+@media(max-width:850px){.block-layout,.block-layout.form-open{grid-template-columns:minmax(0,1fr)}.availability-form{position:static}.block-row{flex-direction:column}}
+@media(max-width:600px){.main.availability-page{padding:12px}.availability-toolbar{display:flex;align-items:stretch;flex-wrap:wrap}.availability-toolbar strong{flex:1;text-align:center;align-self:center}.availability-toolbar label{width:100%}.availability-toolbar .primary{width:100%;justify-content:center}.availability-form-grid{grid-template-columns:1fr}.availability-calendar{gap:3px}.availability-calendar-day{min-height:52px;padding:4px;font-size:.68rem}.availability-calendar-head{font-size:.62rem}.form-actions{display:grid;grid-template-columns:1fr 1fr}.form-actions button{min-width:0;width:100%}.availability-form input,.availability-form select,.availability-form textarea{font-size:16px}.stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stats .card{padding:13px}.stats .stat{font-size:26px}}
 </style>
 </head>
 <body>
@@ -42,11 +43,13 @@
 <a href="login.html">🚪 Logout</a>
 </aside>
 
-<main class="main">
+<main class="main availability-page">
 <div class="topbar">
 <div class="topbar-left">
 <button class="menu-toggle" id="menuToggle" type="button">☰</button>
 <div><h2>Fully Booked &amp; Availability</h2><small id="availabilityUpdated">Loading availability…</small></div>
+</div>
+<button id="refreshAvailability" type="button">Refresh</button>
 </div>
 
 <section class="card">
@@ -82,8 +85,6 @@
 </form>
 </div>
 </section>
-<button id="refreshAvailability" type="button">Refresh</button>
-</div>
 
 <div class="stats">
 <div class="card green"><h3>Available / Online</h3><div class="stat" id="availableCount">0</div></div>
