@@ -123,6 +123,16 @@ function initialiseAdminNavigation() {
     sidebar.id ||= "adminSidebar";
 
     initialiseEmailNavigation(sidebar);
+    if (!sidebar.querySelector('.admin-sms-nav')) {
+        const group = document.createElement('nav');
+        group.className = 'admin-email-nav admin-sms-nav';
+        group.setAttribute('aria-label', 'SMS');
+        const heading = document.createElement('span'); heading.className = 'admin-nav-heading'; heading.textContent = 'SMS'; group.appendChild(heading);
+        for (const [tab, label] of [['inbox','Inbox'],['automations','Automations'],['templates','Templates'],['gateway','Gateway Settings'],['usage','Usage & History']]) {
+            const link = document.createElement('a'); link.href = `sms-admin.html#${tab}`; link.textContent = label; group.appendChild(link);
+        }
+        sidebar.insertBefore(group, sidebar.querySelector('a[href^="settings.html"]'));
+    }
 
     if (!sidebar.querySelector('a[href="empty-legs-admin.html"]')) {
         const driversLink = sidebar.querySelector('a[href="drivers.html"]');

@@ -4,7 +4,7 @@
    ================================================== */
 
 :root{
-    --bg:#eef2f7;
+    --bg:#0b1220;
     --sidebar:#1f2937;
     --sidebar-hover:#374151;
     --admin-primary:#2563eb;
@@ -21,7 +21,7 @@
     --shadow:0 10px 25px rgba(0,0,0,.08);
     --radius:14px;
 }
-html{background:#eef2f7;color-scheme:light}
+html{background:#0b1220;color-scheme:light}
 .admin-via-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;margin:8px 0}
 .admin-via-row label{grid-column:1/-1;margin:0}
 
@@ -41,29 +41,30 @@ body{
 
 .admin-layout{
     display:grid;
-    grid-template-columns:260px 1fr;
+    grid-template-columns:218px minmax(0,1fr);
     min-height:100vh;
 }
 
 .sidebar{
     background:var(--sidebar);
     color:#fff;
-    padding:25px;
+    padding:16px 12px;
     overflow-y:auto;
 }
 
 .sidebar h2{
-    margin-bottom:35px;
-    font-size:26px;
+    margin-bottom:18px;
+    font-size:19px;
 }
 
 .sidebar a{
     display:block;
     color:#d1d5db;
     text-decoration:none;
-    padding:14px 16px;
+    padding:8px 12px;
     border-radius:10px;
-    margin-bottom:8px;
+    margin-bottom:3px;
+    font-size:13px;
     transition:.2s;
 }
 
@@ -81,7 +82,7 @@ body{
 .usage-unavailable{color:#92400e}
 
 .main{
-    padding:30px;
+    padding:20px;
 }
 
 .topbar{

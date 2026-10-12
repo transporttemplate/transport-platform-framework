@@ -1,0 +1,24 @@
+/* Release 6: booking workspace only; public booking/payment styles untouched. */
+.bookings-page{color:#dce6f5;color-scheme:dark}
+.bookings-page .topbar{background:#142033;border:1px solid #293951;color:#e6edf8;margin-bottom:16px;padding:13px 17px}
+.bookings-page .dispatch-grid{grid-template-columns:minmax(0,1.16fr) minmax(0,1fr);align-items:stretch;gap:14px}
+.bookings-page .dispatch-panel,.bookings-page .map-panel{background:#132034;border-color:#2b3a50;color:#e3ebf7;box-shadow:0 8px 24px #0002}
+.bookings-page .dispatch-panel{padding:12px}
+.bookings-page .dispatch-panel h3{color:#edf4ff;font-size:15px}
+.bookings-page .job-form{gap:6px;font-size:12px}
+.bookings-page .job-form input,.bookings-page .job-form select,.bookings-page .job-form textarea{background:#0d1728;border-color:#34445d;color:#e7eef9;min-width:0;min-height:34px;font-size:12px}
+.bookings-page .job-form input:focus,.bookings-page .job-form select:focus,.bookings-page .job-form textarea:focus{border-color:#60a5fa;box-shadow:0 0 0 3px #3b82f633}
+.bookings-page .job-form label,.bookings-page .form-heading,.bookings-page .admin-location-title{color:#b8c9df}
+.bookings-page .admin-location-group,.bookings-page .route-quote{background:#17263b;border-color:#35455b}
+.bookings-page .admin-location-group{grid-template-columns:minmax(0,1.7fr) minmax(90px,.8fr) auto}
+.bookings-page .route-quote div{background:#0d1728}.bookings-page .route-quote small,.bookings-page .driver-select-note{color:#aebfd5}
+.bookings-page .map-panel{align-self:stretch;display:flex;flex-direction:column;min-height:350px}
+.bookings-page #dispatchMap{flex:1 1 auto;min-height:300px;height:auto;background:#111c2e}
+.bookings-page .map-message,.bookings-page .driver-key{color:#b9c9df;border-color:#33445d}
+.bookings-page #bookingMessage{color:#bcd6ff}
+.bookings-page .field-error{color:#fca5a5}
+.bookings-page .jobs-panel,.bookings-page .booking-modal,.bookings-page .booking-history-dialog{color:#1f2937;color-scheme:light}
+/* Author display:grid used to override the browser's hidden attribute. */
+.bookings-page [hidden]{display:none!important}
+@media(max-width:1150px){.bookings-page .dispatch-grid{grid-template-columns:minmax(0,1fr)}.bookings-page .map-panel{min-height:300px}.bookings-page #dispatchMap{height:280px;min-height:280px;flex:none}}
+@media(max-width:700px){.bookings-page .main{padding:12px}.bookings-page .admin-location-group{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.bookings-page .job-form input,.bookings-page .job-form select,.bookings-page .job-form textarea{font-size:16px;min-height:42px}.bookings-page .dispatch-panel{padding:10px}.bookings-page .customer-grid,.bookings-page .allocation-grid,.bookings-page .two-col,.bookings-page .pricing-grid{grid-template-columns:minmax(0,1fr)}}

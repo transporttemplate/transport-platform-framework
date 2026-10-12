@@ -1,0 +1,7 @@
+android-gateway/
+tests/
+scripts/
+supabase/
+node_modules/
+**/*.jks
+**/*.keystore

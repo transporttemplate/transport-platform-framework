@@ -967,7 +967,7 @@ function updateReturnFields() {
     if (fields) fields.hidden = !enabled;
     for (const id of ["returnDate", "returnTime"]) {
         const input = document.getElementById(id);
-        if (input) input.required = enabled;
+        if (input) { input.required = enabled; input.disabled = !enabled; }
     }
 }
 

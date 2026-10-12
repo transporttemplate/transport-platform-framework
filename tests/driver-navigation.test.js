@@ -181,7 +181,7 @@ test("Driver Portal contains integrated controls while preserving the existing w
 
 test("Admin canvas has a persistent background and reduced-motion navigation treatment", () => {
     const css = fs.readFileSync(path.join(__dirname, "../css/admin.css"), "utf8");
-    assert.match(css, /html\{background:#eef2f7;color-scheme:light\}/);
+    assert.match(css, /html\{background:#0b1220;color-scheme:light\}/);
     assert.match(css, /prefers-reduced-motion:reduce/);
     assert.match(css, /body:not\(\.login-page\):not\(\.admin-authenticated\)\{visibility:hidden\}/);
 });

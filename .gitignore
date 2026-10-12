@@ -3,3 +3,6 @@ node_modules/
 .env.*
 .DS_Store
 supabase/.temp/
+android-gateway/build/
+android-gateway/.signing/
+.vercel/
