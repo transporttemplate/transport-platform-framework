@@ -15,6 +15,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const db = getSupabase();
 
+        const requestedCompany=await resolveLoginCompanyCode(db);
+
         const { error } = await db.auth.signInWithPassword({
             email,
             password
@@ -34,19 +36,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const {data:memberships,error:membershipError}=await db
             .from("company_users")
-            .select("company_id,companies!inner(company_code)")
+            .select("company_id,role,companies!inner(company_code)")
             .eq("user_id",user.id);
-        if(membershipError||!memberships?.length){
+        const adminMemberships=(memberships||[]).filter(item=>["admin","owner"].includes(String(item.role||"").trim().toLowerCase()));
+        if(membershipError||!adminMemberships.length){
             await db.auth.signOut();
-            message.textContent=membershipError?.message||"Your login is not linked to a company.";
+            message.textContent=membershipError?.message||"Your login is not linked to an Admin account.";
             return;
         }
 
-        const requestedCompany=String(new URLSearchParams(window.location.search).get("company")||"").trim();
         const requestedMembership=/^[a-z0-9_-]+$/i.test(requestedCompany)
-            ?memberships.find(item=>String(item.companies?.company_code||"").toLowerCase()===requestedCompany.toLowerCase())
+            ?adminMemberships.find(item=>String(item.companies?.company_code||"").toLowerCase()===requestedCompany.toLowerCase())
             :null;
-        const membership=requestedMembership||memberships.find(item=>String(item.companies?.company_code)==="0001")||memberships[0];
+        if(requestedCompany&&!requestedMembership){
+            await db.auth.signOut();
+            message.textContent="Your login is not authorised for this company.";
+            return;
+        }
+        const membership=requestedMembership||adminMemberships.find(item=>String(item.companies?.company_code)==="0001")||adminMemberships[0];
         const destination=new URL("dashboard.html",window.location.href);
         destination.searchParams.set("company",membership.companies.company_code);
         window.location.href=`dashboard.html${destination.search}${destination.hash}`;
@@ -54,3 +61,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
 });
+
+async function resolveLoginCompanyCode(db){
+    const query=String(new URLSearchParams(window.location.search).get("company")||"").trim();
+    if(/^[a-z0-9_-]+$/i.test(query))return query;
+    const hostname=String(window.location.hostname||"").trim().toLowerCase().replace(/\.$/,"");
+    if(!hostname)return "";
+    const{data}=await db.from("company_domains").select("companies!inner(company_code)").eq("hostname",hostname).eq("active",true).maybeSingle();
+    return String(data?.companies?.company_code||"").trim();
+}

@@ -13,6 +13,7 @@ const db = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
+const adminRoles = new Set(["admin", "owner"]);
 
 Deno.serve(async request => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -28,6 +29,10 @@ Deno.serve(async request => {
 
     if (!companyId || !bookingId) {
       return json({ ok: false, stage: "request", error: "company_id and booking_id are required" }, 400);
+    }
+
+    if (!await authorisedForCompany(request, companyId)) {
+      return json({ ok: false, stage: "authorization", error: "Admin company access required" }, 403);
     }
 
     console.log("Google Calendar sync started", { company_id: companyId, booking_id: bookingId });
@@ -120,6 +125,34 @@ Deno.serve(async request => {
     return json({ ok: false, stage, error: message }, 500);
   }
 });
+
+async function authorisedForCompany(request: Request, companyId: string) {
+  const token = request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") || "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  if (token && serviceKey && constantTimeEqual(token, serviceKey)) return true;
+  if (!token) return false;
+
+  const userDb = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: `Bearer ${token}` } } }
+  );
+  const { data: { user }, error: userError } = await userDb.auth.getUser();
+  if (userError || !user) return false;
+  const { data: membership, error: membershipError } = await db.from("company_users")
+    .select("role")
+    .eq("user_id", user.id)
+    .eq("company_id", companyId)
+    .maybeSingle();
+  return !membershipError && adminRoles.has(String(membership?.role || "").trim().toLowerCase());
+}
+
+function constantTimeEqual(left: string, right: string) {
+  if (left.length !== right.length || !left.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  return difference === 0;
+}
 
 function buildEvent(booking: Record<string, unknown>, stops: Array<Record<string, unknown>>, timezone: string) {
   const start = `${booking.journey_date}T${String(booking.journey_time).slice(0, 5)}:00`;

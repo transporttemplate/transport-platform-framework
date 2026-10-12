@@ -1,16 +1,39 @@
 const adminDb = getSupabase();
+const ADMIN_ALLOWED_ROLES = new Set(["admin", "owner"]);
 
 document.body?.classList.remove("admin-authenticated");
 
-function redirectToLogin() {
-    window.location.replace(adminAuthUrl("login.html"));
+function isAdminMembership(membership) {
+    return ADMIN_ALLOWED_ROLES.has(String(membership?.role || "").trim().toLowerCase());
+}
+
+async function loginCompanyCode() {
+    const requestedCode = requestedAdminCompanyCode();
+    if (requestedCode) return requestedCode;
+    const hostname = String(window.location.hostname || "").trim().toLowerCase().replace(/\.$/, "");
+    if (!hostname) return "";
+    const { data, error } = await adminDb
+        .from("company_domains")
+        .select("companies!inner(company_code)")
+        .eq("hostname", hostname)
+        .eq("active", true)
+        .maybeSingle();
+    if (error) console.info("Admin login company could not be resolved from the hostname.", { code: error.code || "unknown" });
+    return String(data?.companies?.company_code || "").trim();
+}
+
+async function redirectToLogin() {
+    document.body?.classList.remove("admin-authenticated");
+    const companyCode = await loginCompanyCode();
+    const loginUrl = companyCode ? adminAuthUrl("login.html", companyCode) : adminAuthUrl("login.html");
+    window.location.replace(loginUrl);
 }
 
 async function adminLogout() {
     document.body?.classList.remove("admin-authenticated");
     const { error } = await adminDb.auth.signOut();
     if (error) console.error("Admin logout failed:", error);
-    window.location.replace(adminAuthUrl("login.html"));
+    await redirectToLogin();
 }
 
 const ADMIN_IDLE_LIMIT_MS = 30 * 60 * 1000;
@@ -79,12 +102,27 @@ window.addEventListener("pagehide", () => {
 
 window.addEventListener("pageshow", async event => {
     if (!event.persisted) return;
-    const { data: { session } } = await adminDb.auth.getSession();
-    if (!session?.user) redirectToLogin();
-    else {
-        startAdminInactivity(session);
-        document.body?.classList.add("admin-authenticated");
+    document.body?.classList.remove("admin-authenticated");
+    const [{ data: { session } }, { data: { user } }] = await Promise.all([
+        adminDb.auth.getSession(),
+        adminDb.auth.getUser()
+    ]);
+    if (!session?.user || !user || user.id !== session.user.id || !window.ADMIN_COMPANY_ID) {
+        await redirectToLogin();
+        return;
     }
+    const { data: membership } = await adminDb.from("company_users")
+        .select("company_id,role")
+        .eq("user_id", user.id)
+        .eq("company_id", window.ADMIN_COMPANY_ID)
+        .maybeSingle();
+    if (!membership || !isAdminMembership(membership)) {
+        await adminDb.auth.signOut();
+        await redirectToLogin();
+        return;
+    }
+    startAdminInactivity(session);
+    document.body?.classList.add("admin-authenticated");
 });
 
 window.ADMIN_COMPANY_ID = null;
@@ -110,7 +148,7 @@ window.adminCompanyReadyPromise = (async () => {
     if (sessionError) throw sessionError;
 
     if (!session) {
-        redirectToLogin();
+        await redirectToLogin();
         throw new Error("No admin session");
     }
 
@@ -118,7 +156,7 @@ window.adminCompanyReadyPromise = (async () => {
     if (userError || !user || user.id !== session.user.id) {
         console.error("Admin user verification failed:", userError);
         await adminDb.auth.signOut();
-        redirectToLogin();
+        await redirectToLogin();
         throw new Error("Admin session could not be verified");
     }
 
@@ -143,15 +181,16 @@ window.adminCompanyReadyPromise = (async () => {
         throw error;
     }
 
-    if (!companyUsers?.length) {
-        alert("Your login is not linked to a company.");
+    const adminMemberships = (companyUsers || []).filter(isAdminMembership);
+    if (!adminMemberships.length) {
+        alert("Your login is not linked to an Admin account.");
         await adminDb.auth.signOut();
-        redirectToLogin();
-        throw new Error("Admin user is not linked to a company");
+        await redirectToLogin();
+        throw new Error("User does not have an Admin company role");
     }
 
     const requestedCode = requestedAdminCompanyCode();
-    const memberships = companyUsers.filter(item => item.companies?.company_code);
+    const memberships = adminMemberships.filter(item => item.companies?.company_code);
     const companyUser = requestedCode
         ? memberships.find(item => String(item.companies.company_code).toLowerCase() === requestedCode.toLowerCase())
         : memberships.find(item => String(item.companies.company_code) === "0001") || memberships[0];

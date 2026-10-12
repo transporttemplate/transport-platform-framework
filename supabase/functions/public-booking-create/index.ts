@@ -315,6 +315,9 @@ Deno.serve(async (request) => {
     if (String(company.company_status || "active") !== "trial") {
       await notifyBookingEmail(companyId, String(inserted.data?.[0]?.id || id), "new_booking");
     }
+    if (!onlinePayment) {
+      await notifyGoogleCalendar(companyId, (inserted.data || []).map((row: Row) => String(row.id)).filter(Boolean));
+    }
 
     let claimToken: string | null = null;
     if (!portalCustomerId && email && inserted.data?.[0]?.id) {
@@ -429,6 +432,18 @@ async function notifyBookingEmail(companyId:string,bookingId:string,event:string
     if(!response.ok||!result?.ok)console.error("Booking email notification failed",{status:response.status,error:result?.error||result?.skipped||"Email was not accepted"});
     else if(!result.sent)console.info("Booking email notification not sent",{reason:result.skipped||"duplicate"});
   }catch(error){console.error("Booking email notification failed",error instanceof Error?error.message:error);}
+}
+
+async function notifyGoogleCalendar(companyId:string,bookingIds:string[]){
+  const base=clean(Deno.env.get("SUPABASE_URL"));
+  const serviceKey=clean(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
+  if(!base||!serviceKey||!bookingIds.length)return;
+  const headers={"Content-Type":"application/json",apikey:serviceKey,Authorization:`Bearer ${serviceKey}`};
+  const results=await Promise.allSettled(bookingIds.map(bookingId=>fetch(`${base}/functions/v1/google-calendar-sync`,{method:"POST",headers,body:JSON.stringify({company_id:companyId,booking_id:bookingId})})));
+  for(const result of results){
+    if(result.status==="rejected")console.error("Google Calendar notification failed",result.reason);
+    else if(!result.value.ok)console.error("Google Calendar notification returned",{status:result.value.status});
+  }
 }
 
 async function resolvePublicAccount(companyId: string, booking: Row) {
