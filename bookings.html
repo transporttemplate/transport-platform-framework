@@ -466,6 +466,8 @@
 <div class="schedule-grid" id="returnFields" hidden>
 <div class="form-field"><label for="returnDate">Return date</label><input id="returnDate" type="date"></div>
 <div class="form-field"><label for="returnTime">Return time</label><input id="returnTime" type="time"></div>
+<div class="form-field"><label for="returnDriverSelect">Return driver <span class="driver-select-note">(independent)</span></label><select id="returnDriverSelect"><option value="">Unassigned</option></select></div>
+<div class="form-field"><label for="returnDriverAmount">Return driver amount <span class="driver-select-note">(optional)</span></label><input id="returnDriverAmount" type="number" min="0" step="0.01" placeholder="£0.00"></div>
 </div>
 
 <div class="passenger-luggage-grid">
@@ -477,8 +479,8 @@
 <div class="form-heading">PRICING &amp; ALLOCATION</div>
 
 <div class="pricing-grid">
-<div class="form-field"><label for="jobPrice">Customer price</label><input id="jobPrice" type="number" min="0" step="0.01" placeholder="£0.00"></div>
-<div class="form-field"><label for="driverAmount">Driver amount <span class="driver-select-note">(optional)</span></label><input id="driverAmount" type="number" min="0" step="0.01" placeholder="£0.00"></div>
+<div class="form-field"><label for="jobPrice">Customer price <span class="driver-select-note">(combined total for returns)</span></label><input id="jobPrice" type="number" min="0" step="0.01" placeholder="£0.00"></div>
+<div class="form-field"><label for="driverAmount">Outbound driver amount <span class="driver-select-note">(optional)</span></label><input id="driverAmount" type="number" min="0" step="0.01" placeholder="£0.00"></div>
 </div>
 <div class="form-field" id="priceOverrideReasonField" hidden><label for="priceOverrideReason">Manual fare override reason</label><input id="priceOverrideReason" maxlength="500" placeholder="Required when changing the calculated fare"></div>
 <div id="paidFareWarning" class="paid-fare-warning" hidden></div>

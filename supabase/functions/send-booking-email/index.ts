@@ -48,6 +48,8 @@ Deno.serve(async (request) => {
     const settings = settingsResult.data || {};
     const company = companyResult.data || {};
     if (!booking) return json({ ok: false, error: "Booking not found" }, 404);
+    let linkedReturn:Row|null=null;
+    if(booking.return_journey&&booking.booking_reference){const linked=await db.from("bookings").select("id,booking_reference,journey_date,journey_time,pickup_name,pickup_address,dropoff_name,dropoff_address,price,journey_fare").eq("company_id",companyId).eq("booking_reference",`${booking.booking_reference}-R`).maybeSingle();if(linked.error)throw linked.error;linkedReturn=linked.data}
     console.info("Email company settings resolved", { event, company_id: companyId, notifications_enabled: settings.emailnotifications !== false, customer_notifications_enabled: settings.customer_booking_emails !== false });
     if (settings.emailnotifications === false) {
       console.warn("Email event skipped", { event, company_id: companyId, reason: "notifications_disabled" });
@@ -77,7 +79,7 @@ Deno.serve(async (request) => {
       .select("template_key,subject,body,active").eq("company_id", companyId).in("template_key", templateKeys);
     if (templateError) throw templateError;
 
-    const values = valuesFor(booking, settings, company, stopsResult.data || [], currentDriver);
+    const values = valuesFor(booking, settings, company, stopsResult.data || [], currentDriver,linkedReturn);
     const sent: Array<{ recipient_type: string; status: string }> = [];
     for (const recipient of recipients) {
       const template = (templates || []).find((row: Row) => row.template_key === recipient.template);
@@ -93,8 +95,9 @@ Deno.serve(async (request) => {
       const htmlText = recipient.type === "customer"
         ? render(templateBody, { ...renderValues, journey_summary: "", payment_summary: "" }).replace(/\n{3,}/g, "\n\n").trim()
         : text;
-      const financialHtml = recipient.type === "driver" ? "" : paymentHtml(booking, settings);
-      const html = brandedEmail(settings, `<div style="font-size:16px">${textToHtml(htmlText)}</div>${journeyHtml(booking, stopsResult.data || [], settings, String(recipientValues.journey_datetime || ""))}${financialHtml}`);
+      const financialHtml = recipient.type === "driver" ? "" : paymentHtml(booking, settings,linkedReturn);
+      const returnHtml=recipient.type==="driver"||!linkedReturn?"":journeyHtml(linkedReturn,[],settings,formatCompanyLocalDateTime(linkedReturn.journey_date,linkedReturn.journey_time,settings.timezone).dateTime);
+      const html = brandedEmail(settings, `<div style="font-size:16px">${textToHtml(htmlText)}</div>${journeyHtml(booking, stopsResult.data || [], settings, String(recipientValues.journey_datetime || ""))}${returnHtml}${financialHtml}`);
       const companyEmail = companyEmailAddress(settings);
       try {
         const result = await logDelivery(companyId, recipient.template, recipient.email, {
@@ -201,14 +204,14 @@ function emailPreferenceEnabled(settings: Row, key: string, legacyEnabled: boole
   return Array.isArray(configured) ? configured.includes("email") : legacyEnabled;
 }
 
-function valuesFor(booking: Row, settings: Row, company: Row, stops: Row[], driver?: Row) {
+function valuesFor(booking: Row, settings: Row, company: Row, stops: Row[], driver?: Row,linkedReturn?:Row|null) {
   const currency = clean(settings.currencysymbol) || "£";
   const money = (value: unknown) => `${currency}${Number(value || 0).toFixed(2)}`;
   const pickup = [booking.pickup_name, booking.pickup_address].filter(Boolean).join(", ");
   const dropoff = [booking.dropoff_name, booking.dropoff_address].filter(Boolean).join(", ");
   const vias = stops.map(stop => [stop.address_name, stop.formatted_address].filter(Boolean).join(", ")).filter(Boolean);
   const route = [pickup, ...vias, dropoff].join(" → ");
-  const total = Number(booking.price ?? booking.job_price ?? 0);
+  const total = Number(booking.price ?? booking.job_price ?? 0)+Number(linkedReturn?.price||0);
   const paid = Number(booking.amount_paid || 0);
   const balance = Number(booking.balance_due ?? Math.max(0, total - paid));
   const journeyWhen = formatCompanyLocalDateTime(booking.journey_date, booking.journey_time, settings.timezone);
@@ -224,7 +227,7 @@ function valuesFor(booking: Row, settings: Row, company: Row, stops: Row[], driv
     pickup_address: pickup,
     via_stops: vias.join(" → "),
     dropoff_address: dropoff,
-    journey_summary: `${journeyWhen.dateTime}\n${route}`,
+    journey_summary: `${journeyWhen.dateTime}\n${route}${linkedReturn?`\n\nReturn ${formatCompanyLocalDateTime(linkedReturn.journey_date,linkedReturn.journey_time,settings.timezone).dateTime}\n${[linkedReturn.pickup_name,linkedReturn.pickup_address].filter(Boolean).join(", ")} → ${[linkedReturn.dropoff_name,linkedReturn.dropoff_address].filter(Boolean).join(", ")}`:""}`,
     passengers: booking.passengers ?? "—",
     suitcases: booking.suitcases ?? 0,
     hand_luggage: booking.hand_luggage ?? 0,
@@ -253,10 +256,10 @@ function journeyHtml(booking: Row, stops: Row[], settings: Row, journeyDateTime:
   return `<div style="margin:22px 0;border-left:4px solid ${accent};padding-left:16px"><strong style="font-size:18px">${escapeHtml(booking.booking_reference)}</strong><div style="margin:6px 0 14px">${escapeHtml(journeyDateTime)}</div>${locations.map(([label, address]) => `<div style="margin:9px 0"><span style="color:#64748b;font-size:12px;text-transform:uppercase">${escapeHtml(label)}</span><br><strong>${escapeHtml(address)}</strong></div>`).join("")}</div>`;
 }
 
-function paymentHtml(booking: Row, settings: Row) {
+function paymentHtml(booking: Row, settings: Row,linkedReturn?:Row|null) {
   const symbol = clean(settings.currencysymbol) || "£";
   const money = (value: unknown) => `${symbol}${Number(value || 0).toFixed(2)}`;
-  const total = Number(booking.price ?? booking.job_price ?? 0);
+  const total = Number(booking.price ?? booking.job_price ?? 0)+Number(linkedReturn?.price||0);
   return `<table role="presentation" width="100%" cellspacing="0" cellpadding="7" style="margin-top:18px;background:#f8fafc;border-radius:8px"><tr><td>Journey total</td><td align="right"><strong>${money(total)}</strong></td></tr><tr><td>Amount paid</td><td align="right">${money(booking.amount_paid)}</td></tr><tr><td>Balance remaining</td><td align="right">${money(booking.balance_due ?? total)}</td></tr></table>`;
 }
 

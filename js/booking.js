@@ -17,6 +17,7 @@ let stripeExpressCheckoutElement=null;
 let stripePaymentElement=null;
 let pendingStripeBooking=null;
 let stripePaymentInProgress=false;
+let publicBookingSubmissionKey=crypto.randomUUID();
 
 let currentRoute={
     miles:null,
@@ -2226,7 +2227,7 @@ async function saveBooking(event){
 
 
         const {data:created,error}=await bookingdb.functions.invoke("public-booking-create",{
-            body:{company_code:company.company_code,booking:record,stops:collectPublicViaStops()}
+            body:{company_code:company.company_code,booking:record,stops:collectPublicViaStops(),request_key:publicBookingSubmissionKey}
         });
         if(error||!created?.ok) throw new Error(await publicBookingErrorMessage(error,created));
 
@@ -2391,6 +2392,7 @@ function showBookingConfirmation(created,options={}){
     if(headerPortal) headerPortal.href=`customer-login.html${companyQuery}`;
 
     pendingStripeBooking=null;
+    publicBookingSubmissionKey=crypto.randomUUID();
     confirmation?.scrollIntoView({behavior:"smooth",block:"start"});
 }
 

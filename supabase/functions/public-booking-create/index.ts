@@ -197,6 +197,8 @@ Deno.serve(async (request) => {
     const email = clean(booking.email);
     const phone = clean(booking.phone);
     if (!name || (!email && !phone)) throw new ApiError(400, "Customer name and phone or email are required");
+    const requestKey=clean(body.request_key);
+    if(!requestKey||!/^[A-Za-z0-9_-]{16,100}$/.test(requestKey))throw new ApiError(400,"A valid booking request key is required");
 
     const portalCustomerId = await resolvePortalCustomer(request, companyId, email);
     const customerResult = portalCustomerId ? null : await db.rpc("find_or_create_public_customer", {
@@ -209,7 +211,7 @@ Deno.serve(async (request) => {
     const refResult = await db.rpc("next_company_booking_reference", { target_company_id: companyId });
     if (refResult.error) throw refResult.error;
     const reference = refResult.data;
-    const id = crypto.randomUUID();
+    const id = await stableUuid(`${companyId}:${requestKey}:outbound`);
     const record = bookingPayload(booking, {
       id,
       company_id: companyId,
@@ -233,6 +235,7 @@ Deno.serve(async (request) => {
       account_customer_id: account?.id || null,
       account_po_reference: account ? clean(booking.account_po_reference) : null,
       booking_source: "website",
+      creation_idempotency_key: requestKey,
       pickup_address: route.origin.displayAddress,
       pickup_postcode: route.origin.postcode,
       pickup_place_id: route.origin.placeId,
@@ -248,7 +251,7 @@ Deno.serve(async (request) => {
     if (isReturn) {
       rows.push({
         ...record,
-        id: crypto.randomUUID(),
+        id: await stableUuid(`${companyId}:${requestKey}:return`),
         booking_reference: `${reference}-R`,
         pickup_address: record.dropoff_address,
         dropoff_address: record.pickup_address,
@@ -274,6 +277,7 @@ Deno.serve(async (request) => {
         payment_type: "linked_return",
         amount_paid: 0,
         balance_due: 0,
+        creation_idempotency_key: null,
       });
     }
 
@@ -281,8 +285,6 @@ Deno.serve(async (request) => {
     // authoritative and makes this race-safe across concurrent API instances.
     await requireAvailable(companyId, outboundAt, route.minutes);
     if (returnAt) await requireAvailable(companyId, returnAt, route.minutes);
-    const inserted = await db.from("bookings").insert(rows).select("id,booking_reference,price");
-    if (inserted.error) throw inserted.error;
     const stopRows = rows.flatMap((row, index) => {
       const ordered = index === 0 ? route.stops : [...route.stops].reverse();
       return ordered.map((stop: Row, stopIndex: number) => ({
@@ -298,19 +300,17 @@ Deno.serve(async (request) => {
         place_id: clean(stop.placeId),
       }));
     }).filter((stop: Row) => stop.formatted_address);
-    if (stopRows.length) {
-      const stopResult = await db.from("booking_stops").insert(stopRows);
-      if (stopResult.error) throw stopResult.error;
-    }
-
     let stripe:Row|null=null;
+    let paymentRow:Row|null=null;
     if(onlinePayment){
-      const primaryBooking=inserted.data?.[0];
-      const intent=await createStripeIntent(stripeSecret!,amountDue,companyId,String(primaryBooking.id),String(reference),paymentMethod);
-      const paymentInsert=await db.from("payments").insert({company_id:companyId,booking_id:primaryBooking.id,amount:amountDue,method:"stripe",status:"pending",reference:intent.id});
-      if(paymentInsert.error) throw paymentInsert.error;
+      const intent=await createStripeIntent(stripeSecret!,amountDue,companyId,id,String(reference),paymentMethod,requestKey);
+      paymentRow={booking_id:id,amount:amountDue,method:"stripe",status:"pending",reference:intent.id};
       stripe={client_secret:intent.client_secret,publishable_key:stripePublishableKey,amount_due:amountDue,balance_due:round2(authoritativeTotal-amountDue),payment_type:paymentMethod==="Deposit"?"deposit":"full"};
     }
+
+    const bundle=await db.rpc("create_booking_bundle",{target_company_id:companyId,booking_rows:rows,stop_rows:stopRows,payment_row:paymentRow,request_key:requestKey});
+    if(bundle.error)throw bundle.error;
+    const inserted={data:bundle.data?.bookings||[]};
 
     if (String(company.company_status || "active") !== "trial") {
       await notifyBookingEmail(companyId, String(inserted.data?.[0]?.id || id), "new_booking");
@@ -320,7 +320,7 @@ Deno.serve(async (request) => {
     }
 
     let claimToken: string | null = null;
-    if (!portalCustomerId && email && inserted.data?.[0]?.id) {
+    if (!bundle.data?.idempotent&&!portalCustomerId && email && inserted.data?.[0]?.id) {
       claimToken = toHex(crypto.getRandomValues(new Uint8Array(32)));
       const claimInsert = await db.from("booking_claim_tokens").insert({ company_id: companyId, booking_id: inserted.data[0].id, email_normalized: email.toLowerCase(), token_hash: await hash(claimToken), expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() });
       if (claimInsert.error) { console.error("Unable to create customer booking claim", claimInsert.error.message); claimToken = null; }
@@ -329,7 +329,7 @@ Deno.serve(async (request) => {
     return respond({
       ok: true,
       customer_id: customerId,
-      reference,
+      reference:inserted.data?.[0]?.booking_reference||reference,
       bookings: inserted.data,
       authoritative_price: authoritativeTotal,
       journey_fare: pricing.total,
@@ -353,6 +353,7 @@ function validateBasicBooking(booking: Row, stops: Row[], settings: Row) {
   if (!clean(booking.pickup_address) || !clean(booking.dropoff_address)) throw new ApiError(400, "Pickup and destination are required");
   const passengers = integer(booking.passengers);
   if (passengers < 1 || passengers > 52) throw new ApiError(400, "Passengers must be between 1 and 52");
+  for(const [value,label] of [[booking.suitcases,"Suitcases"],[booking.hand_luggage,"Hand luggage"]] as const){const count=integer(value??0);if(count<0||count>100)throw new ApiError(400,`${label} must be between 0 and 100`)}
   if (bool(booking.return_journey) && !bool(settings.returnbookings)) throw new ApiError(400, "Return bookings are not enabled");
   if (stops.length && !bool(settings.multiplestops)) throw new ApiError(400, "Multiple stops are not enabled");
   if (stops.length > 8) throw new ApiError(400, "Too many intermediate stops");
@@ -410,13 +411,13 @@ function validatePayment(value: unknown, settings: Row) {
   return "Pay in Car";
 }
 
-async function createStripeIntent(secret:string,amount:number,companyId:string,bookingId:string,reference:string,paymentMethod:string){
+async function createStripeIntent(secret:string,amount:number,companyId:string,bookingId:string,reference:string,paymentMethod:string,requestKey:string){
   const minor=Math.round(amount*100);
   if(minor<50) throw new ApiError(400,"Payment amount is too small");
   const form=new URLSearchParams();
   form.set("amount",String(minor)); form.set("currency","gbp"); form.append("payment_method_types[]","card");
   form.set("metadata[company_id]",companyId); form.set("metadata[booking_id]",bookingId); form.set("metadata[booking_reference]",reference); form.set("metadata[payment_type]",paymentMethod.toLowerCase());
-  const response=await fetch("https://api.stripe.com/v1/payment_intents",{method:"POST",headers:{Authorization:`Bearer ${secret}`,"Content-Type":"application/x-www-form-urlencoded"},body:form});
+  const response=await fetch("https://api.stripe.com/v1/payment_intents",{method:"POST",headers:{Authorization:`Bearer ${secret}`,"Content-Type":"application/x-www-form-urlencoded","Idempotency-Key":`booking-${companyId}-${requestKey}`},body:form});
   const result=await response.json();
   if(!response.ok||!result?.client_secret) throw new ApiError(502,"Unable to start Stripe payment");
   return result;
@@ -619,6 +620,8 @@ function splitPrice(total: number, isReturn: boolean) {
   const outboundPennies = Math.ceil(pennies / 2);
   return { outbound: outboundPennies / 100, return: (pennies - outboundPennies) / 100 };
 }
+
+async function stableUuid(value:string){const bytes=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value)));bytes[6]=(bytes[6]&15)|80;bytes[8]=(bytes[8]&63)|128;const hex=[...bytes.slice(0,16)].map(x=>x.toString(16).padStart(2,"0")).join("");return`${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`}
 
 function bookingPayload(booking: Row, fixed: Row) {
   const allowed = [

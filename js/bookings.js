@@ -390,10 +390,14 @@ function populateDriverDropdown() {
     const select =
         document.getElementById("driverSelect");
 
+    const returnSelect =
+        document.getElementById("returnDriverSelect");
+
     if (!select) return;
 
     select.innerHTML =
         '<option value="">Unassigned</option>';
+    if (returnSelect) returnSelect.innerHTML = '<option value="">Unassigned</option>';
 
     allDrivers.forEach(driver => {
 
@@ -407,6 +411,7 @@ function populateDriverDropdown() {
             `${driver.driver_number || "-"} — ${driver.full_name || "Driver"}${driver.online ? " • ONLINE" : ""}`;
 
         select.appendChild(option);
+        if (returnSelect) returnSelect.appendChild(option.cloneNode(true));
     });
 }
 
@@ -1296,18 +1301,35 @@ async function createAdminBooking(event) {
             new Date().toISOString();
     }
 
-    let { error } = await bookingsDb.from("bookings").insert(payload);
+    const isReturnBooking=payload.return_journey;
+    const combinedPrice=payload.price==null?null:Number(payload.price);
+    const combinedPennies=combinedPrice==null?null:Math.round(combinedPrice*100);
+    payload.price=combinedPennies==null?null:Math.ceil(combinedPennies/(isReturnBooking?2:1))/100;
+    payload.journey_fare=payload.price;
+    payload.amount_paid=0;
+    payload.balance_due=combinedPrice;
+    payload.payment_type=canonicalPaymentMethod(newPaymentMethod)==="account"?"account":canonicalPaymentMethod(newPaymentMethod)==="card"?"full":"pay_in_car";
+    const bookingRows=[payload];
+    if(isReturnBooking){
+        const returnDriverId=document.getElementById("returnDriverSelect")?.value||null;
+        const returnDriverAmountRaw=document.getElementById("returnDriverAmount")?.value??"";
+        const returnId=crypto.randomUUID();
+        const returnPrice=combinedPennies==null?null:(combinedPennies-Math.ceil(combinedPennies/2))/100;
+        bookingRows.push({...payload,id:returnId,booking_reference:`${payload.booking_reference}-R`,pickup_address:payload.dropoff_address,pickup_name:payload.dropoff_name,pickup_postcode:payload.dropoff_postcode,pickup_place_id:payload.dropoff_place_id,pickup_lat:payload.dropoff_lat,pickup_lng:payload.dropoff_lng,dropoff_address:payload.pickup_address,dropoff_name:payload.pickup_name,dropoff_postcode:payload.pickup_postcode,dropoff_place_id:payload.pickup_place_id,dropoff_lat:payload.pickup_lat,dropoff_lng:payload.pickup_lng,journey_date:payload.return_date,journey_time:payload.return_time,return_journey:false,return_date:null,return_time:null,journey_type:"return",price:returnPrice,journey_fare:returnPrice,payment_type:"linked_return",amount_paid:0,balance_due:0,driver_id:returnDriverId,driver_amount:returnDriverAmountRaw===""?null:Number(returnDriverAmountRaw),status:returnDriverId?"assigned":"waiting",dispatched_at:returnDriverId?new Date().toISOString():null});
+    }
+    const viaStops = collectAdminViaStops();
+    const stopRows=bookingRows.flatMap((row,rowIndex)=>(rowIndex?[...viaStops].reverse():viaStops).map((stop,index)=>({...stop,company_id:adminCompanyId,booking_id:row.id,stop_order:index+1})));
+    const createBundle=rows=>bookingsDb.rpc("create_booking_bundle",{target_company_id:adminCompanyId,booking_rows:rows,stop_rows:stopRows,payment_row:null,request_key:null});
+    let bundle = await createBundle(bookingRows);
+    let error=bundle.error;
 
     if (error && /FULLY_BOOKED|fully booked/i.test(error.message || "")) {
         const confirmed = confirm("FULLY BOOKED CONFLICT\n\nThis journey overlaps an enforced unavailable period. Existing blocks will not be changed.\n\nDo you want to create an authorised Admin override?");
         if (confirmed) {
             const overrideReason = prompt("Enter the operational reason for overriding availability (required):", "");
             if (overrideReason?.trim()) {
-                const retry = await bookingsDb.from("bookings").insert({
-                    ...payload,
-                    availability_override_reason: overrideReason.trim()
-                });
-                error = retry.error;
+                bundle=await createBundle(bookingRows.map(row=>({...row,availability_override_reason:overrideReason.trim()})));
+                error = bundle.error;
             } else {
                 error = { message: "The booking was not saved because an override reason is required." };
             }
@@ -1326,25 +1348,16 @@ async function createAdminBooking(event) {
         return;
     }
 
-    const viaStops = collectAdminViaStops();
-    if (viaStops.length) {
-        const { error: stopError } = await bookingsDb.from("booking_stops").insert(
-            viaStops.map(stop => ({ ...stop, company_id: adminCompanyId, booking_id: payload.id }))
-        );
-        if (stopError) {
-            if (message) message.textContent = "Booking saved, but via stops could not be saved: " + stopError.message;
-            return;
-        }
-    }
-
-    await requestGoogleCalendarSync(payload.id);
-
-    await requestBookingEmailEvent(payload.id, "new_booking");
+    const createdBookingRows=bundle.data?.bookings||bookingRows.map(row=>({id:row.id,booking_reference:row.booking_reference}));
+    await Promise.all(createdBookingRows.map(row=>requestGoogleCalendarSync(row.id)));
+    await requestBookingEmailEvent(createdBookingRows[0].id, "new_booking");
+    if(createdBookingRows[1]&&bookingRows[1].driver_id)await requestBookingEmailEvent(createdBookingRows[1].id,"driver_assignment",{event_id:`return-assignment:${createdBookingRows[1].id}`});
 
     if (message) {
 
-        message.textContent =
-            "Booking saved.";
+        message.textContent = createdBookingRows.length===2
+            ? `Bookings saved: ${createdBookingRows.map(row=>row.booking_reference).join(" and ")}.`
+            : "Booking saved.";
     }
 
     event.target.reset();
