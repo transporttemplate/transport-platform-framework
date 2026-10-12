@@ -5,11 +5,13 @@ import fs from "node:fs";
 const calendar = fs.readFileSync("supabase/functions/google-calendar-sync/index.ts", "utf8");
 const repair = fs.readFileSync("supabase/migrations/202610120007_historical_return_repair.sql", "utf8");
 
-test("calendar title uses booking reference, pickup and destination without customer name", () => {
-  assert.match(calendar, /summary: `\$\{booking\.booking_reference[^\n]+\$\{pickupTitle\} → \$\{dropoffTitle\}`/);
+test("calendar title prioritises concise pickup and destination without customer name or booking reference", () => {
+  assert.match(calendar, /summary: `\$\{pickupTitle\} → \$\{dropoffTitle\}`/);
   assert.match(calendar, /conciseLocation\(booking\.pickup_name, booking\.pickup_address\)/);
   assert.match(calendar, /conciseLocation\(booking\.dropoff_name, booking\.dropoff_address\)/);
   assert.doesNotMatch(calendar, /summary:[^\n]+customer_name/);
+  assert.doesNotMatch(calendar, /summary:[^\n]+booking_reference/);
+  assert.match(calendar, /`Booking: \$\{booking\.booking_reference/);
 });
 
 test("calendar description contains operational booking details and omits marked private notes", () => {

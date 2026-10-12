@@ -22,12 +22,14 @@ Deno.serve(async request => {
   let companyId = "";
   let bookingId = "";
   let verifyOnly = false;
+  let existingOnly = false;
 
   try {
     const body = await request.json();
     companyId = String(body.company_id || "");
     bookingId = String(body.booking_id || "");
     verifyOnly = body.verify_only === true;
+    existingOnly = body.existing_only === true;
 
     if (!companyId || !bookingId) {
       return json({ ok: false, stage: "request", error: "company_id and booking_id are required" }, 400);
@@ -39,14 +41,16 @@ Deno.serve(async request => {
 
     console.log("Google Calendar sync started", { company_id: companyId, booking_id: bookingId });
 
-    const [bookingResult, settingsResult, stopsResult] = await Promise.all([
+    const [bookingResult, settingsResult, stopsResult, companyResult] = await Promise.all([
       db.from("bookings").select("*").eq("company_id", companyId).eq("id", bookingId).maybeSingle(),
       db.from("settings").select("googlecalendarid,timezone").eq("company_id", companyId).maybeSingle(),
-      db.from("booking_stops").select("stop_order,address_name,formatted_address").eq("company_id", companyId).eq("booking_id", bookingId).order("stop_order")
+      db.from("booking_stops").select("stop_order,address_name,formatted_address").eq("company_id", companyId).eq("booking_id", bookingId).order("stop_order"),
+      db.from("companies").select("company_code").eq("id", companyId).maybeSingle()
     ]);
 
     if (bookingResult.error) throw stageError("booking_lookup", bookingResult.error.message);
     if (settingsResult.error) throw stageError("settings_lookup", settingsResult.error.message);
+    if (companyResult.error) throw stageError("company_lookup", companyResult.error.message);
     if (stopsResult.error) console.warn("Google Calendar stops lookup failed", { company_id: companyId, booking_id: bookingId, error: stopsResult.error.message });
 
     const booking = bookingResult.data;
@@ -63,7 +67,7 @@ Deno.serve(async request => {
 
     const accessToken = await getGoogleAccessToken();
     const linkedEvent = booking.google_calendar_event_id
-      ? await getLinkedGoogleEvent(calendarId, String(booking.google_calendar_event_id), accessToken, companyId, bookingId)
+      ? await getLinkedGoogleEvent(calendarId, String(booking.google_calendar_event_id), accessToken, companyId, bookingId, String(booking.booking_reference || ""))
       : null;
     if (verifyOnly) {
       return json({
@@ -107,10 +111,20 @@ Deno.serve(async request => {
       throw stageError("event_build", "Booking journey date and time are required");
     }
 
+    if (existingOnly && (!booking.google_calendar_event_id || !linkedEvent)) {
+      return json({ ok: true, action: "update", skipped: true, reason: "No identity-verified linked Google event" });
+    }
+
     const driver = booking.driver_id
       ? (await db.from("drivers").select("full_name,driver_number").eq("company_id", companyId).eq("id", booking.driver_id).maybeSingle()).data
       : null;
-    const event = buildEvent(booking, stopsResult.data || [], driver, settings?.timezone || "Europe/London");
+    const event = buildEvent(
+      booking,
+      stopsResult.data || [],
+      driver,
+      settings?.timezone || "Europe/London",
+      String(companyResult.data?.company_code || "") === "0003"
+    );
     let googleEvent;
     let action;
 
@@ -123,6 +137,9 @@ Deno.serve(async request => {
       );
 
       if (updateResponse.status === 404) {
+        if (existingOnly) {
+          return json({ ok: true, action: "update", skipped: true, reason: "Linked Google event disappeared before update" });
+        }
         googleEvent = await createGoogleEvent(calendarId, accessToken, event);
         action = "recreated";
       } else {
@@ -176,7 +193,7 @@ function constantTimeEqual(left: string, right: string) {
   return difference === 0;
 }
 
-function buildEvent(booking: Record<string, unknown>, stops: Array<Record<string, unknown>>, driver: Record<string, unknown> | null, timezone: string) {
+function buildEvent(booking: Record<string, unknown>, stops: Array<Record<string, unknown>>, driver: Record<string, unknown> | null, timezone: string, jeffReminder: boolean) {
   const start = `${booking.journey_date}T${String(booking.journey_time).slice(0, 5)}:00`;
   const durationMinutes = Math.max(1, Number(booking.route_duration_minutes) || 60);
   const endDate = new Date(`${start}Z`);
@@ -194,7 +211,7 @@ function buildEvent(booking: Record<string, unknown>, stops: Array<Record<string
   const contact = [booking.customer_phone || booking.phone, booking.customer_email || booking.email].filter(Boolean).join(" · ");
 
   return {
-    summary: `${booking.booking_reference || "Booking"} — ${pickupTitle} → ${dropoffTitle}`,
+    summary: `${pickupTitle} → ${dropoffTitle}`,
     location: booking.pickup_address || "",
     description: [
       `Booking: ${booking.booking_reference || ""}`,
@@ -217,6 +234,7 @@ function buildEvent(booking: Record<string, unknown>, stops: Array<Record<string
     ].filter(Boolean).join("\n"),
     start: { dateTime: start, timeZone: timezone },
     end: { dateTime: end, timeZone: timezone },
+    ...(jeffReminder ? { reminders: { useDefault: false, overrides: [{ method: "popup", minutes: 720 }] } } : {}),
     extendedProperties: { private: { company_id: String(booking.company_id), booking_id: String(booking.id) } }
   };
 }
@@ -224,8 +242,40 @@ function buildEvent(booking: Record<string, unknown>, stops: Array<Record<string
 function conciseLocation(name: unknown, address: unknown) {
   const preferred = String(name || "").trim();
   const full = String(address || "").trim();
-  const value = preferred || full.split(",")[0].trim() || "Location";
-  return value.length > 70 ? `${value.slice(0, 67).trim()}…` : value;
+  const combined = `${preferred} ${full}`;
+  const airport = conciseAirport(combined);
+  if (airport) return airport;
+  const locality = addressLocality(full);
+  const recognisableBusiness = preferred && /\b(airport|station|hotel|hospital|school|university|centre|center|arena|stadium|hall|inn|restaurant|pub|club)\b/i.test(preferred);
+  const value = recognisableBusiness ? preferred : locality || preferred || full.split(",")[0].trim() || "Location";
+  return value.length > 42 ? `${value.slice(0, 39).trim()}…` : titleCase(value);
+}
+
+function conciseAirport(value: string) {
+  const text = value.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
+  const lhrPair = text.match(/\b(?:LHR|(?:London\s+)?Heathrow)(?:\s+Airport)?\s+Terminals?\s*([1-5])\s*(?:&|and|\/)\s*([1-5])/i);
+  if (lhrPair) return `Heathrow T${lhrPair[1]}/${lhrPair[2]}`;
+  const lhr = text.match(/\bLHR(?:\s*[-,]?\s*(?:Terminal|T)\s*([1-5]))?/i);
+  if (lhr) return `Heathrow${lhr[1] ? ` T${lhr[1]}` : " Airport"}`;
+  const heathrow = text.match(/\b(?:London\s+)?Heathrow(?:\s+Airport)?(?:\s*[-,]?\s*(?:Terminal|T)\s*([1-5]))?/i);
+  if (heathrow) return `Heathrow${heathrow[1] ? ` T${heathrow[1]}` : " Airport"}`;
+  const gatwick = text.match(/\b(?:London\s+)?Gatwick(?:\s+Airport)?(?:\s*[-,]?\s*(North|South)(?:\s+Terminal)?|\s+Terminal\s+(North|South))?/i);
+  if (gatwick) return `Gatwick${gatwick[1] || gatwick[2] ? ` ${titleCase(gatwick[1] || gatwick[2])}` : " Airport"}`;
+  const named = text.match(/\b([A-Za-z][A-Za-z' -]{1,30}?)\s+Airport\b/i);
+  return named ? `${titleCase(named[1].trim())} Airport` : "";
+}
+
+function addressLocality(address: string) {
+  const withoutCountry = address.replace(/,?\s*(?:United Kingdom|UK)\s*$/i, "").trim();
+  const pieces = withoutCountry.split(",").map(value => value.trim()).filter(Boolean);
+  if (!pieces.length) return "";
+  return pieces[pieces.length - 1]
+    .replace(/\b(?:GIR ?0AA|[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b/ig, "")
+    .trim();
+}
+
+function titleCase(value: string) {
+  return value.replace(/\b\w/g, letter => letter.toUpperCase());
 }
 
 function locationText(name: unknown, address: unknown) {
@@ -269,7 +319,7 @@ function formatLocalDateTime(date: unknown, time: unknown, timezone: string) {
   return `${dateLabel} at ${rawTime} (${timezone})`;
 }
 
-async function getLinkedGoogleEvent(calendarId: string, eventId: string, accessToken: string, companyId: string, bookingId: string) {
+async function getLinkedGoogleEvent(calendarId: string, eventId: string, accessToken: string, companyId: string, bookingId: string, bookingReference: string) {
   const response = await googleRequest(
     `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
     accessToken,
@@ -282,6 +332,10 @@ async function getLinkedGoogleEvent(calendarId: string, eventId: string, accessT
   const privateProperties = event?.extendedProperties?.private || {};
   if (String(privateProperties.company_id || "") !== companyId || String(privateProperties.booking_id || "") !== bookingId) {
     throw stageError("event_identity", "Stored Google event is not owned by this Transport booking");
+  }
+  const searchable = `${event.summary || ""}\n${event.description || ""}`;
+  if (!bookingReference || !searchable.includes(bookingReference)) {
+    throw stageError("event_identity", "Stored Google event does not match this booking reference");
   }
   return event;
 }
