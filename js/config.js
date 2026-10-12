@@ -191,7 +191,7 @@
     window.loadPublicCompanyData = loadPublicCompanyData;
 
     async function loadPublicSettings(db, companyId) {
-        const baseColumns = "company_id,companyname,tradingname,companyphone,companyemail,companyaddress,companylogo,currencysymbol,allowairportoutsidearea,primarycolour,secondarycolour,accentcolour,buttoncolour,buttontextcolour,businessstatus,holidayfrom,holidayto,websitenotice,acceptadvancebookings,bookwhileclosed,closedmessage,timezone";
+        const baseColumns = "company_id,companyname,tradingname,companyphone,companyemail,companyaddress,companylogo,currencysymbol,allowairportoutsidearea,primarycolour,secondarycolour,accentcolour,buttoncolour,buttontextcolour,businessstatus,holidayfrom,holidayto,websitenotice,acceptadvancebookings,bookwhileclosed,closedmessage,timezone,empty_legs_enabled,empty_legs_public_enabled";
         const publicThemeColumns = "publicbackgroundcolour,publiccardcolour,publicheadercolour,publictextcolour,publicmutedcolour,publicfootercolour";
         const hoursColumns = "monopen,monclose,monenabled,mon24hours,tueopen,tueclose,tueenabled,tue24hours,wedopen,wedclose,wedenabled,wed24hours,thuopen,thuclose,thuenabled,thu24hours,friopen,friclose,frienabled,fri24hours,satopen,satclose,satenabled,sat24hours,sunopen,sunclose,sunenabled,sun24hours";
         const homeColumns = "homeheroheading,homeherodescription,homeherobuttontext,homesellingpoint1enabled,homesellingpoint1text,homesellingpoint2enabled,homesellingpoint2text,homesellingpoint3enabled,homesellingpoint3text,homesellingpoint4enabled,homesellingpoint4text";

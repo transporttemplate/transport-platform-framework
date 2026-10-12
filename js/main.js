@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!publicData) return;
 
     applyCompanyInformation(publicData);
+    ensureEmptyLegsNavigation(publicData.settings);
     renderPublicAirports(publicData);
     renderServiceAreas(publicData);
     renderPublicFleet(publicData);
@@ -13,6 +14,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     preserveCompanyOnPublicLinks(publicData.company.company_code);
     window.GoogleTags?.configureFromSettings(publicData.settings, publicData.company.company_code);
 });
+
+function ensureEmptyLegsNavigation(settings) {
+    const nav = document.querySelector("header nav");
+    if (!nav || !settings.empty_legs_enabled || !settings.empty_legs_public_enabled || nav.querySelector('a[href="empty-legs.html"]')) return;
+    const link = document.createElement("a");
+    link.href = "empty-legs.html";
+    link.textContent = "Empty Legs";
+    const contact = nav.querySelector('a[href="contact.html"]');
+    nav.insertBefore(link, contact || null);
+    link.addEventListener("click", () => nav.classList.remove("open"));
+}
 
 function initialisePublicNavigation() {
     const header = document.querySelector("header");

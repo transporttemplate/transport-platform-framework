@@ -124,6 +124,15 @@ function initialiseAdminNavigation() {
 
     initialiseEmailNavigation(sidebar);
 
+    if (!sidebar.querySelector('a[href="empty-legs-admin.html"]')) {
+        const driversLink = sidebar.querySelector('a[href="drivers.html"]');
+        const link = document.createElement("a");
+        link.href = "empty-legs-admin.html";
+        link.textContent = "🔄 Empty Legs";
+        if (location.pathname.endsWith("/empty-legs-admin.html")) link.classList.add("active");
+        driversLink?.after(link);
+    }
+
     if (!sidebar.querySelector('a[href="contracts.html"]')) {
         const customersLink = sidebar.querySelector('a[href="customers.html"]');
         const link = document.createElement("a");
