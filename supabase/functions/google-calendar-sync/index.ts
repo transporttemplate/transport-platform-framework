@@ -21,11 +21,13 @@ Deno.serve(async request => {
 
   let companyId = "";
   let bookingId = "";
+  let verifyOnly = false;
 
   try {
     const body = await request.json();
     companyId = String(body.company_id || "");
     bookingId = String(body.booking_id || "");
+    verifyOnly = body.verify_only === true;
 
     if (!companyId || !bookingId) {
       return json({ ok: false, stage: "request", error: "company_id and booking_id are required" }, 400);
@@ -40,7 +42,7 @@ Deno.serve(async request => {
     const [bookingResult, settingsResult, stopsResult] = await Promise.all([
       db.from("bookings").select("*").eq("company_id", companyId).eq("id", bookingId).maybeSingle(),
       db.from("settings").select("googlecalendarid,timezone").eq("company_id", companyId).maybeSingle(),
-      db.from("booking_stops").select("stop_order,formatted_address").eq("company_id", companyId).eq("booking_id", bookingId).order("stop_order")
+      db.from("booking_stops").select("stop_order,address_name,formatted_address").eq("company_id", companyId).eq("booking_id", bookingId).order("stop_order")
     ]);
 
     if (bookingResult.error) throw stageError("booking_lookup", bookingResult.error.message);
@@ -60,6 +62,19 @@ Deno.serve(async request => {
     console.log("Google Calendar configuration found", { company_id: companyId, booking_id: bookingId, calendar_id: calendarId });
 
     const accessToken = await getGoogleAccessToken();
+    const linkedEvent = booking.google_calendar_event_id
+      ? await getLinkedGoogleEvent(calendarId, String(booking.google_calendar_event_id), accessToken, companyId, bookingId)
+      : null;
+    if (verifyOnly) {
+      return json({
+        ok: true,
+        action: "verified",
+        linked: Boolean(linkedEvent),
+        event_id: linkedEvent?.id || null,
+        calendar_id: calendarId,
+        reason: booking.google_calendar_event_id ? undefined : "Booking has no linked Google event"
+      });
+    }
     const cancelled = ["cancelled", "canceled"].includes(normaliseStatus(booking.status || booking.booking_status));
 
     if (cancelled) {
@@ -68,6 +83,10 @@ Deno.serve(async request => {
         return json({ ok: true, action: "cancel", skipped: true, reason: "Booking has no linked Google event" });
       }
 
+      if (!linkedEvent) {
+        await saveSyncSuccess(companyId, bookingId, null);
+        return json({ ok: true, action: "cancel", skipped: true, reason: "Linked Google event no longer exists" });
+      }
       const deleteResponse = await googleRequest(
         `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(booking.google_calendar_event_id)}`,
         accessToken,
@@ -88,11 +107,14 @@ Deno.serve(async request => {
       throw stageError("event_build", "Booking journey date and time are required");
     }
 
-    const event = buildEvent(booking, stopsResult.data || [], settings?.timezone || "Europe/London");
+    const driver = booking.driver_id
+      ? (await db.from("drivers").select("full_name,driver_number").eq("company_id", companyId).eq("id", booking.driver_id).maybeSingle()).data
+      : null;
+    const event = buildEvent(booking, stopsResult.data || [], driver, settings?.timezone || "Europe/London");
     let googleEvent;
     let action;
 
-    if (booking.google_calendar_event_id) {
+    if (booking.google_calendar_event_id && linkedEvent) {
       const updateResponse = await googleRequest(
         `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(booking.google_calendar_event_id)}`,
         accessToken,
@@ -154,33 +176,114 @@ function constantTimeEqual(left: string, right: string) {
   return difference === 0;
 }
 
-function buildEvent(booking: Record<string, unknown>, stops: Array<Record<string, unknown>>, timezone: string) {
+function buildEvent(booking: Record<string, unknown>, stops: Array<Record<string, unknown>>, driver: Record<string, unknown> | null, timezone: string) {
   const start = `${booking.journey_date}T${String(booking.journey_time).slice(0, 5)}:00`;
   const durationMinutes = Math.max(1, Number(booking.route_duration_minutes) || 60);
   const endDate = new Date(`${start}Z`);
   endDate.setUTCMinutes(endDate.getUTCMinutes() + durationMinutes);
   const end = endDate.toISOString().slice(0, 19);
-  const route = [
-    booking.pickup_address,
-    ...stops.map(stop => stop.formatted_address),
-    booking.dropoff_address
-  ].filter(Boolean).join(" → ");
+  const pickupTitle = conciseLocation(booking.pickup_name, booking.pickup_address);
+  const dropoffTitle = conciseLocation(booking.dropoff_name, booking.dropoff_address);
+  const pickupAddress = locationDetail(booking, "pickup");
+  const dropoffAddress = locationDetail(booking, "dropoff");
+  const notes = calendarSafeNotes(booking.notes);
+  const paymentMethod = displayValue(booking.payment_method || booking.payment_type);
+  const fare = money(booking.journey_fare ?? booking.price);
+  const paid = money(booking.amount_paid);
+  const balance = money(booking.balance_due);
+  const contact = [booking.customer_phone || booking.phone, booking.customer_email || booking.email].filter(Boolean).join(" · ");
 
   return {
-    summary: `${booking.booking_reference || "Booking"} — ${booking.customer_name || booking.full_name || "Customer"}`,
+    summary: `${booking.booking_reference || "Booking"} — ${pickupTitle} → ${dropoffTitle}`,
     location: booking.pickup_address || "",
     description: [
-      `Route: ${route}`,
-      `Status: ${booking.status || booking.booking_status || ""}`,
-      `Passengers: ${booking.passengers ?? ""}`,
-      `Phone: ${booking.customer_phone || booking.phone || ""}`,
+      `Booking: ${booking.booking_reference || ""}`,
+      `Customer: ${booking.customer_name || booking.full_name || ""}`,
+      contact ? `Contact: ${contact}` : "",
+      `Pickup time: ${formatLocalDateTime(booking.journey_date, booking.journey_time, timezone)}`,
+      `Pickup: ${pickupAddress}`,
+      `Destination: ${dropoffAddress}`,
+      ...stops.map((stop, index) => `Stop ${index + 1}: ${locationText(stop.address_name, stop.formatted_address)}`),
+      `Passengers: ${booking.passengers ?? 0}`,
+      `Luggage: ${booking.suitcases ?? 0} suitcases · ${booking.hand_luggage ?? booking.luggage ?? 0} hand luggage`,
       booking.flight_number ? `Flight: ${booking.flight_number}` : "",
-      booking.notes ? `Notes: ${booking.notes}` : ""
+      driver ? `Driver: ${driver.driver_number ? `${driver.driver_number} — ` : ""}${driver.full_name || "Assigned"}` : "Driver: Unassigned",
+      `Status: ${displayValue(booking.status || booking.booking_status)}`,
+      paymentMethod ? `Payment method: ${paymentMethod}` : "",
+      fare ? `Journey fare: ${fare}` : "",
+      paid ? `Amount paid: ${paid}` : "",
+      balance ? `Outstanding balance: ${balance}` : "",
+      notes ? `Notes: ${notes}` : ""
     ].filter(Boolean).join("\n"),
     start: { dateTime: start, timeZone: timezone },
     end: { dateTime: end, timeZone: timezone },
     extendedProperties: { private: { company_id: String(booking.company_id), booking_id: String(booking.id) } }
   };
+}
+
+function conciseLocation(name: unknown, address: unknown) {
+  const preferred = String(name || "").trim();
+  const full = String(address || "").trim();
+  const value = preferred || full.split(",")[0].trim() || "Location";
+  return value.length > 70 ? `${value.slice(0, 67).trim()}…` : value;
+}
+
+function locationText(name: unknown, address: unknown) {
+  const preferred = String(name || "").trim();
+  const full = String(address || "").trim();
+  if (!preferred) return full;
+  if (!full || full.toLowerCase().includes(preferred.toLowerCase())) return full || preferred;
+  return `${preferred} — ${full}`;
+}
+
+function locationDetail(booking: Record<string, unknown>, prefix: "pickup" | "dropoff") {
+  const base = locationText(booking[`${prefix}_name`], booking[`${prefix}_address`]);
+  const property = [booking[`${prefix}_building_name`], booking[`${prefix}_address_line1`], booking[`${prefix}_address_line2`]]
+    .map(value => String(value || "").trim()).filter(value => value && !base.toLowerCase().includes(value.toLowerCase()));
+  return [base, ...property].filter(Boolean).join(" · ");
+}
+
+function calendarSafeNotes(value: unknown) {
+  const notes = String(value || "").trim();
+  if (!notes || /(^|\b)(internal|private|office[ -]?only)(\b|:)/i.test(notes)) return "";
+  return notes;
+}
+
+function displayValue(value: unknown) {
+  return String(value || "").trim().replaceAll("_", " ").replace(/\b\w/g, letter => letter.toUpperCase());
+}
+
+function money(value: unknown) {
+  if (value === null || value === undefined || value === "") return "";
+  const amount = Number(value);
+  return Number.isFinite(amount) ? `£${amount.toFixed(2)}` : "";
+}
+
+function formatLocalDateTime(date: unknown, time: unknown, timezone: string) {
+  const rawDate = String(date || "");
+  const rawTime = String(time || "").slice(0, 5);
+  const [year, month, day] = rawDate.split("-").map(Number);
+  if (!year || !month || !day || !rawTime) return `${rawDate} ${rawTime}`.trim();
+  const midday = new Date(Date.UTC(year, month - 1, day, 12));
+  const dateLabel = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric", timeZone: timezone }).format(midday);
+  return `${dateLabel} at ${rawTime} (${timezone})`;
+}
+
+async function getLinkedGoogleEvent(calendarId: string, eventId: string, accessToken: string, companyId: string, bookingId: string) {
+  const response = await googleRequest(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+    accessToken,
+    { method: "GET" },
+    "event_identity"
+  );
+  if (response.status === 404) return null;
+  if (!response.ok) throw await googleResponseError("event_identity", response, calendarId);
+  const event = await response.json();
+  const privateProperties = event?.extendedProperties?.private || {};
+  if (String(privateProperties.company_id || "") !== companyId || String(privateProperties.booking_id || "") !== bookingId) {
+    throw stageError("event_identity", "Stored Google event is not owned by this Transport booking");
+  }
+  return event;
 }
 
 async function createGoogleEvent(calendarId: string, accessToken: string, event: Record<string, unknown>) {
