@@ -65,7 +65,21 @@ document.addEventListener("DOMContentLoaded",async()=>{
         ?.addEventListener("submit",saveBooking);
 
     updateLiveJourneyTitle();
+    document.getElementById("journeyDate")?.addEventListener("change", checkPublicAvailability);
+    document.getElementById("journeyTime")?.addEventListener("change", checkPublicAvailability);
 });
+
+let publicAvailabilityRequest = 0;
+async function checkPublicAvailability(){
+    const date=document.getElementById("journeyDate")?.value,time=document.getElementById("journeyTime")?.value,status=document.getElementById("publicAvailabilityStatus");
+    if(!date||!time||!status||!bookingCompany)return;
+    const request=++publicAvailabilityRequest;status.textContent="Checking availability…";status.style.color="";
+    const {data,error}=await bookingdb.functions.invoke("public-booking-create",{body:{action:"check_availability",company_code:bookingCompany.company_code,booking:{journey_date:date,journey_time:time}}});
+    if(request!==publicAvailabilityRequest)return;
+    if(error||!data?.ok){status.textContent=data?.error||"Availability will be checked when you submit.";return;}
+    status.textContent=data.available?"Available — final confirmation occurs when you book.":"Sorry, we're fully booked at your selected time. Please choose another time or date.";
+    status.style.color=data.available?"#166534":"#b91c1c";
+}
 
 async function prefillCustomerProfile(){
     const {data:{session}}=await bookingdb.auth.getSession();

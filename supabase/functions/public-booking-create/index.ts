@@ -49,7 +49,7 @@ Deno.serve(async (request) => {
       target_company_id: companyId,
       target_action: "public_booking",
       target_subject_hash: subject,
-      maximum_attempts: 10,
+      maximum_attempts: clean(body.action) === "check_availability" ? 120 : 10,
       window_seconds: 900,
     });
     if (limitError) throw limitError;
@@ -59,6 +59,7 @@ Deno.serve(async (request) => {
       db.from("settings").select([
         "company_id", "businessstatus", "holidayfrom", "holidayfromtime", "holidayto", "holidaytotime",
         "acceptadvancebookings", "bookwhileclosed", "timezone", "maxadvancedays", "minimumnotice",
+        "availability_mode", "automatic_capacity_enforced", "turnaround_buffer_minutes",
         "returnbookings", "multiplestops", "allowcash", "enablecash", "allowcard", "enablestripe", "allowaccounts", "enableaccounts",
         "airportpricing", "distancecalculator", "allowairportoutsidearea", "minimumfare", "firstmile",
         "mileband1", "mileband2", "mileband3", "mileband4", "mileband5", "mileband6", "bookingfee", "airportviasurcharge",
@@ -74,6 +75,19 @@ Deno.serve(async (request) => {
     if (settingsError) throw settingsError;
     if (areasError) throw areasError;
     if (!settings) throw new ApiError(503, "Company booking settings are unavailable");
+
+    if (clean(body.action) === "check_availability") {
+      const timezone = validTimeZone(settings.timezone) ? String(settings.timezone) : "Europe/London";
+      const requested = zonedDateTime(booking.journey_date, booking.journey_time, timezone);
+      validateBookingTime(requested, settings, timezone);
+      const { data, error } = await db.rpc("check_booking_availability", {
+        target_company_id: companyId,
+        journey_start: requested.toISOString(),
+        journey_duration_minutes: null,
+      });
+      if (error) throw error;
+      return respond({ ok: true, ...data });
+    }
 
     if (clean(body.action) === "validate_account") {
       if (!bool(settings.allowaccounts) && !bool(settings.enableaccounts)) {
@@ -141,6 +155,13 @@ Deno.serve(async (request) => {
     const routeKey = routeApiKeyForCompany(String(company.company_code), String(company.company_status || "active"));
     if (!routeKey) throw new ApiError(503, "Route pricing is not configured for this company.");
     const route = await authoritativeRoute(booking, stops, airport, routeKey);
+
+    // Route duration is authoritative at this point, so each journey can be
+    // checked as a half-open occupied interval rather than as a pickup instant.
+    // The database trigger repeats this check under a transaction advisory lock
+    // immediately before insertion, protecting stale and simultaneous requests.
+    await requireAvailable(companyId, outboundAt, route.minutes);
+    if (returnAt) await requireAvailable(companyId, returnAt, route.minutes);
 
     if (mode === "airport" && !bool(settings.allowairportoutsidearea)) {
       enforceAirportServiceArea(booking, airport!, areas || [], route);
@@ -256,6 +277,10 @@ Deno.serve(async (request) => {
       });
     }
 
+    // Re-check at the last possible application boundary. The trigger remains
+    // authoritative and makes this race-safe across concurrent API instances.
+    await requireAvailable(companyId, outboundAt, route.minutes);
+    if (returnAt) await requireAvailable(companyId, returnAt, route.minutes);
     const inserted = await db.from("bookings").insert(rows).select("id,booking_reference,price");
     if (inserted.error) throw inserted.error;
     const stopRows = rows.flatMap((row, index) => {
@@ -328,6 +353,18 @@ function validateBasicBooking(booking: Row, stops: Row[], settings: Row) {
   if (bool(booking.return_journey) && !bool(settings.returnbookings)) throw new ApiError(400, "Return bookings are not enabled");
   if (stops.length && !bool(settings.multiplestops)) throw new ApiError(400, "Multiple stops are not enabled");
   if (stops.length > 8) throw new ApiError(400, "Too many intermediate stops");
+}
+
+async function requireAvailable(companyId: string, startsAt: Date, durationMinutes: number) {
+  const { data, error } = await db.rpc("check_booking_availability", {
+    target_company_id: companyId,
+    journey_start: startsAt.toISOString(),
+    journey_duration_minutes: Math.max(1, Math.round(durationMinutes)),
+  });
+  if (error) throw error;
+  if (!data?.available) {
+    throw new ApiError(409, "Sorry, we're fully booked at your selected time. Please choose another time or date.");
+  }
 }
 
 function validateBookingTime(journey: Date, settings: Row, timezone: string) {

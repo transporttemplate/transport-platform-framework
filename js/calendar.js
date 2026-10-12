@@ -4,6 +4,8 @@ let calendarCompanyId = null;
 let calendarBookings = [];
 let calendarDrivers = [];
 let calendarSettings = {};
+let calendarAvailabilityBlocks = [];
+let calendarDriverLeave = [];
 let calendarCursor = new Date();
 let calendarSelectedDate = localDateKey(new Date());
 
@@ -135,6 +137,13 @@ async function loadCalendarBookings() {
         ...booking,
         via_stops: (stops || []).filter(stop => String(stop.booking_id) === String(booking.id))
     }));
+
+    const [blocksResult, leaveResult] = await Promise.all([
+        calendarDb.from("availability_blocks").select("id,starts_at,ends_at,whole_day,reason,recurrence_frequency,recurrence_until").eq("company_id", calendarCompanyId).eq("active", true).lte("starts_at", gridEnd.toISOString()),
+        calendarDb.from("driver_unavailability").select("id,driver_id,from_datetime,to_datetime,reason,request_status").eq("company_id", calendarCompanyId).eq("active", true).lt("from_datetime", new Date(gridEnd.getTime()+86400000).toISOString()).gt("to_datetime", gridStart.toISOString())
+    ]);
+    calendarAvailabilityBlocks = blocksResult.error ? [] : (blocksResult.data || []);
+    calendarDriverLeave = leaveResult.error ? [] : (leaveResult.data || []);
 }
 
 function renderCalendarPage() {
@@ -256,6 +265,9 @@ function renderMonthGrid() {
             }
 
             const visible = dayBookings.slice(0, 4);
+            const dayStart = new Date(`${key}T00:00:00`), dayEnd = new Date(`${key}T23:59:59`);
+            const dayBlocks = calendarAvailabilityBlocks.filter(block => new Date(block.starts_at) < dayEnd && new Date(block.ends_at) > dayStart);
+            const dayLeave = calendarDriverLeave.filter(leave => new Date(leave.from_datetime) < dayEnd && new Date(leave.to_datetime) > dayStart);
 
             html += `
                 <td class="${classes.join(" ")}">
@@ -263,6 +275,9 @@ function renderMonthGrid() {
                         <span>${current.getDate()}</span>
                         <span>${dayBookings.length ? `${dayBookings.length} job${dayBookings.length === 1 ? "" : "s"}` : ""}</span>
                     </div>
+
+                    ${dayBlocks.length ? `<div style="background:#fee2e2;color:#991b1b;border-radius:5px;padding:4px;margin-bottom:3px;font-weight:700">Fully booked${dayBlocks.length>1?` (${dayBlocks.length})`:""}</div>` : ""}
+                    ${dayLeave.length ? `<div style="background:#ede9fe;color:#5b21b6;border-radius:5px;padding:4px;margin-bottom:3px">Driver leave (${dayLeave.length})</div>` : ""}
 
                     ${visible.map(calendarJobHtml).join("")}
 

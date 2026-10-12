@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Driver Availability</title>
+<title>Fully Booked &amp; Availability</title>
 <link rel="stylesheet" href="css/admin.css">
 <style>
 .availability-status{display:inline-flex;align-items:center;gap:7px;font-weight:700}
@@ -14,6 +14,12 @@
 .availability-status.offline .availability-dot{background:#dc2626}
 .availability-status.unavailable .availability-dot{background:#7c3aed}
 .availability-table-wrap{overflow:auto}
+.availability-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.availability-toolbar .primary{margin-left:auto;background:#111827;color:#fff}
+.block-layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(300px,.8fr);gap:18px}
+.block-list{display:grid;gap:10px}.block-row{border:1px solid #e2e8f0;border-left:5px solid #dc2626;border-radius:10px;padding:12px;display:flex;justify-content:space-between;gap:12px}.block-actions{display:flex;gap:6px;align-items:flex-start}.block-meta{color:#64748b;font-size:.86rem;margin-top:4px}.status-pill{display:inline-flex;border-radius:999px;padding:4px 9px;font-size:.78rem;font-weight:700;background:#fee2e2;color:#991b1b}
+.availability-form{display:grid;gap:12px}.availability-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.availability-form label{display:grid;gap:5px;font-weight:600}.availability-form input,.availability-form select,.availability-form textarea{width:100%;box-sizing:border-box}.form-check{display:flex!important;align-items:center;gap:8px}.form-check input{width:auto}.form-actions{display:flex;justify-content:flex-end;gap:8px}.form-error{color:#b91c1c;min-height:1.2em}.availability-calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}.availability-calendar-day{min-height:64px;border:1px solid #e2e8f0;border-radius:7px;padding:5px;font-size:.78rem}.availability-calendar-day strong{display:block}.availability-calendar-day.blocked{background:#fef2f2;border-color:#fca5a5}.availability-calendar-head{text-align:center;font-size:.75rem;font-weight:700;color:#64748b}.leave-warning{color:#b45309;font-weight:700}
+@media(max-width:850px){.block-layout{grid-template-columns:1fr}.availability-toolbar .primary{margin-left:0}.availability-form-grid{grid-template-columns:1fr}.block-row{flex-direction:column}.availability-calendar-day{min-height:48px}}
 </style>
 </head>
 <body>
@@ -40,8 +46,42 @@
 <div class="topbar">
 <div class="topbar-left">
 <button class="menu-toggle" id="menuToggle" type="button">☰</button>
-<div><h2>Driver Availability</h2><small id="availabilityUpdated">Loading live driver status…</small></div>
+<div><h2>Fully Booked &amp; Availability</h2><small id="availabilityUpdated">Loading availability…</small></div>
 </div>
+
+<section class="card">
+<div class="availability-toolbar">
+<button id="previousAvailabilityMonth" type="button" aria-label="Previous month">←</button>
+<strong id="availabilityMonthTitle"></strong>
+<button id="nextAvailabilityMonth" type="button" aria-label="Next month">→</button>
+<button id="availabilityListView" type="button">List view</button>
+<button id="availabilityCalendarView" type="button">Calendar view</button>
+<label>Capacity mode <select id="availabilityMode"><option value="manual">Manual Fully Booked controls</option><option value="automatic">Automatic capacity (preview only)</option></select></label>
+<button id="addAvailabilityBlock" class="primary" type="button">+ Add Fully Booked</button>
+</div>
+<div class="block-layout">
+<div>
+<div id="availabilityBlockCalendar" class="availability-calendar" hidden></div>
+<div id="availabilityBlockList" class="block-list" aria-live="polite">Loading blocks…</div>
+</div>
+<form id="availabilityBlockForm" class="availability-form" hidden>
+<h3 id="availabilityFormTitle">Add Fully Booked period</h3>
+<input id="availabilityBlockId" type="hidden">
+<label class="form-check"><input id="availabilityWholeDay" type="checkbox"> Whole day</label>
+<div class="availability-form-grid">
+<label>Starts<input id="availabilityStarts" type="datetime-local" required></label>
+<label>Ends<input id="availabilityEnds" type="datetime-local" required></label>
+</div>
+<div class="availability-form-grid">
+<label>Repeat<select id="availabilityRecurrence"><option value="">Does not repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option></select></label>
+<label>Repeat until<input id="availabilityRecurrenceUntil" type="date"></label>
+</div>
+<label>Internal reason or note<textarea id="availabilityReason" maxlength="500" rows="3" placeholder="Optional — not shown to customers"></textarea></label>
+<div id="availabilityFormError" class="form-error" role="alert"></div>
+<div class="form-actions"><button id="cancelAvailabilityBlock" type="button">Cancel</button><button id="saveAvailabilityBlock" type="submit">Save block</button></div>
+</form>
+</div>
+</section>
 <button id="refreshAvailability" type="button">Refresh</button>
 </div>
 
@@ -54,10 +94,10 @@
 </div>
 
 <section class="card">
-<h3>Driver Status</h3>
+<h3>Driver Status &amp; Leave</h3>
 <div class="availability-table-wrap">
 <table>
-<thead><tr><th>Driver</th><th>Vehicle</th><th>Status</th><th>Current Job</th><th>Location Updated</th></tr></thead>
+<thead><tr><th>Driver</th><th>Vehicle</th><th>Status</th><th>Current Job</th><th>Location Updated</th><th>Leave</th></tr></thead>
 <tbody id="availabilityRows"><tr><td colspan="5">Loading drivers…</td></tr></tbody>
 </table>
 </div>

@@ -1296,10 +1296,23 @@ async function createAdminBooking(event) {
             new Date().toISOString();
     }
 
-    const { error } =
-        await bookingsDb
-            .from("bookings")
-            .insert(payload);
+    let { error } = await bookingsDb.from("bookings").insert(payload);
+
+    if (error && /FULLY_BOOKED|fully booked/i.test(error.message || "")) {
+        const confirmed = confirm("FULLY BOOKED CONFLICT\n\nThis journey overlaps an enforced unavailable period. Existing blocks will not be changed.\n\nDo you want to create an authorised Admin override?");
+        if (confirmed) {
+            const overrideReason = prompt("Enter the operational reason for overriding availability (required):", "");
+            if (overrideReason?.trim()) {
+                const retry = await bookingsDb.from("bookings").insert({
+                    ...payload,
+                    availability_override_reason: overrideReason.trim()
+                });
+                error = retry.error;
+            } else {
+                error = { message: "The booking was not saved because an override reason is required." };
+            }
+        }
+    }
 
     if (error) {
 
