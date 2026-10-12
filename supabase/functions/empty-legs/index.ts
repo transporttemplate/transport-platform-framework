@@ -19,7 +19,7 @@ Deno.serve(async request=>{
     if(action==="request_status")return await requestStatus(admin,body);
     if(action==="convert_request")return await convertRequest(admin,body);
     throw new ApiError(400,"Unknown action");
-  }catch(error){console.error("empty-legs",error instanceof Error?error.message:error);return json({ok:false,error:error instanceof Error?error.message:"Unexpected error"},error instanceof ApiError?error.status:500)}
+  }catch(error){console.error("empty-legs",error instanceof Error?error.message:error);const api=error instanceof ApiError,errorCode=!api&&error&&typeof error==="object"&&"code" in error?String((error as Row).code):"",message=api?error.message:errorCode==="42501"?"Empty Legs database permissions are not configured":error instanceof Error?error.message:"Unable to complete the Empty Legs request";return json({ok:false,error:message,code:errorCode||undefined},api?error.status:500)}
 });
 
 async function resolveCompany(code:unknown){const value=String(code||"").trim();if(!/^[a-z0-9_-]+$/i.test(value))throw new ApiError(400,"Company is required");const {data,error}=await db.from("companies").select("id,company_code,name,trading_name,company_status,trial_expires_at").eq("company_code",value).maybeSingle();if(error)throw error;if(!data)throw new ApiError(404,"Company not found");return data}
