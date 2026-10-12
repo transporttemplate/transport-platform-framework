@@ -119,6 +119,7 @@
         </div>
 
         <div id="jobProgressActions" class="progress-buttons hidden">
+            <button id="arrivedButton" class="btn btn-primary hidden" type="button">📍 Arrived / Outside</button>
             <button id="pobButton" class="btn btn-primary hidden" type="button">👥 Passengers On Board</button>
             <button id="dropOffButton" class="btn btn-success hidden" type="button">✅ Complete Job</button>
             <button id="markPaidButton" class="btn btn-success hidden" type="button">Customer Paid</button>
@@ -222,6 +223,7 @@
             <ol id="navigationSteps"></ol>
         </details>
         <div class="navigation-actions">
+            <button id="navigationArrivedButton" class="btn btn-primary hidden" type="button">Arrived / Outside</button>
             <button id="navigationPobButton" class="btn btn-primary hidden" type="button">Passengers On Board</button>
             <button id="navigationCompleteButton" class="btn btn-success hidden" type="button">Complete Job</button>
             <a id="navigationExternalButton" class="btn btn-secondary" href="#" target="_blank" rel="noopener">Open in Google Maps</a>
@@ -263,6 +265,26 @@
         <a id="callPassengerButton" class="btn btn-primary btn-full" href="#">☎ Call Passenger</a>
     </div>
 </aside>
+
+<div id="paymentConfirmationModal" class="payment-confirmation-modal hidden" role="dialog" aria-modal="true" aria-labelledby="paymentConfirmTitle" aria-describedby="paymentConfirmQuestion">
+    <section class="payment-confirmation-card">
+        <span class="payment-confirmation-kicker">PAYMENT CHECK</span>
+        <h2 id="paymentConfirmTitle">Complete this journey</h2>
+        <dl class="payment-confirmation-summary">
+            <div><dt>Booking</dt><dd id="paymentConfirmReference">-</dd></div>
+            <div><dt>Customer fare</dt><dd id="paymentConfirmFare">£0.00</dd></div>
+            <div><dt>Already paid</dt><dd id="paymentConfirmPaidAmount">£0.00</dd></div>
+            <div class="outstanding"><dt>Outstanding</dt><dd id="paymentConfirmOutstanding">£0.00</dd></div>
+            <div><dt>Payment method</dt><dd id="paymentConfirmMethod">-</dd></div>
+        </dl>
+        <p id="paymentConfirmQuestion">Has the customer paid?</p>
+        <div class="payment-confirmation-actions">
+            <button id="paymentConfirmPaid" class="btn btn-success" type="button">YES — CUSTOMER PAID</button>
+            <button id="paymentConfirmUnpaid" class="btn btn-danger" type="button">NO — CUSTOMER HAS NOT PAID</button>
+            <button id="paymentConfirmCancel" class="btn btn-secondary" type="button">CANCEL</button>
+        </div>
+    </section>
+</div>
 
 </div>
 

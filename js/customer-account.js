@@ -185,7 +185,7 @@ function redirectToLogin() {
     if (code) url.searchParams.set("company", code);
     location.replace(url.href);
 }
-function changeable(booking) { return normalise(booking.payment_status) !== "paid" && !["accepted", "on_way", "passenger_onboard", "completed", "cancelled", "no_show"].includes(normalise(booking.status)); }
+function changeable(booking) { return normalise(booking.payment_status) !== "paid" && !["accepted", "on_way", "arrived", "passenger_onboard", "completed", "cancelled", "no_show"].includes(normalise(booking.status)); }
 function vehicleName(booking) { return ({ standard:"Car", car:"Car", executive_car:"Executive Car", "5_7":"5–7 Seater", mpv:"5–7 Seater", executive_5_7:"Executive 5–7 Seater", "5_8":"5–8 Seater", "9_16":"9–16 Seater", "17_23":"17–23 Seater", "24_52":"24–52 Seater" })[booking.vehicle_tier || booking.vehicle_type] || pretty(booking.vehicle_tier || booking.vehicle_type); }
 function money(value) { return `${portalSettings.currencysymbol || "£"}${Number(value || 0).toFixed(2)}`; }
 function normalise(value) { return String(value || "").trim().toLowerCase().replaceAll(" ", "_"); }

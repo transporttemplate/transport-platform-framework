@@ -9,7 +9,7 @@ let availabilityTimezone = "Europe/London";
 let availabilitySettings = {};
 let availabilityMonth = new Date();
 
-const ACTIVE_JOB_STATUSES = ["assigned", "accepted", "on_way", "passenger_onboard"];
+const ACTIVE_JOB_STATUSES = ["assigned", "accepted", "on_way", "arrived", "passenger_onboard"];
 const BREAK_STATUSES = ["break", "on break", "on_break"];
 const UNAVAILABLE_STATUSES = ["unavailable", "holiday", "off", "off duty", "off_duty"];
 
@@ -287,6 +287,7 @@ function prettyAvailabilityStatus(value) {
         assigned: "Assigned",
         accepted: "Accepted",
         on_way: "On Way",
+        arrived: "Arrived",
         passenger_onboard: "Passenger Onboard"
     };
     return labels[status] || value || "On Job";

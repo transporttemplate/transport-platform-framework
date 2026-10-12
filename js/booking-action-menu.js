@@ -6,7 +6,7 @@
     document.body.appendChild(menu);
     let activeBooking = null;
 
-    const terminal = new Set(["accepted", "on_way", "passenger_onboard", "completed", "cancelled", "canceled", "no_show"]);
+    const terminal = new Set(["accepted", "on_way", "arrived", "passenger_onboard", "completed", "cancelled", "canceled", "no_show"]);
     const statusOf = booking => String(booking?.status || booking?.booking_status || "waiting").toLowerCase();
     const close = () => { menu.hidden = true; activeBooking = null; };
     const findBooking = id => allBookings.find(row => String(row.id) === String(id));

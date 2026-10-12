@@ -16,6 +16,7 @@ let serverClockOffset = 0;
 let lastSuccessfulRefresh = null;
 let refreshFailures = 0;
 const pendingJobActions = new Set();
+let paymentConfirmationResolver = null;
 
 let gpsWatchId = null;
 let driverRefreshTimer = null;
@@ -45,6 +46,7 @@ function bindDriverUI() {
     document.getElementById("closeMenuButton")?.addEventListener("click", closeSideMenu);
     document.getElementById("menuOverlay")?.addEventListener("click", closeSideMenu);
     document.getElementById("availabilityButton")?.addEventListener("click", toggleAvailability);
+    document.getElementById("arrivedButton")?.addEventListener("click", setArrived);
     document.getElementById("pobButton")?.addEventListener("click", setPOB);
     document.getElementById("dropOffButton")?.addEventListener("click", completeCurrentJob);
     document.getElementById("markPaidButton")?.addEventListener("click", () => markJobPaid(currentJob));
@@ -54,6 +56,7 @@ function bindDriverUI() {
     document.getElementById("navigateCurrentJobButton")?.addEventListener("click", () => currentJob && navigateJob(currentJob));
     document.getElementById("closeNavigationButton")?.addEventListener("click", () => navigationController?.stop());
     document.getElementById("navigationVoiceButton")?.addEventListener("click", () => navigationController?.setVoice(!navigationController.voiceEnabled));
+    document.getElementById("navigationArrivedButton")?.addEventListener("click", setArrived);
     document.getElementById("navigationPobButton")?.addEventListener("click", setPOB);
     document.getElementById("navigationCompleteButton")?.addEventListener("click", completeCurrentJob);
     document.getElementById("navigationRecenterButton")?.addEventListener("click", resumeNavigationFollow);
@@ -66,6 +69,9 @@ function bindDriverUI() {
     document.getElementById("awaitingJobsList")?.addEventListener("click", handleDiaryAction);
     document.getElementById("acceptedJobsList")?.addEventListener("click", handleDiaryAction);
     document.getElementById("completedJobsList")?.addEventListener("click", handleDiaryAction);
+    document.getElementById("paymentConfirmPaid")?.addEventListener("click", () => settlePaymentConfirmation("paid"));
+    document.getElementById("paymentConfirmUnpaid")?.addEventListener("click", () => settlePaymentConfirmation("unpaid"));
+    document.getElementById("paymentConfirmCancel")?.addEventListener("click", () => settlePaymentConfirmation("cancel"));
     window.addEventListener("online", () => { showConnectionMessage("Connection restored. Refreshing…", false); refreshDriverPortal(true); });
     window.addEventListener("offline", () => showConnectionMessage("You are offline. Displayed jobs may be out of date.", true));
     document.addEventListener("visibilitychange", () => { if (!document.hidden && driverSessionToken) { refreshDriverPortal(); if (navigationController?.active) navigationController.acquireWakeLock(); } });
@@ -370,7 +376,7 @@ async function saveDriverPosition(position) {
 }
 
 function renderCurrentJob() {
-    const active = ["on_way", "passenger_onboard"];
+    const active = ["on_way", "arrived", "passenger_onboard"];
 
     currentJob =
         driverBookings.find(job => active.includes(normaliseStatus(job.status))) || null;
@@ -409,9 +415,15 @@ function renderJobActions() {
 
     progress?.classList.remove("hidden");
 
-    document.getElementById("pobButton")?.classList.toggle("hidden", status !== "on_way");
+    document.getElementById("arrivedButton")?.classList.toggle("hidden", status !== "on_way");
+    document.getElementById("pobButton")?.classList.toggle("hidden", status !== "arrived");
     document.getElementById("dropOffButton")?.classList.toggle("hidden", status !== "passenger_onboard");
     document.getElementById("markPaidButton")?.classList.toggle("hidden", !canDriverMarkPaid(currentJob));
+    const completing = pendingJobActions.has(`completion:${currentJob.id}`);
+    for (const id of ["arrivedButton", "pobButton", "dropOffButton", "markPaidButton"]) {
+        const button = document.getElementById(id);
+        if (button) button.disabled = completing;
+    }
 }
 
 function canWork() {
@@ -428,6 +440,11 @@ function canWork() {
     return true;
 }
 
+async function setArrived() {
+    if (!currentJob || !confirm("Confirm you have arrived and are waiting outside?")) return;
+    await transitionJob(currentJob, "arrived");
+}
+
 async function setPOB() {
     if (await transitionJob(currentJob, "passenger_onboard")) {
         navigateJob(currentJob);
@@ -435,18 +452,74 @@ async function setPOB() {
 }
 
 async function completeCurrentJob() {
-    if (await transitionJob(currentJob, "completed")) {
+    const job = currentJob;
+    if (!job || !canWork()) return;
+    const actionKey = `completion:${job.id}`;
+    if (pendingJobActions.has(actionKey) || pendingJobActions.has(String(job.id))) return;
+    pendingJobActions.add(actionKey);
+    renderJobActions();
+    try {
+        const summary = (await driverPortalRequest("completion_payment_status", { booking_id: job.id })).payment;
+        if (!summary || summary.mode === "blocked") {
+            alert(summary?.reason || "Payment state is unsupported or ambiguous. Contact the office before completing this job.");
+            return;
+        }
+        let paymentConfirmation = null;
+        if (summary.mode === "confirm_cash") {
+            paymentConfirmation = await askPaymentConfirmation(summary);
+            if (paymentConfirmation === "cancel") return;
+        } else if (!confirm("Confirm this journey is completed?")) return;
+        await driverPortalRequest("complete_job", { booking_id: job.id, payment_confirmation: paymentConfirmation });
+        await refreshDriverPortal();
         navigationController?.stop("Journey completed.");
         currentJob = null;
+    } catch (error) {
+        alert(error.message || "Unable to complete this job.");
+    } finally {
+        pendingJobActions.delete(actionKey);
+        closePaymentConfirmation();
+        renderJobActions();
     }
+}
+
+function askPaymentConfirmation(summary) {
+    if (paymentConfirmationResolver) return Promise.resolve("cancel");
+    setText("paymentConfirmReference", summary.booking_reference || "-");
+    setText("paymentConfirmFare", money(summary.fare));
+    setText("paymentConfirmPaidAmount", money(summary.amount_paid));
+    setText("paymentConfirmOutstanding", money(summary.outstanding));
+    setText("paymentConfirmMethod", summary.payment_method || "Unknown");
+    const modal = document.getElementById("paymentConfirmationModal");
+    modal?.classList.remove("hidden");
+    document.body.classList.add("payment-confirmation-open");
+    for (const id of ["paymentConfirmPaid", "paymentConfirmUnpaid", "paymentConfirmCancel"]) {
+        const button = document.getElementById(id); if (button) button.disabled = false;
+    }
+    document.getElementById("paymentConfirmPaid")?.focus();
+    return new Promise(resolve => { paymentConfirmationResolver = resolve; });
+}
+
+function settlePaymentConfirmation(choice) {
+    if (!paymentConfirmationResolver) return;
+    const resolve = paymentConfirmationResolver;
+    paymentConfirmationResolver = null;
+    for (const id of ["paymentConfirmPaid", "paymentConfirmUnpaid", "paymentConfirmCancel"]) {
+        const button = document.getElementById(id); if (button) button.disabled = true;
+    }
+    closePaymentConfirmation();
+    resolve(choice);
+}
+
+function closePaymentConfirmation() {
+    document.getElementById("paymentConfirmationModal")?.classList.add("hidden");
+    document.body.classList.remove("payment-confirmation-open");
 }
 
 async function transitionJob(job, status) {
     if (!job || pendingJobActions.has(String(job.id))) return false;
-    if (["on_way", "passenger_onboard", "completed"].includes(status) && !canWork()) return false;
+    if (["on_way", "arrived", "passenger_onboard"].includes(status) && !canWork()) return false;
     if (status === "declined" && !confirm(`Decline ${job.booking_reference || "this job"}? It will return to the office for reallocation.`)) return false;
     if (status === "passenger_onboard" && !confirm("Confirm the passengers are on board?")) return false;
-    if (status === "completed" && !confirm("Confirm this journey is completed?")) return false;
     pendingJobActions.add(String(job.id));
     renderDiary();
     try {
@@ -464,11 +537,7 @@ async function transitionJob(job, status) {
 }
 
 function canDriverMarkPaid(job) {
-    const method = String(job?.payment_method || "").trim().toLowerCase();
-    const status = normaliseStatus(job?.status);
-    return String(job?.payment_status || "").toLowerCase() !== "paid"
-        && ["cash", "pay in car", "pay by cash"].includes(method)
-        && ["accepted", "on_way", "passenger_onboard", "completed"].includes(status);
+    return Boolean(window.DriverWorkflow?.canMarkCashPaid(job));
 }
 
 async function markJobPaid(job) {
@@ -691,7 +760,8 @@ function updateNavigationJob(job, externalUrl) {
     const phoneLink = document.getElementById("navigationPassengerPhone"); if (phoneLink) { phoneLink.textContent = phone || "-"; phoneLink.href = phone ? `tel:${phone.replace(/\s+/g, "")}` : "#"; }
     const external = document.getElementById("navigationExternalButton"); if (external) external.href = externalUrl || window.DriverNavigation.externalMapsUrl(job) || "#";
     const status = normaliseStatus(job.status);
-    document.getElementById("navigationPobButton")?.classList.toggle("hidden", status !== "on_way");
+    document.getElementById("navigationArrivedButton")?.classList.toggle("hidden", status !== "on_way");
+    document.getElementById("navigationPobButton")?.classList.toggle("hidden", status !== "arrived");
     document.getElementById("navigationCompleteButton")?.classList.toggle("hidden", status !== "passenger_onboard");
 }
 
@@ -988,6 +1058,7 @@ function prettyStatus(status) {
     const v = normaliseStatus(status);
     return {
         "on_way": "On Way",
+        "arrived": "Arrived",
         "passenger_onboard": "POB",
         "completed": "Completed",
         "waiting": "Waiting",

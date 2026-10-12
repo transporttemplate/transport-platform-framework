@@ -324,7 +324,7 @@ function updateStatusFilterForTab() {
     select.innerHTML = `<option value="">All statuses in this view</option>
         <option value="waiting">Waiting</option><option value="pending">Pending</option>
         <option value="booked">Booked</option><option value="assigned">Assigned</option>
-        <option value="accepted">Accepted</option><option value="on_way">On Way</option>
+        <option value="accepted">Accepted</option><option value="on_way">On Way</option><option value="arrived">Arrived</option>
         <option value="passenger_onboard">Passenger Onboard</option><option value="completed">Completed</option>
         <option value="no_show">No Show</option><option value="cancelled">Cancelled</option>`;
 }
@@ -524,9 +524,9 @@ function matchesTab(booking) {
     if (currentTab === "completed") return status === "completed";
     if (currentTab === "no_show") return status === "no_show";
     if (currentTab === "cancelled") return ["cancelled", "canceled"].includes(status);
-    if (currentTab === "on_job") return ["accepted", "on_way", "passenger_onboard"].includes(status);
+    if (currentTab === "on_job") return ["accepted", "on_way", "arrived", "passenger_onboard"].includes(status);
     if (currentTab === "upcoming") {
-        const activeOrFinal = ["accepted", "on_way", "passenger_onboard", "completed", "cancelled", "canceled", "no_show"];
+        const activeOrFinal = ["accepted", "on_way", "arrived", "passenger_onboard", "completed", "cancelled", "canceled", "no_show"];
         return booking.journey_date >= localDateKey(new Date()) && !activeOrFinal.includes(status);
     }
     return true;
@@ -974,7 +974,7 @@ async function updateBookingDriverDetails() {
     const update = { driver_id: driverId, driver_amount: amountValue === "" ? null : Number(amountValue) };
     if (driverChanged) {
         update.dispatched_at = driverId ? new Date().toISOString() : null;
-        if (!["accepted", "on_way", "passenger_onboard", "completed", "cancelled", "canceled", "no_show"].includes(bookingStatus(booking))) update.status = driverId ? "assigned" : "waiting";
+        if (!["accepted", "on_way", "arrived", "passenger_onboard", "completed", "cancelled", "canceled", "no_show"].includes(bookingStatus(booking))) update.status = driverId ? "assigned" : "waiting";
     }
     const { data: updated, error } = await bookingsDb.rpc("admin_update_booking_driver", { target_company_id: adminCompanyId, target_booking_id: booking.id, target_driver_id: driverId, target_driver_amount: update.driver_amount });
     if (error || !updated) return alert(error?.message || "Booking was not found for this company.");
@@ -1298,6 +1298,7 @@ async function cycleBookingStatus(
         "assigned",
         "accepted",
         "on_way",
+        "arrived",
         "passenger_onboard",
         "completed"
     ];
@@ -1330,6 +1331,10 @@ async function cycleBookingStatus(
 
     if (next === "on_way") {
         update.on_way_at = now;
+    }
+
+    if (next === "arrived") {
+        update.arrived_at = now;
     }
 
     if (next === "passenger_onboard") {
@@ -1866,10 +1871,10 @@ function referenceRoot(reference) {
 function updateCounts() {
     const count = statuses => allBookings.filter(booking => statuses.includes(bookingStatus(booking))).length;
     const today = localDateKey(new Date());
-    const finalOrActive = ["accepted", "on_way", "passenger_onboard", "completed", "cancelled", "canceled", "no_show"];
+    const finalOrActive = ["accepted", "on_way", "arrived", "passenger_onboard", "completed", "cancelled", "canceled", "no_show"];
     setCount("countAll", allBookings.length);
     setCount("countUpcoming", allBookings.filter(booking => booking.journey_date >= today && !finalOrActive.includes(bookingStatus(booking))).length);
-    setCount("countOnJob", count(["accepted", "on_way", "passenger_onboard"]));
+    setCount("countOnJob", count(["accepted", "on_way", "arrived", "passenger_onboard"]));
     setCount("countCompleted", count(["completed"]));
     setCount("countNoShow", count(["no_show"]));
     setCount("countCancelled", count(["cancelled", "canceled"]));

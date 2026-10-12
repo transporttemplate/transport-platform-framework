@@ -248,6 +248,18 @@ button{cursor:pointer}
 .detail-row span{color:var(--muted);font-size:12px}
 .detail-row strong{text-align:right;font-size:13px;max-width:65%;overflow-wrap:anywhere}
 
+.payment-confirmation-open{overflow:hidden}
+.payment-confirmation-modal{position:fixed;inset:0;z-index:300;display:grid;place-items:end center;padding:16px;background:rgba(2,6,23,.78);backdrop-filter:blur(5px)}
+.payment-confirmation-card{width:min(100%,440px);max-height:calc(100dvh - 32px);overflow:auto;padding:21px;border:1px solid #3b4b64;border-radius:22px;background:#101a2b;box-shadow:0 22px 70px rgba(0,0,0,.55)}
+.payment-confirmation-kicker{display:block;color:#fbbf24;font-size:11px;font-weight:900;letter-spacing:.13em}
+.payment-confirmation-card h2{margin:5px 0 15px;font-size:23px}
+.payment-confirmation-summary{display:grid;gap:1px;overflow:hidden;border:1px solid var(--line);border-radius:14px;background:var(--line)}
+.payment-confirmation-summary>div{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 12px;background:#0c1525}
+.payment-confirmation-summary dt{color:var(--muted);font-size:12px}.payment-confirmation-summary dd{margin:0;text-align:right;font-size:14px;font-weight:800}
+.payment-confirmation-summary .outstanding{padding:14px 12px;background:#422006}.payment-confirmation-summary .outstanding dt{color:#fed7aa;font-size:13px;font-weight:800}.payment-confirmation-summary .outstanding dd{color:#fff7ed;font-size:25px}
+.payment-confirmation-card>p{margin:17px 0 12px;text-align:center;font-size:18px;font-weight:900}
+.payment-confirmation-actions{display:grid;gap:9px}.payment-confirmation-actions .btn{width:100%;min-height:52px;padding:11px;font-size:13px}
+
 .driver-navigation{position:fixed;inset:0;z-index:200;display:grid;grid-template-rows:auto minmax(180px,1fr) auto;background:#08111e;color:#fff;overscroll-behavior:none}
 .navigation-header{position:relative;z-index:3;display:grid;grid-template-columns:46px minmax(0,1fr) 46px;align-items:center;gap:10px;padding:max(10px,env(safe-area-inset-top)) 12px 10px;background:#101a2b;border-bottom:1px solid var(--line)}
 .navigation-header>div{min-width:0;display:flex;flex-direction:column}.navigation-header small{color:#93c5fd;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}.navigation-header strong{margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -270,3 +282,4 @@ body.driver-navigation-active{overflow:hidden}.driver-navigation-active .side-me
 
 @media(orientation:landscape) and (max-height:600px){.driver-navigation{grid-template-columns:minmax(260px,1fr) minmax(300px,42%);grid-template-rows:auto 1fr}.navigation-header{grid-column:1/-1}.navigation-map,.navigation-map-fallback{min-height:0}.navigation-bottom-panel{max-height:none;border-radius:0;overflow:auto}.navigation-status{top:75px;left:25%;}.navigation-booking-panel{display:none}}
 @media(max-width:390px){.navigation-map-controls span{display:none}.navigation-map-controls button{width:44px;justify-content:center;padding:8px;font-size:19px}}
+@media(max-width:390px){.payment-confirmation-modal{padding:10px}.payment-confirmation-card{max-height:calc(100dvh - 20px);padding:17px;border-radius:19px}.payment-confirmation-card h2{font-size:21px}.payment-confirmation-summary>div{padding:9px 10px}.payment-confirmation-summary .outstanding{padding:11px 10px}.payment-confirmation-actions .btn{min-height:50px;font-size:12px}}

@@ -3,13 +3,14 @@
     if (typeof module === "object" && module.exports) module.exports = api;
     root.DriverWorkflow = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
-    const normal = value => String(value || "").trim().toLowerCase().replaceAll(" ", "_");
-    const activeStatuses = new Set(["on_way", "passenger_onboard"]);
+    const normal = value => String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    const activeStatuses = new Set(["on_way", "arrived", "passenger_onboard"]);
     const finalStatuses = new Set(["completed", "cancelled", "canceled", "no_show"]);
     const transitions = Object.freeze({
         assigned: ["accepted", "declined"],
         accepted: ["on_way"],
-        on_way: ["passenger_onboard"],
+        on_way: ["arrived"],
+        arrived: ["passenger_onboard"],
         passenger_onboard: ["completed"]
     });
 
@@ -70,8 +71,12 @@
 
     function canMarkCashPaid(job) {
         const method = normal(job?.payment_method);
-        return normal(job?.payment_status) !== "paid" && ["cash", "pay_in_car", "pay_by_cash"].includes(method)
-            && ["accepted", "on_way", "passenger_onboard", "completed"].includes(normal(job?.status));
+        const paymentType = normal(job?.payment_type);
+        const cashEligible = ["cash", "pay_in_car", "pay_by_cash"].includes(method)
+            || paymentType === "pay_in_car"
+            || (paymentType === "deposit" && normal(job?.payment_status) === "deposit_paid");
+        return normal(job?.payment_status) !== "paid" && cashEligible
+            && ["accepted", "on_way", "arrived", "passenger_onboard", "completed"].includes(normal(job?.status));
     }
 
     function canDecline(settings, job) {

@@ -3,7 +3,7 @@
     if (typeof module === "object" && module.exports) module.exports = api;
     root.DriverNavigation = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function (root) {
-    const ACTIVE_STATUSES = new Set(["accepted", "on_way", "passenger_onboard"]);
+    const ACTIVE_STATUSES = new Set(["accepted", "on_way", "arrived", "passenger_onboard"]);
 
     function normal(value) { return String(value || "").trim().toLowerCase().replaceAll(" ", "_"); }
     function navigationTarget(job) { return normal(job?.status) === "passenger_onboard" ? "dropoff" : "pickup"; }

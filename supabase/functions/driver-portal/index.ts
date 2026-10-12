@@ -20,6 +20,8 @@ Deno.serve(async request => {
     if (action === "set_online") return await setOnline(session, Boolean(body.online));
     if (action === "gps") return await saveGps(session, body);
     if (action === "navigation_route") return await navigationRoute(session, body);
+    if (action === "completion_payment_status") return await completionPaymentStatus(session, body);
+    if (action === "complete_job") return await completeJob(session, body);
     if (action === "job_status") return await setJobStatus(session, body);
     if (action === "mark_cash_paid") return await markCashPaid(session, body);
     if (action === "create_unavailability") return await createUnavailability(session, body);
@@ -101,8 +103,8 @@ async function refresh(s:DriverSession){
       "id","company_id","driver_id","booking_reference","journey_date","journey_time","status",
       "pickup_name","pickup_address","dropoff_name","dropoff_address","airport","flight_number",
       "passengers","suitcases","hand_luggage","vehicle_tier","vehicle_type","customer_name","phone",
-      "notes","payment_method","payment_status","amount_paid","balance_due","price","job_price",
-      "driver_amount","dispatched_at","accepted_at","on_way_at","passenger_onboard_at","completed_at",
+      "notes","payment_method","payment_type","payment_status","amount_paid","balance_due","price","job_price",
+      "account_customer_id","driver_amount","dispatched_at","accepted_at","on_way_at","arrived_at","passenger_onboard_at","completed_at",
       "cancelled_at","cancellation_reason","no_show_at","route_duration_minutes"
     ].join(",")).eq("company_id",s.company_id).eq("driver_id",s.driver_id).or(`status.not.in.(completed,cancelled,canceled,no_show),journey_date.gte.${historyCutoff}`).order("journey_date").order("journey_time"),
     db.from("driver_unavailability").select("id,company_id,driver_id,from_datetime,to_datetime,reason,active,created_at").eq("company_id",s.company_id).eq("driver_id",s.driver_id).order("from_datetime",{ascending:false})
@@ -114,7 +116,10 @@ async function refresh(s:DriverSession){
   const driverJobs=jobs.map(j=>{
     const {price,job_price,driver_amount,account_customer_id,account_po_reference,...safeJob}=j;
     const visibleAmount=driver_amount==null?(price??job_price??null):driver_amount;
-    const cashCollectionAmount=["cash","pay in car","pay by cash"].includes(String(j.payment_method||"").trim().toLowerCase())?price:null;
+    const method=normal(j.payment_method),paymentType=normal(j.payment_type),paymentState=normal(j.payment_status);
+    const cashEligible=["cash","pay_in_car","pay_by_cash"].includes(method)||paymentType==="pay_in_car"||(paymentType==="deposit"&&paymentState==="deposit_paid");
+    const fare=Math.max(0,Number(price??job_price??0),Number(j.amount_paid||0)+Math.max(0,Number(j.balance_due||0)));
+    const cashCollectionAmount=cashEligible?Math.max(0,fare-Math.max(0,Number(j.amount_paid||0))):null;
     return {...safeJob,price:visibleAmount,driver_amount:driver_amount??null,cash_collection_amount:cashCollectionAmount,operational_available_at:activationAt(j.journey_date,j.journey_time,timezone),via_stops:stops.filter(x=>x.booking_id===j.id)};
   });
   const {googlemapsapi,driver_integrated_navigation,...safeSettings}=settingsResult.data||{};
@@ -140,7 +145,7 @@ async function navigationRoute(s:DriverSession,b:Record<string,unknown>){
   const booking=bookingResult.data;
   if(!booking)throw new ApiError(404,"Assigned job not found");
   const status=String(booking.status||"").toLowerCase();
-  if(!["accepted","on_way","passenger_onboard"].includes(status))throw new ApiError(409,"This job is not available for navigation");
+  if(!["accepted","on_way","arrived","passenger_onboard"].includes(status))throw new ApiError(409,"This job is not available for navigation");
   const subject=await sha256(`${s.driver_id}|${bookingId}`);
   const {data:allowed,error:limitError}=await db.rpc("consume_security_rate_limit",{target_company_id:s.company_id,target_action:"driver_navigation_route",target_subject_hash:subject,maximum_attempts:30,window_seconds:300});
   if(limitError)throw limitError;if(!allowed)throw new ApiError(429,"Navigation is updating too frequently. Continue on the current route and try again shortly.");
@@ -199,7 +204,7 @@ function routeApiKeyForCompany(companyCode:string,companyStatus:string){const sa
 async function setJobStatus(s:DriverSession,b:Record<string,unknown>){
   const id=String(b.booking_id||"");
   const status=String(b.status||"").toLowerCase();
-  if(!id||!["accepted","on_way","passenger_onboard","completed","declined"].includes(status))throw new ApiError(400,"Invalid job status");
+  if(!id||!["accepted","on_way","arrived","passenger_onboard","declined"].includes(status))throw new ApiError(400,"Invalid job status");
   const {data,error}=await db.rpc("transition_driver_booking",{target_company_id:s.company_id,target_driver_id:s.driver_id,target_booking_id:id,requested_status:status});
   if(error){
     if(/Assigned job not found/i.test(error.message))throw new ApiError(404,"Assigned job not found");
@@ -212,12 +217,46 @@ async function setJobStatus(s:DriverSession,b:Record<string,unknown>){
   if(!result)throw new ApiError(404,"Assigned job not found");
   return reply({ok:true,job:result,server_time:new Date().toISOString()});
 }
-async function markCashPaid(s:DriverSession,b:Record<string,unknown>){const id=String(b.booking_id||"");if(!id)throw new ApiError(400,"Booking is required");const {data,error}=await db.rpc("mark_driver_cash_booking_paid",{target_company_id:s.company_id,target_driver_id:s.driver_id,target_booking_id:id});if(error){if(/Only Pay in Car/i.test(error.message))throw new ApiError(403,error.message);if(/stage/i.test(error.message))throw new ApiError(400,error.message);throw error}if(!data)throw new ApiError(404,"Assigned job not found");return reply({ok:true});}
+async function completionPaymentStatus(s:DriverSession,b:Record<string,unknown>){
+  const id=String(b.booking_id||"");if(!id)throw new ApiError(400,"Booking is required");
+  const {data:booking,error}=await db.from("bookings")
+    .select("id,company_id,driver_id,booking_reference,status,payment_method,payment_type,payment_status,amount_paid,balance_due,price,job_price,account_customer_id")
+    .eq("id",id).eq("company_id",s.company_id).eq("driver_id",s.driver_id).maybeSingle();
+  if(error)throw error;if(!booking)throw new ApiError(404,"Assigned job not found");
+  const status=normal(booking.status);if(status!=="passenger_onboard")throw new ApiError(409,"Passengers must be on board before completing this job");
+  const method=normal(booking.payment_method),paymentType=normal(booking.payment_type),paymentState=normal(booking.payment_status);
+  const amountPaid=Math.max(0,Number(booking.amount_paid||0));
+  const fare=Math.max(0,Number(booking.price??booking.job_price??0),amountPaid+Math.max(0,Number(booking.balance_due||0)));
+  const outstanding=Math.max(0,fare-amountPaid);
+  const cashEligible=["cash","pay_in_car","pay_by_cash"].includes(method)||paymentType==="pay_in_car"||(paymentType==="deposit"&&paymentState==="deposit_paid");
+  const accountBooking=Boolean(booking.account_customer_id)||["account","invoice","account_invoice","pay_by_invoice"].includes(method)||["account","invoice"].includes(paymentType);
+  let mode="blocked",reason="Payment state is unsupported or ambiguous. Contact the office before completing this job.";
+  if(paymentState==="paid"||outstanding<=0){mode="complete_without_payment";reason=outstanding<=0&&paymentState!=="paid"?"zero_balance":"already_paid";}
+  else if(accountBooking){mode="complete_without_payment";reason="account";}
+  else if(cashEligible){mode="confirm_cash";reason="cash_outstanding";}
+  return reply({ok:true,payment:{mode,reason,booking_reference:String(booking.booking_reference||id.slice(0,8)),fare,amount_paid:amountPaid,outstanding,payment_method:String(booking.payment_method||"Unknown"),payment_status:String(booking.payment_status||"unpaid")}});
+}
+async function completeJob(s:DriverSession,b:Record<string,unknown>){
+  const id=String(b.booking_id||"");if(!id)throw new ApiError(400,"Booking is required");
+  const raw=String(b.payment_confirmation||"").trim().toLowerCase();
+  const confirmation=raw||null;
+  if(confirmation&&!['paid','unpaid'].includes(confirmation))throw new ApiError(400,"Invalid payment confirmation");
+  const {data,error}=await db.rpc("complete_driver_booking_with_payment_confirmation",{target_company_id:s.company_id,target_driver_id:s.driver_id,target_booking_id:id,payment_confirmation:confirmation});
+  if(error){
+    if(/Assigned job not found/i.test(error.message))throw new ApiError(404,"Assigned job not found");
+    if(/must confirm|unsupported|ambiguous|account or invoice|Invalid job transition/i.test(error.message))throw new ApiError(409,error.message);
+    throw error;
+  }
+  if(!data)throw new ApiError(404,"Assigned job not found");
+  return reply({ok:true,result:data,server_time:new Date().toISOString()});
+}
+async function markCashPaid(s:DriverSession,b:Record<string,unknown>){const id=String(b.booking_id||"");if(!id)throw new ApiError(400,"Booking is required");const {data,error}=await db.rpc("mark_driver_cash_booking_paid",{target_company_id:s.company_id,target_driver_id:s.driver_id,target_booking_id:id});if(error){if(/eligible outstanding in-car balance/i.test(error.message))throw new ApiError(403,error.message);if(/stage/i.test(error.message))throw new ApiError(400,error.message);throw error}if(!data)throw new ApiError(404,"Assigned job not found");return reply({ok:true});}
 async function createUnavailability(s:DriverSession,b:Record<string,unknown>){const from=new Date(String(b.from_datetime||"")),to=new Date(String(b.to_datetime||""));if(isNaN(from.valueOf())||isNaN(to.valueOf())||to<=from)throw new ApiError(400,"Invalid unavailable period");const {error}=await db.from("driver_unavailability").insert({company_id:s.company_id,driver_id:s.driver_id,from_datetime:from.toISOString(),to_datetime:to.toISOString(),reason:clean(b.reason),active:true});if(error)throw error;await db.from("drivers").update({online:false}).eq("company_id",s.company_id).eq("id",s.driver_id);return reply({ok:true});}
 async function endUnavailability(s:DriverSession){const now=new Date().toISOString();const {error}=await db.from("driver_unavailability").update({active:false,to_datetime:now}).eq("company_id",s.company_id).eq("driver_id",s.driver_id).eq("active",true);if(error)throw error;return reply({ok:true});}
 async function logout(s:DriverSession){await db.from("drivers").update({online:false}).eq("company_id",s.company_id).eq("id",s.driver_id);await db.from("driver_sessions").update({revoked_at:new Date().toISOString()}).eq("id",s.id);return reply({ok:true});}
 function safeDriver(companyId:string,driverId:string){return db.from("drivers").select("id,company_id,driver_number,full_name,phone,email,vehicle,licence_number,licence_expiry,status,online,latitude,longitude,location_updated_at,pay_type,commission_percent,fixed_job_amount").eq("company_id",companyId).eq("id",driverId).maybeSingle();}
 const clean=(v:unknown)=>String(v??"").trim()||null;
+const normal=(v:unknown)=>String(v??"").trim().toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"");
 const numberOrNull=(v:unknown)=>v===""||v==null?null:Number(v);
 function activationAt(dateValue:unknown,timeValue:unknown,timezone:string){
   const date=String(dateValue||""),time=String(timeValue||"");

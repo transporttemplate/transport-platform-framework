@@ -50,7 +50,7 @@ test("commission display distinguishes unassigned, company, driver override and 
 
 test("booking action menu is tenant-scoped, status-aware and keyboard/touch accessible", () => {
   assert.match(menu, /String\(booking\.company_id\) !== String\(adminCompanyId\)/);
-  assert.match(menu, /accepted", "on_way", "passenger_onboard", "completed"/);
+  assert.match(menu, /accepted", "on_way", "arrived", "passenger_onboard", "completed"/);
   assert.match(menu, /contextmenu/);
   assert.match(menu, /data-booking-menu/);
   assert.match(menu, /ArrowDown/);

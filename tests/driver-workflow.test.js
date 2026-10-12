@@ -33,12 +33,19 @@ test("invalid transitions are rejected and duplicates are idempotent", () => {
     assert.equal(workflow.applyTransition(job("a", "accepted"), "accepted").idempotent, true);
 });
 
-test("only one On Route or POB job is classified as the current job", () => {
-    const rows = [job("a", "accepted", "08:00:00"), job("b", "on_way", "09:00:00")];
+test("only one On Route, Arrived or POB job is classified as the current job", () => {
+    const rows = [job("a", "accepted", "08:00:00"), job("b", "arrived", "09:00:00")];
     assert.equal(workflow.classifyJobs(rows).current.id, "b");
     assert.equal(workflow.activeStatuses.has("on_way"), true);
+    assert.equal(workflow.activeStatuses.has("arrived"), true);
     assert.equal(workflow.activeStatuses.has("passenger_onboard"), true);
     assert.equal(workflow.activeStatuses.has("accepted"), false);
+});
+
+test("Arrived is deliberate and required between On Route and POB", () => {
+    assert.equal(workflow.applyTransition(job("a", "on_way"), "arrived").status, "arrived");
+    assert.equal(workflow.applyTransition(job("a", "arrived"), "passenger_onboard").status, "passenger_onboard");
+    assert.throws(() => workflow.applyTransition(job("a", "on_way"), "passenger_onboard"), /Invalid job transition/);
 });
 
 test("rapid duplicate acceptance is harmless", () => {
@@ -70,6 +77,7 @@ test("cash collection never applies to Stripe or already-paid jobs", () => {
     assert.equal(workflow.canMarkCashPaid(job("a", "accepted")), true);
     assert.equal(workflow.canMarkCashPaid({ ...job("a", "accepted"), payment_method: "Card" }), false);
     assert.equal(workflow.canMarkCashPaid({ ...job("a", "accepted"), payment_status: "paid" }), false);
+    assert.equal(workflow.canMarkCashPaid({ ...job("a", "arrived"), payment_method: "Card", payment_type: "deposit", payment_status: "deposit_paid" }), true);
 });
 
 test("decline is exposed only for assigned jobs when that company enables it", () => {

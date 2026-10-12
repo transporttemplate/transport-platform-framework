@@ -9,6 +9,8 @@ const job = status => ({ id: "booking-1", status, pickup_name: "Cardiff Airport 
 test("authoritative booking status chooses pickup before collection and dropoff afterwards", () => {
     assert.equal(navigation.navigationTarget(job("accepted")), "pickup");
     assert.equal(navigation.navigationTarget(job("on_way")), "pickup");
+    assert.equal(navigation.navigationTarget(job("arrived")), "pickup");
+    assert.equal(navigation.canNavigate(job("arrived")), true);
     assert.equal(navigation.navigationTarget(job("passenger_onboard")), "dropoff");
     assert.equal(navigation.canNavigate(job("cancelled")), false);
     assert.equal(navigation.canNavigate(job("completed")), false);
@@ -164,7 +166,7 @@ test("automatic leg progression excludes already passed intermediate stops from 
 test("Driver Portal contains integrated controls while preserving the existing workflow", () => {
     const html = fs.readFileSync(path.join(__dirname, "../driver.html"), "utf8");
     const driver = fs.readFileSync(path.join(__dirname, "../js/driver.js"), "utf8");
-    for (const label of ["Passengers On Board", "Complete Job", "Open in Google Maps", "All driving instructions"]) assert.match(html, new RegExp(label));
+    for (const label of ["Arrived / Outside", "Passengers On Board", "Complete Job", "Open in Google Maps", "All driving instructions"]) assert.match(html, new RegExp(label));
     assert.match(html, /navigationVoiceButton/);
     assert.match(html, /voice-off/);
     assert.match(html, /navigationRecenterButton/);
