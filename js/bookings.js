@@ -2463,16 +2463,13 @@ function bookingAddressDisplay(detail,address) {
 }
 
 function bookingPaymentClass(booking) {
-    const method = canonicalPaymentMethod(booking?.payment_method);
-    if (method === "account") return "payment-account";
-    if (String(booking?.payment_status || "").trim().toLowerCase() === "paid") return "payment-paid";
-    return "payment-unpaid";
+    return `payment-${bookingPaymentKind(booking).replace("part_paid","partial")}`;
 }
 
 function bookingPaymentLabel(booking) {
-    if (canonicalPaymentMethod(booking?.payment_method) === "account") return "Account";
-    return String(booking?.payment_status || "").trim().toLowerCase() === "paid" ? "Paid" : "Unpaid";
+    return {account:"ACCOUNT / INVOICE",paid:"PAID / PREPAID",part_paid:"PART PAID",unpaid:"UNPAID"}[bookingPaymentKind(booking)];
 }
+function bookingPaymentKind(booking){const method=canonicalPaymentMethod(booking?.payment_method),status=String(booking?.payment_status||"").trim().toLowerCase().replaceAll(" ","_"),paid=Number(booking?.amount_paid||0),fare=Number(booking?.price??booking?.job_price??0);if(method==="account")return "account";if(status==="paid"||status==="prepaid")return "paid";if(status==="part_paid"||status==="partially_paid"||(paid>0&&paid<fare))return "part_paid";return "unpaid";}
 
 function driverDisplayName(id) {
 

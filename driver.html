@@ -52,8 +52,9 @@
     </div>
 
     <nav class="side-nav">
-        <button type="button" data-view="jobs">🚕 <span>Driver Diary</span></button>
-        <button id="driverAccountsNav" class="hidden" type="button" data-view="accounts">💷 <span>Driver Accounts</span></button>
+        <button type="button" data-view="jobs">🚕 <span>My Jobs</span></button>
+        <button type="button" data-view="earnings">💷 <span>Earnings</span></button>
+        <button id="driverExpensesNav" class="hidden" type="button" data-view="accounts">🧾 <span>Expenses</span></button>
         <button type="button" data-view="holidays">🏖️ <span>Holidays / Off Days</span></button>
         <button type="button" data-view="completed">✅ <span>Completed Jobs</span></button>
     </nav>
@@ -163,7 +164,7 @@
 </section>
 
 <section id="view-accounts" class="driver-view">
-    <div class="page-title"><h2>Driver Accounts</h2><p>Your authorised earnings and business expense records.</p></div>
+    <div class="page-title"><h2>Expenses &amp; Financial Summary</h2><p>Your authorised earnings summary and business expense records.</p></div>
     <div class="accounts-toolbar">
         <label style="grid-column:1/-1">Reporting period <select id="accountsPeriod"><option value="month">This month</option><option value="personal_tax_year">UK personal tax year (6 April–5 April)</option><option value="business_year">Business year (1 April–31 March)</option><option value="custom">Custom dates</option></select></label>
         <label>From <input id="accountsFrom" type="date"></label><label>To <input id="accountsTo" type="date"></label>
@@ -189,6 +190,8 @@
     </form>
     <h3 class="accounts-heading">Expenses</h3><div id="accountsExpenseList" class="list-stack"></div>
     <h3 class="accounts-heading">Completed-job earnings</h3><div id="accountsIncomeList" class="list-stack"></div>
+    <h3 class="accounts-heading">Monthly breakdown</h3><div id="accountsMonthlyList" class="list-stack"></div>
+    <h3 class="accounts-heading">Expense categories</h3><div id="accountsCategoryList" class="list-stack"></div>
     <p id="accountsDisclaimer" class="accounts-note"></p>
 </section>
 

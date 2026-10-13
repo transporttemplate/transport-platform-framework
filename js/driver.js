@@ -235,7 +235,7 @@ function applyDriverPortalData(data) {
     driverUnavailable = driverUnavailability.some(row => row.active !== false && new Date(row.from_datetime) <= now && new Date(row.to_datetime) >= now);
     renderHolidayList(driverUnavailability);
     document.getElementById("imBackButton")?.classList.toggle("hidden", !driverUnavailable);
-    document.getElementById("driverAccountsNav")?.classList.toggle("hidden", currentDriver?.driver_accounts_enabled !== true);
+    document.getElementById("driverExpensesNav")?.classList.toggle("hidden", currentDriver?.driver_expenses_enabled !== true);
     populateDriverHeader();
     applyCompanyBranding();
     if (navigationController?.active) {
@@ -865,12 +865,12 @@ function diaryCard(job, kind) {
     const busy = pendingJobActions.has(String(job.id));
     const decline = kind === "awaiting" && window.DriverWorkflow.canDecline(driverSettings, job);
     const startReady = kind === "accepted" && window.DriverWorkflow.canStart(job, trustedNow(), driverSettings.timezone || "Europe/London");
-    const payment = `${job.payment_method || "—"} · ${prettyStatus(job.payment_status || "unpaid")}`;
+    const payment = driverPaymentLabel(job);
     return `<article class="diary-card ${busy ? "busy" : ""}">
         <div class="diary-card-top"><div><time>${escapeHtml(formatTime(job.journey_time))}</time><span>${escapeHtml(formatDate(job.journey_date))}</span></div><span class="status-pill">${escapeHtml(prettyStatus(job.status))}</span></div>
         <strong class="booking-reference">${escapeHtml(job.booking_reference || shortId(job.id))}</strong>
         <div class="compact-route"><span><b>A</b>${escapeHtml(pickup(job))}</span><span><b>B</b>${escapeHtml(destination(job))}</span></div>
-        <div class="job-meta"><span>${escapeHtml(String(job.passengers ?? "—"))} passengers</span><span>${escapeHtml(money(jobPrice(job)))}</span><span>${escapeHtml(payment)}</span></div>
+        <div class="job-meta"><span>${escapeHtml(String(job.passengers ?? "—"))} passengers</span>${job.driver_amount==null?"":`<span>${escapeHtml(money(jobPrice(job)))} earnings</span>`}<span class="driver-payment ${escapeHtml(driverPaymentKind(job))}">${escapeHtml(payment)}</span></div>
         ${kind === "accepted" ? `<p class="activation-note ${startReady ? "ready" : ""}">${escapeHtml(startReady ? "Ready to start" : activationLabel(job))}</p>` : ""}
         <div class="card-actions">
           ${kind === "awaiting" ? `<button class="btn btn-success" data-job-action="accepted" data-job-id="${escapeHtml(job.id)}" ${busy ? "disabled" : ""}>${busy ? "Working…" : "Accept"}</button>` : ""}
@@ -880,6 +880,8 @@ function diaryCard(job, kind) {
         </div>
     </article>`;
 }
+function driverPaymentKind(job){const method=normaliseStatus(job?.payment_method),status=normaliseStatus(job?.payment_status),paid=Number(job?.amount_paid||0),balance=Number(job?.balance_due||0);if(job?.account_customer_id||["account","invoice","account_invoice"].includes(method))return "account";if(status==="paid"||["stripe","card","prepaid"].includes(method)&&balance<=0)return "paid";if(status==="part_paid"||status==="partially_paid"||paid>0&&balance>0)return "partial";return "unpaid";}
+function driverPaymentLabel(job){return {account:"ACCOUNT / INVOICE",paid:"PAID / PREPAID",partial:"PART PAID",unpaid:"UNPAID"}[driverPaymentKind(job)];}
 
 function handleDiaryAction(event) {
     const button = event.target.closest("[data-job-action]");
@@ -1039,7 +1041,7 @@ function showDriverView(name) {
     if (name === "earnings") renderEarnings();
     if (name === "completed") renderDiary();
     if (name === "holidays") refreshHolidayStatus();
-    if (name === "accounts" && currentDriver?.driver_accounts_enabled === true) loadDriverAccounts();
+    if (name === "accounts" && currentDriver?.driver_expenses_enabled === true) loadDriverAccounts();
 
     window.scrollTo({ top: 0, behavior: "instant" });
 }
@@ -1092,7 +1094,7 @@ function applyAccountsPeriod() {
     const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;document.getElementById("accountsFrom").value=iso(from);document.getElementById("accountsTo").value=iso(to);loadDriverAccounts();
 }
 async function loadDriverAccounts() {
-    if (currentDriver?.driver_accounts_enabled !== true) return;
+    if (currentDriver?.driver_expenses_enabled !== true) return;
     defaultAccountsRange();
     try {
         driverAccountsSnapshot = await driverPortalRequest("accounts_snapshot", { from: document.getElementById("accountsFrom")?.value, to: document.getElementById("accountsTo")?.value });
@@ -1100,11 +1102,13 @@ async function loadDriverAccounts() {
         setText("accountsEarnings", money(summary.total_earnings)); setText("accountsExpenses", money(summary.total_expenses)); setText("accountsProfit", money(summary.estimated_profit)); setText("accountsOutstanding", money(summary.outstanding_earnings));
         setText("accountsDisclaimer", driverAccountsSnapshot.disclaimer || "Management records only.");
         const expenses = document.getElementById("accountsExpenseList");
-        expenses.innerHTML = (driverAccountsSnapshot.expenses || []).map(row => `<article class="account-row"><div><strong>${escapeHtml(prettyStatus(row.category))}</strong><span>${escapeHtml(row.expense_date)} · ${escapeHtml(row.description)}</span><small>${escapeHtml(row.accounting_treatment)} · ${escapeHtml(String(row.business_use_percent))}% business use</small></div><div><strong>${escapeHtml(money(row.amount))}</strong><button data-delete-expense="${escapeHtml(row.id)}" type="button">Delete</button></div></article>`).join("") || '<div class="empty-list">No expenses in this period.</div>';
+        expenses.innerHTML = (driverAccountsSnapshot.expenses || []).map(row => `<article class="account-row"><div><strong>${escapeHtml(prettyStatus(row.category))}</strong><span>${escapeHtml(row.expense_date)} · ${escapeHtml(row.description)}</span><small>${escapeHtml(row.accounting_treatment)} · ${escapeHtml(String(row.business_use_percent))}% business use</small></div><div><strong>${escapeHtml(money(row.amount))}</strong><button data-edit-expense="${escapeHtml(row.id)}" type="button">Edit</button><button data-delete-expense="${escapeHtml(row.id)}" type="button">${row.rule_id?"Skip":"Delete"}</button></div></article>`).join("") || '<div class="empty-list">No expenses in this period.</div>';
         const income = document.getElementById("accountsIncomeList");
         income.innerHTML = (driverAccountsSnapshot.jobs || []).map(row => `<article class="account-row"><div><strong>${escapeHtml(row.booking_reference || "Job")}</strong><span>${escapeHtml(row.journey_date)} · ${escapeHtml(prettyStatus(row.payment_status))}</span></div><strong>${row.driver_earnings == null ? "Not authorised" : escapeHtml(money(row.driver_earnings))}</strong></article>`).join("") || '<div class="empty-list">No completed-job earnings in this period.</div>';
+        renderAccountsBreakdowns(driverAccountsSnapshot);
     } catch (error) { alert(error.message || "Unable to load Driver Accounts."); }
 }
+function renderAccountsBreakdowns(snapshot){const monthly={},categories={};(snapshot.jobs||[]).forEach(x=>{const key=String(x.journey_date||"").slice(0,7);(monthly[key]||={earnings:0,expenses:0}).earnings+=Number(x.driver_earnings||0);});(snapshot.expenses||[]).forEach(x=>{const key=String(x.expense_date||"").slice(0,7),amount=Number(x.amount||0)*Number(x.business_use_percent||0)/100;(monthly[key]||={earnings:0,expenses:0}).expenses+=amount;categories[x.category]=(categories[x.category]||0)+amount;});document.getElementById("accountsMonthlyList").innerHTML=Object.entries(monthly).sort().reverse().map(([key,x])=>`<div class="account-row"><strong>${escapeHtml(key)}</strong><span>${escapeHtml(money(x.earnings))} earnings · ${escapeHtml(money(x.expenses))} expenses · ${escapeHtml(money(x.earnings-x.expenses))} estimated profit</span></div>`).join("")||'<div class="empty-list">No monthly figures.</div>';document.getElementById("accountsCategoryList").innerHTML=Object.entries(categories).sort((a,b)=>b[1]-a[1]).map(([key,value])=>`<div class="account-row"><strong>${escapeHtml(prettyStatus(key))}</strong><strong>${escapeHtml(money(value))}</strong></div>`).join("")||'<div class="empty-list">No expense categories.</div>';}
 async function saveDriverExpense(event) {
     event.preventDefault();
     const value = id => document.getElementById(id)?.value;
@@ -1114,7 +1118,7 @@ async function saveDriverExpense(event) {
     catch (error) { alert(error.message || "Unable to save expense."); }
 }
 function fileToBase64(file){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result||"").split(",")[1]||"");reader.onerror=()=>reject(new Error("Receipt could not be read"));reader.readAsDataURL(file);});}
-async function handleExpenseAction(event) { const id=event.target.closest("[data-delete-expense]")?.dataset.deleteExpense;if(!id)return;if(!confirm("Delete this expense record? An audit entry will remain."))return;try{await driverPortalRequest("delete_expense",{expense_id:id});await loadDriverAccounts();}catch(error){alert(error.message||"Unable to delete expense.");} }
+async function handleExpenseAction(event) { const editId=event.target.closest("[data-edit-expense]")?.dataset.editExpense;if(editId){const row=(driverAccountsSnapshot?.expenses||[]).find(x=>String(x.id)===String(editId));if(!row)return;const set=(id,value)=>{const el=document.getElementById(id);if(el)el.value=value??"";};set("expenseId",row.id);set("expenseDate",row.expense_date);set("expenseAmount",row.amount);set("expenseCategory",row.category);set("expenseDescription",row.description);set("expenseSupplier",row.supplier);set("expensePaymentMethod",row.payment_method);set("expenseBusinessUse",row.business_use_percent);set("expenseTreatment",row.accounting_treatment);set("expenseNotes",row.notes);document.getElementById("expenseForm")?.scrollIntoView({behavior:"smooth"});return;}const id=event.target.closest("[data-delete-expense]")?.dataset.deleteExpense;if(!id)return;if(!confirm("Delete or skip this expense occurrence? An audit entry will remain."))return;try{await driverPortalRequest("delete_expense",{expense_id:id});await loadDriverAccounts();}catch(error){alert(error.message||"Unable to delete expense.");} }
 function exportAccountsCsv() {
     if (!driverAccountsSnapshot) return;
     const quote=value=>`"${String(value??"").replaceAll('"','""')}"`, rows=[["Type","Date","Reference/Category","Description","Amount GBP","Payment status"]];

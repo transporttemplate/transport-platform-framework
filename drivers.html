@@ -96,6 +96,8 @@
 .status-offline{background:#ef4444;}
 .table-wrap{overflow-x:auto;}
 .muted{color:#6b7280;}
+.admin-dark-page .topbar,.admin-dark-page .card,.admin-dark-page .driver-modal{background:#111c2e;color:#f8fafc;border:1px solid #26344b;box-shadow:0 12px 28px rgba(0,0,0,.22)}
+.admin-dark-page .driver-view-item{background:#0c1525;border-color:#26344b}.admin-dark-page .driver-view-item small,.admin-dark-page .muted{color:#94a3b8}.admin-dark-page th{background:#172338;color:#cbd5e1}.admin-dark-page td{border-color:#26344b;color:#e5e7eb}.admin-dark-page input,.admin-dark-page select{background:#0c1525!important;color:#f8fafc!important;border-color:#33435d!important}.admin-dark-page label{color:#cbd5e1!important}
 @media(max-width:700px){
     .driver-form-grid,
     .driver-view-grid{
@@ -105,7 +107,7 @@
 </style>
 </head>
 
-<body>
+<body class="drivers-page admin-dark-page">
 <div class="admin-layout">
 
 <aside class="sidebar">
@@ -266,7 +268,7 @@
                 </div>
                 <div><label for="driverCommissionInput">Company commission %</label><input id="driverCommissionInput" type="number" min="0" max="100" step="0.01"></div>
                 <div><label for="driverFixedPayInput">Fixed Amount / Job</label><input id="driverFixedPayInput" type="number" min="0" step="0.01"></div>
-                <div class="full"><label><input id="driverAccountsEnabledInput" type="checkbox" style="width:auto;margin-right:8px"> Enable Driver Accounts</label><p class="muted">Allows this driver to access only their own authorised earnings and expense records.</p></div>
+                <div class="full"><label><input id="driverExpensesEnabledInput" type="checkbox" style="width:auto;margin-right:8px"> Enable Driver Expenses</label><p class="muted">Allows this driver to manage only their own expenses and financial summary. Earnings remains available to every driver.</p></div>
             </div>
 
             <div class="driver-form-actions">
@@ -298,7 +300,7 @@
     </div>
 </div>
 
-<div id="driverAccountsReportBackdrop" class="driver-modal-backdrop"><div class="driver-modal"><div class="driver-modal-header"><div><h2 id="adminAccountsTitle">Driver Accounts</h2><p class="muted">Management and tax-preparation records; not a certified tax return.</p></div><button id="closeDriverAccountsReport" type="button">✕</button></div><div class="driver-form-grid"><div><label for="adminAccountsFrom">From</label><input id="adminAccountsFrom" type="date"></div><div><label for="adminAccountsTo">To</label><input id="adminAccountsTo" type="date"></div></div><div class="driver-form-actions"><button id="adminAccountsRefresh" type="button">Update</button><button id="adminAccountsCsv" type="button">Export CSV</button></div><div id="adminAccountsContent" style="margin-top:18px"></div></div></div>
+<div id="driverAccountsReportBackdrop" class="driver-modal-backdrop"><div class="driver-modal"><div class="driver-modal-header"><div><h2 id="adminAccountsTitle">Driver Accounts</h2><p class="muted">Management and tax-preparation records; not a certified tax return.</p></div><button id="closeDriverAccountsReport" type="button">✕</button></div><label for="adminAccountsPeriod">Reporting period</label><select id="adminAccountsPeriod"><option value="month">This month</option><option value="personal_tax_year">UK personal tax year (6 April–5 April)</option><option value="business_year">Business year (1 April–31 March)</option><option value="custom">Custom</option></select><div class="driver-form-grid"><div><label for="adminAccountsFrom">From</label><input id="adminAccountsFrom" type="date"></div><div><label for="adminAccountsTo">To</label><input id="adminAccountsTo" type="date"></div></div><div class="driver-form-actions"><button id="adminAccountsRefresh" type="button">Update</button><button id="adminAccountsCsv" type="button">Export CSV</button><button type="button" onclick="window.print()">Print / PDF</button></div><div id="adminAccountsContent" style="margin-top:18px"></div></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>

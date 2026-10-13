@@ -115,7 +115,7 @@
 }
 .jobs-table-scroll{width:100%;max-width:100%;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch}
 .jobs-panel table{
-    min-width:1260px;
+    min-width:980px;
     width:100%;
     font-size:13px;
 }
@@ -127,6 +127,7 @@
 .jobs-panel tr.payment-unpaid,.jobs-panel tr.payment-unpaid td:last-child{background:#fdecec}
 .payment-pill{display:inline-block;padding:3px 7px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid rgba(15,23,42,.12)}
 .payment-account .payment-pill{background:#e6d8ff}.payment-paid .payment-pill{background:#cef0d5}.payment-unpaid .payment-pill{background:#fad2d2}
+.payment-partial .payment-pill{background:#fde68a;color:#78350f}.payment-method{display:block;margin-top:4px;color:#64748b}.compact-route-cell{max-width:300px}.compact-route-cell span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.compact-route-cell b{color:#64748b;font-size:11px}
 .jobs-panel th:last-child,.jobs-panel td:last-child{
     position:sticky;
     right:0;
@@ -336,6 +337,8 @@
 .all-bookings-page .payment-pill,.all-bookings-page .status-pill,.all-bookings-page .source-pill{padding:4px 8px;border-radius:999px;font-weight:800;line-height:1.2}
 .all-bookings-page .booking-actions{gap:6px}
 .all-bookings-page .booking-actions button{min-height:34px;padding:6px 9px;border-radius:7px;font-weight:750}
+.all-bookings-page .topbar,.all-bookings-page .jobs-panel,.all-bookings-page .dispatch-panel,.all-bookings-page .map-panel{background:#111c2e;color:#f8fafc;border-color:#26344b;box-shadow:0 12px 28px rgba(0,0,0,.22)}
+.all-bookings-page .booking-toolbar{background:#172338;border-color:#26344b}.all-bookings-page .booking-toolbar label{color:#cbd5e1}.all-bookings-page .booking-toolbar input,.all-bookings-page .booking-toolbar select,.all-bookings-page .booking-driver-select{background:#0c1525;color:#f8fafc;border-color:#33435d}.all-bookings-page .jobs-panel th{background:#172338;color:#cbd5e1}.all-bookings-page .jobs-panel td{border-color:#26344b;color:#e5e7eb}.all-bookings-page .jobs-panel tr.payment-paid,.all-bookings-page .jobs-panel tr.payment-paid td:last-child{background:#102a22}.all-bookings-page .jobs-panel tr.payment-unpaid,.all-bookings-page .jobs-panel tr.payment-unpaid td:last-child{background:#2b171d}.all-bookings-page .jobs-panel tr.payment-partial,.all-bookings-page .jobs-panel tr.payment-partial td:last-child{background:#2b2514}.all-bookings-page .jobs-panel tr.payment-account,.all-bookings-page .jobs-panel tr.payment-account td:last-child{background:#221b35}
 
 @media(max-width:1050px){
     .dispatch-grid{grid-template-columns:1fr}
@@ -471,6 +474,10 @@ Status
 </select>
 </label>
 
+<label>Payment
+<select id="paymentFilter"><option value="">All</option><option value="paid">Paid</option><option value="unpaid">Unpaid</option><option value="part_paid">Part Paid</option><option value="account">Account / Invoice</option></select>
+</label>
+
 <button id="refreshBookings" type="button">
 Refresh
 </button>
@@ -482,27 +489,22 @@ Refresh
 
 <thead>
 <tr>
-<th>Date</th>
-<th>Time</th>
-<th>Ref</th>
+<th>Date / Time</th>
+<th>Reference</th>
 <th>Customer</th>
-<th>Pickup</th>
-<th>Destination</th>
-<th>Passengers</th>
-<th>Vehicle</th>
+<th>Route</th>
 <th>Driver</th>
-<th>Price</th>
-<th>Driver Amount</th>
-<th>Payment</th>
-<th>Source</th>
-<th>Status</th>
+<th>Journey</th>
+<th>Customer Fare</th>
+<th>Payment Status</th>
+<th>Outstanding</th>
 <th>Action</th>
 </tr>
 </thead>
 
 <tbody id="bookingsBody">
 <tr>
-<td colspan="15" class="empty-row">
+<td colspan="10" class="empty-row">
 Loading bookings…
 </td>
 </tr>

@@ -1,4 +1,5 @@
 const bookingsDb = getSupabase();
+// The single Actions menu preserves Edit through bookings.html?edit= and the existing protected workflow.
 
 let allBookings = [];
 let allDrivers = [];
@@ -79,6 +80,7 @@ function bindBookingEvents() {
 
     document.getElementById("dateFrom")?.addEventListener("change", onCustomDateChange);
     document.getElementById("dateTo")?.addEventListener("change", onCustomDateChange);
+    document.getElementById("paymentFilter")?.addEventListener("change", renderBookings);
     document.querySelectorAll("[data-range]").forEach(button => button.addEventListener("click", () => applyQuickRange(button.dataset.range)));
 
     document
@@ -474,7 +476,7 @@ async function loadBookings() {
         if (body) {
 
             body.innerHTML =
-                `<tr><td colspan="15" class="empty-row">
+                `<tr><td colspan="10" class="empty-row">
                     ${escapeHtml(error.message)}
                 </td></tr>`;
         }
@@ -556,6 +558,7 @@ function renderBookings() {
         document
             .getElementById("statusFilter")
             ?.value || "";
+    const paymentFilter=document.getElementById("paymentFilter")?.value||"";
 
     const rows =
         allBookings.filter(booking => {
@@ -589,6 +592,7 @@ function renderBookings() {
             ) {
                 return false;
             }
+            if(paymentFilter&&bookingPaymentKind(booking)!==paymentFilter)return false;
 
             if (search) {
 
@@ -630,7 +634,7 @@ function renderBookings() {
     if (!rows.length) {
 
         body.innerHTML =
-            '<tr><td colspan="15" class="empty-row">No bookings found for this view.</td></tr>';
+            '<tr><td colspan="10" class="empty-row">No bookings found for this view.</td></tr>';
 
         return;
     }
@@ -732,70 +736,13 @@ function bookingRowHtml(booking) {
                 </select>
             `;
 
-    const actionButtons = `
-        <button
-            type="button"
-            data-view-booking="${escapeHtml(booking.id)}"
-        >
-            View
-        </button>
-        <button type="button" class="booking-menu-trigger" data-booking-menu="${escapeHtml(booking.id)}" aria-label="More actions for booking ${escapeHtml(booking.booking_reference || shortId(booking.id))}">⋮</button>
-        <button type="button" onclick="location.href='bookings.html?edit=${encodeURIComponent(booking.id)}'">Edit</button>
-
-        ${
-            isHistory
-                ? ""
-                : `
-                    <button
-                        type="button"
-                        onclick="cycleBookingStatus(
-                            '${booking.id}',
-                            '${status}'
-                        )"
-                    >
-                        Update
-                    </button>
-                `
-        }
-
-        ${
-            [
-                "completed",
-                "cancelled",
-                "canceled",
-                "no_show"
-            ].includes(status)
-                ? ""
-                : `
-                    <button
-                        type="button"
-                        onclick="cancelBooking('${booking.id}')"
-                        style="background:#dc2626;color:white;"
-                    >
-                        Cancel
-                    </button>
-                `
-        }
-
-        ${!["completed", "cancelled", "canceled", "no_show"].includes(status) ? `<button type="button" onclick="markBookingNoShow('${booking.id}')">No Show</button>` : ""}
-    `;
+    const actionButtons = `<button type="button" class="booking-menu-trigger" data-booking-menu="${escapeHtml(booking.id)}" aria-label="Actions for booking ${escapeHtml(booking.booking_reference || shortId(booking.id))}">Actions ▾</button>`;
+    const fare=Number(booking.price??booking.job_price??0),outstanding=Math.max(0,Number(booking.balance_due??(fare-Number(booking.amount_paid||0))));
 
     return `
         <tr class="${paymentClass}" data-booking-id="${escapeHtml(booking.id)}">
 
-            <td data-label="Date">
-                ${escapeHtml(
-                    booking.journey_date || ""
-                )}
-            </td>
-
-            <td data-label="Time">
-                ${escapeHtml(
-                    formatTime(
-                        booking.journey_time
-                    )
-                )}
-            </td>
+            <td data-label="Date / Time"><strong>${escapeHtml(booking.journey_date||"")}</strong><br><small>${escapeHtml(formatTime(booking.journey_time))}</small></td>
 
             <td data-label="Reference">
                 ${escapeHtml(
@@ -813,61 +760,16 @@ function bookingRowHtml(booking) {
                 ${booking.account_customer_id ? `<br><small>${escapeHtml(accountBookingLabel(booking))}</small>` : ""}
             </td>
 
-            <td data-label="Pickup">
-                ${escapeHtml(
-                    booking.pickup_address ||
-                    booking.pickup ||
-                    "-"
-                )}
-            </td>
-
-            <td data-label="Destination">
-                ${escapeHtml(
-                    booking.dropoff_address ||
-                    booking.destination ||
-                    "-"
-                )}
-            </td>
-
-            <td data-label="Passengers">${escapeHtml(booking.passengers ?? "-")}</td>
-
-            <td data-label="Vehicle">${escapeHtml(vehicleTierLabel(booking.vehicle_tier || booking.vehicle_type))}</td>
+            <td data-label="Route" class="compact-route-cell" title="${escapeHtml(`${booking.pickup_address||booking.pickup||"-"} → ${booking.dropoff_address||booking.destination||"-"}`)}"><span>${escapeHtml(booking.pickup_address||booking.pickup||"-")}</span><b>→</b><span>${escapeHtml(booking.dropoff_address||booking.destination||"-")}</span></td>
 
             <td data-label="Driver">
                 ${driverCell}
             </td>
 
-            <td data-label="Price">
-                ${money(
-                    booking.price ??
-                    booking.job_price
-                )}
-            </td>
-
-            <td data-label="Driver Amount">
-                ${booking.driver_amount == null ? "—" : money(booking.driver_amount)}
-            </td>
-
-            <td data-label="Payment">
-                <span class="payment-pill">${escapeHtml(bookingPaymentLabel(booking))}</span>
-            </td>
-
-            <td data-label="Source">
-                <span class="source-pill">
-                    ${escapeHtml(
-                        booking.booking_source ||
-                        "website"
-                    )}
-                </span>
-            </td>
-
-            <td data-label="Status">
-                <span class="status-pill">
-                    ${escapeHtml(
-                        prettyStatus(status)
-                    )}
-                </span>
-            </td>
+            <td data-label="Journey"><span class="status-pill">${escapeHtml(prettyStatus(status))}</span></td>
+            <td data-label="Customer Fare">${money(fare)}</td>
+            <td data-label="Payment Status"><span class="payment-pill">${escapeHtml(bookingPaymentLabel(booking))}</span><small class="payment-method">${escapeHtml(booking.payment_method||"")}</small></td>
+            <td data-label="Outstanding">${money(outstanding)}</td>
 
             <td data-label="Actions">
                 <div class="booking-actions">
@@ -2306,16 +2208,13 @@ function bookingAddressDisplay(detail,address) {
 }
 
 function bookingPaymentClass(booking) {
-    const method = canonicalPaymentMethod(booking?.payment_method);
-    if (method === "account") return "payment-account";
-    if (String(booking?.payment_status || "").trim().toLowerCase() === "paid") return "payment-paid";
-    return "payment-unpaid";
+    return `payment-${bookingPaymentKind(booking).replace("part_paid","partial")}`;
 }
 
 function bookingPaymentLabel(booking) {
-    if (canonicalPaymentMethod(booking?.payment_method) === "account") return "Account";
-    return String(booking?.payment_status || "").trim().toLowerCase() === "paid" ? "Paid" : "Unpaid";
+    return {account:"ACCOUNT / INVOICE",paid:"PAID / PREPAID",part_paid:"PART PAID",unpaid:"UNPAID"}[bookingPaymentKind(booking)];
 }
+function bookingPaymentKind(booking){const method=canonicalPaymentMethod(booking?.payment_method),status=String(booking?.payment_status||"").trim().toLowerCase().replaceAll(" ","_"),paid=Number(booking?.amount_paid||0),fare=Number(booking?.price??booking?.job_price??0);if(method==="account")return "account";if(status==="paid"||status==="prepaid")return "paid";if(status==="part_paid"||status==="partially_paid"||(paid>0&&paid<fare))return "part_paid";return "unpaid";}
 
 function driverDisplayName(id) {
 
