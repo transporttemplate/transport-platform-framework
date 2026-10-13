@@ -737,7 +737,7 @@ function bookingRowHtml(booking) {
             `;
 
     const actionButtons = `<button type="button" class="booking-menu-trigger" data-booking-menu="${escapeHtml(booking.id)}" aria-label="Actions for booking ${escapeHtml(booking.booking_reference || shortId(booking.id))}">Actions ▾</button>`;
-    const fare=Number(booking.price??booking.job_price??0),outstanding=Math.max(0,Number(booking.balance_due??(fare-Number(booking.amount_paid||0))));
+    const fare=Number(booking.price??booking.job_price??0),paid=Number(booking.amount_paid||0),outstanding=bookingPaymentKind(booking)==="paid"?0:Math.max(0,Number(booking.balance_due||0),fare-paid);
 
     return `
         <tr class="${paymentClass}" data-booking-id="${escapeHtml(booking.id)}">
@@ -2212,7 +2212,7 @@ function bookingPaymentClass(booking) {
 }
 
 function bookingPaymentLabel(booking) {
-    return {account:"ACCOUNT / INVOICE",paid:"PAID / PREPAID",part_paid:"PART PAID",unpaid:"UNPAID"}[bookingPaymentKind(booking)];
+    const kind=bookingPaymentKind(booking),method=String(booking?.payment_method||"").toLowerCase();if(kind==="paid"&&/(stripe|card|prepaid)/.test(method))return "PREPAID / STRIPE";return {account:"ACCOUNT / INVOICE",paid:"PAID",part_paid:"PART PAID",unpaid:"UNPAID"}[kind];
 }
 function bookingPaymentKind(booking){const method=canonicalPaymentMethod(booking?.payment_method),status=String(booking?.payment_status||"").trim().toLowerCase().replaceAll(" ","_"),paid=Number(booking?.amount_paid||0),fare=Number(booking?.price??booking?.job_price??0);if(method==="account")return "account";if(status==="paid"||status==="prepaid")return "paid";if(status==="part_paid"||status==="partially_paid"||(paid>0&&paid<fare))return "part_paid";return "unpaid";}
 
