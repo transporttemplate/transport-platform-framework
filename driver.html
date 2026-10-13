@@ -32,7 +32,7 @@
 <div id="driverApp" class="driver-app hidden">
 
 <header class="app-header">
-    <button id="menuButton" class="icon-button" type="button">☰</button>
+    <button id="menuButton" class="icon-button" type="button" aria-label="Open menu">☰</button>
     <div class="header-copy">
         <strong id="driverName">Driver</strong>
         <span id="driverCompanyName">Company</span>
@@ -45,18 +45,18 @@
 <aside id="driverSideMenu" class="side-menu">
     <div class="side-menu-top">
         <button id="closeMenuButton" class="close-button" type="button">×</button>
-        <div class="driver-avatar">🚕</div>
+        <div class="driver-avatar" aria-hidden="true">DP</div>
         <h2 id="menuDriverName">Driver</h2>
         <p>Driver #<span id="menuDriverNumber">-</span></p>
         <p id="menuCompanyName">Company</p>
     </div>
 
     <nav class="side-nav">
-        <button type="button" data-view="jobs">🚕 <span>My Jobs</span></button>
-        <button type="button" data-view="earnings">💷 <span>Earnings</span></button>
-        <button id="driverExpensesNav" class="hidden" type="button" data-view="accounts">🧾 <span>Expenses</span></button>
-        <button type="button" data-view="holidays">🏖️ <span>Holidays / Off Days</span></button>
-        <button type="button" data-view="completed">✅ <span>Completed Jobs</span></button>
+        <button type="button" data-view="jobs"><span class="nav-icon" aria-hidden="true">⌂</span><span>My Jobs</span></button>
+        <button type="button" data-view="earnings"><span class="nav-icon" aria-hidden="true">£</span><span>Earnings</span></button>
+        <button id="driverExpensesNav" class="hidden" type="button" data-view="accounts"><span class="nav-icon" aria-hidden="true">▤</span><span>Expenses</span></button>
+        <button type="button" data-view="holidays"><span class="nav-icon" aria-hidden="true">○</span><span>Holidays / Off Days</span></button>
+        <button type="button" data-view="completed"><span class="nav-icon" aria-hidden="true">✓</span><span>Completed Jobs</span></button>
     </nav>
 
     <button id="driverLogoutButton" class="logout-button" type="button">Log Off</button>
@@ -67,16 +67,20 @@
 <section id="view-jobs" class="driver-view active">
     <div id="connectionBanner" class="connection-banner hidden" role="status"></div>
     <div class="diary-heading">
-        <div><h1>Driver Diary</h1><p id="lastUpdatedText">Loading your work…</p></div>
+        <div><span class="eyebrow">DRIVER PORTAL</span><h1>Your day</h1><p id="lastUpdatedText">Loading your work…</p></div>
         <button id="refreshDiaryButton" class="icon-button" type="button" aria-label="Refresh diary">↻</button>
     </div>
-    <div class="status-card">
+    <div class="home-overview"><div class="status-card">
         <div>
             <span>Availability</span>
             <strong id="availabilityText">Offline</strong>
         </div>
         <span id="availabilityDot" class="status-dot offline"></span>
-    </div>
+    </div><div class="home-shortcuts" aria-label="Today at a glance">
+        <button type="button" data-view="earnings"><span>Today's earnings</span><strong id="todayEarnings">£0.00</strong></button>
+        <button type="button" data-view="jobs"><span>Jobs today</span><strong id="todayJobs">0</strong></button>
+        <button id="expensesShortcut" class="hidden" type="button" data-view="accounts"><span>Expenses</span><strong>Open</strong></button>
+    </div></div>
 
     <section id="currentJobCard" class="current-job-card hidden">
         <div class="job-top">
@@ -128,9 +132,8 @@
     </section>
 
     <section id="noCurrentJob" class="empty-card">
-        <div class="empty-icon">🚕</div>
         <h2>No Job In Progress</h2>
-        <p>Your accepted work remains in the diary below.</p>
+        <p>Your accepted work is listed below.</p>
     </section>
 
     <section class="diary-section" aria-labelledby="awaitingHeading">
@@ -143,10 +146,6 @@
         <div id="acceptedJobsList" class="list-stack"><div class="empty-list">No accepted upcoming jobs.</div></div>
     </section>
 
-    <div class="mini-stats">
-        <div><span>Today's Earnings</span><strong id="todayEarnings">£0.00</strong></div>
-        <div><span>Jobs Today</span><strong id="todayJobs">0</strong></div>
-    </div>
 </section>
 
 <section id="view-completed" class="driver-view">
@@ -175,18 +174,24 @@
         <div><span>Estimated profit</span><strong id="accountsProfit">£0.00</strong></div><div><span>Outstanding</span><strong id="accountsOutstanding">£0.00</strong></div>
     </div>
     <div class="accounts-actions"><button id="accountsCsv" class="btn btn-secondary" type="button">Export CSV</button><button id="accountsPdf" class="btn btn-secondary" type="button">Print / PDF</button></div>
-    <form id="expenseForm" class="form-card accounts-form">
-        <input id="expenseId" type="hidden"><h3>Record an expense</h3>
-        <div class="form-grid"><div><label for="expenseDate">Date</label><input id="expenseDate" type="date" required></div><div><label for="expenseAmount">Amount (GBP)</label><input id="expenseAmount" type="number" min="0" step="0.01" required></div></div>
-        <label for="expenseCategory">Category</label><select id="expenseCategory" required><option value="fuel">Fuel</option><option value="ev_charging">EV charging</option><option value="tyres">Tyres</option><option value="servicing">Servicing</option><option value="repairs">Repairs</option><option value="insurance">Insurance</option><option value="parking">Parking</option><option value="tolls">Tolls</option><option value="taxi_plating">Taxi plating</option><option value="taxi_badge_licensing">Taxi badge/licensing</option><option value="mot">MOT</option><option value="vehicle_tax">Vehicle tax</option><option value="vehicle_cleaning">Vehicle cleaning</option><option value="phone">Phone</option><option value="equipment">Equipment</option><option value="vehicle_finance_lease">Vehicle finance or lease</option><option value="accountancy">Accountancy</option><option value="other_business_expenses">Other business expenses</option></select>
-        <label for="expenseDescription">Description</label><input id="expenseDescription" required>
-        <div class="form-grid"><div><label for="expenseFrequency">Frequency</label><select id="expenseFrequency"><option value="one_off">One-off</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="yearly">Yearly</option></select></div><div><label for="expenseEndDate">End date</label><input id="expenseEndDate" type="date"></div></div>
-        <div class="form-grid"><div><label for="expenseSupplier">Supplier</label><input id="expenseSupplier"></div><div><label for="expensePaymentMethod">Payment method</label><input id="expensePaymentMethod"></div></div>
-        <div class="form-grid"><div><label for="expenseBusinessUse">Business use %</label><input id="expenseBusinessUse" type="number" min="0" max="100" step="0.01" value="100"></div><div><label for="expenseTreatment">Accounting treatment</label><select id="expenseTreatment"><option value="review">Needs review</option><option value="expense">Business expense</option><option value="capital">Capital cost</option><option value="mixed_use">Mixed use</option></select></div></div>
-        <label for="expenseNotes">Notes</label><textarea id="expenseNotes"></textarea>
-        <label for="expenseReceipt">Receipt image or PDF (optional, max 3 MB)</label><input id="expenseReceipt" type="file" accept="image/jpeg,image/png,image/webp,application/pdf">
-        <p class="accounts-note">Receipts are stored privately. Capital, finance and mixed-use costs may need an accountant’s adjustment.</p>
-        <button class="btn btn-primary btn-full" type="submit">Save expense</button>
+    <form id="expenseForm" class="form-card accounts-form" novalidate>
+        <input id="expenseId" type="hidden"><div class="form-title"><div><span class="eyebrow">BUSINESS COSTS</span><h3>Record an expense</h3></div><span class="required-note">Required fields</span></div>
+        <div id="expenseFormMessage" class="form-message hidden" role="status" aria-live="polite"></div>
+        <div class="expense-primary-grid">
+          <div><label for="expenseDate">Date</label><input id="expenseDate" type="date" required></div>
+          <div><label for="expenseAmount">Amount (GBP)</label><input id="expenseAmount" type="number" min="0" step="0.01" inputmode="decimal" required></div>
+          <div><label for="expenseCategory">Category</label><select id="expenseCategory" required><option value="fuel">Fuel</option><option value="ev_charging">EV charging</option><option value="tyres">Tyres</option><option value="servicing">Servicing</option><option value="repairs">Repairs</option><option value="insurance">Insurance</option><option value="parking">Parking</option><option value="tolls">Tolls</option><option value="taxi_plating">Taxi plating</option><option value="taxi_badge_licensing">Taxi badge/licensing</option><option value="mot">MOT</option><option value="vehicle_tax">Vehicle tax</option><option value="vehicle_cleaning">Vehicle cleaning</option><option value="phone">Phone</option><option value="equipment">Equipment</option><option value="vehicle_finance_lease">Vehicle finance or lease</option><option value="accountancy">Accountancy</option><option value="other_business_expenses">Other business expenses</option></select></div>
+          <div><label for="expenseFrequency">Frequency</label><select id="expenseFrequency"><option value="one_off">One-off</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="yearly">Yearly</option></select></div>
+          <div class="expense-description"><label for="expenseDescription">Description</label><input id="expenseDescription" required></div>
+        </div>
+        <details class="expense-more"><summary>More details <span>Optional information and receipt</span></summary><div class="expense-more-grid">
+          <div><label for="expenseSupplier">Supplier</label><input id="expenseSupplier"></div><div><label for="expensePaymentMethod">Payment method</label><input id="expensePaymentMethod"></div>
+          <div><label for="expenseBusinessUse">Business use %</label><input id="expenseBusinessUse" type="number" min="0" max="100" step="0.01" value="100"></div><div><label for="expenseTreatment">Accounting treatment</label><select id="expenseTreatment"><option value="review">Needs review</option><option value="expense">Business expense</option><option value="capital">Capital cost</option><option value="mixed_use">Mixed use</option></select></div>
+          <div id="expenseEndDateWrap" class="hidden"><label for="expenseEndDate">Recurrence end date</label><input id="expenseEndDate" type="date"></div>
+          <div class="expense-wide"><label for="expenseNotes">Notes</label><textarea id="expenseNotes"></textarea></div>
+          <div class="expense-wide"><label for="expenseReceipt">Receipt image or PDF <span>(max 3 MB)</span></label><input id="expenseReceipt" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></div>
+        </div><p class="accounts-note">Receipts are private. Capital, finance and mixed-use costs may need an accountant’s adjustment.</p></details>
+        <button class="btn btn-primary btn-full expense-save" type="submit">Save Expense</button>
     </form>
     <h3 class="accounts-heading">Expenses</h3><div id="accountsExpenseList" class="list-stack"></div>
     <h3 class="accounts-heading">Completed-job earnings</h3><div id="accountsIncomeList" class="list-stack"></div>

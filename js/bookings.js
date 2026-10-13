@@ -862,7 +862,7 @@ function bookingRowHtml(booking) {
             </td>
 
             <td data-label="Status">
-                <span class="status-pill">
+                <span class="status-pill status-${escapeHtml(String(status).toLowerCase().replaceAll(" ","_"))}">
                     ${escapeHtml(
                         prettyStatus(status)
                     )}
@@ -2463,6 +2463,7 @@ function bookingAddressDisplay(detail,address) {
 }
 
 function bookingPaymentClass(booking) {
+    if (bookingPaymentKind(booking) === "paid" && /(stripe|card|prepaid)/i.test(String(booking?.payment_method || ""))) return "payment-prepaid";
     return `payment-${bookingPaymentKind(booking).replace("part_paid","partial")}`;
 }
 

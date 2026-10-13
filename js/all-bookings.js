@@ -766,7 +766,7 @@ function bookingRowHtml(booking) {
                 ${driverCell}
             </td>
 
-            <td data-label="Journey"><span class="status-pill">${escapeHtml(prettyStatus(status))}</span></td>
+            <td data-label="Journey"><span class="status-pill status-${escapeHtml(String(status).toLowerCase().replaceAll(" ","_"))}">${escapeHtml(prettyStatus(status))}</span></td>
             <td data-label="Customer Fare">${money(fare)}</td>
             <td data-label="Payment Status"><span class="payment-pill">${escapeHtml(bookingPaymentLabel(booking))}</span><small class="payment-method">${escapeHtml(booking.payment_method||"")}</small></td>
             <td data-label="Outstanding">${money(outstanding)}</td>
@@ -2208,6 +2208,7 @@ function bookingAddressDisplay(detail,address) {
 }
 
 function bookingPaymentClass(booking) {
+    if (bookingPaymentKind(booking) === "paid" && /(stripe|card|prepaid)/i.test(String(booking?.payment_method || ""))) return "payment-prepaid";
     return `payment-${bookingPaymentKind(booking).replace("part_paid","partial")}`;
 }
 
