@@ -1,0 +1,5 @@
+import {readFileSync} from 'node:fs';import {execFileSync} from 'node:child_process';
+const token=execFileSync('security',['find-generic-password','-s','Supabase CLI','-w'],{encoding:'utf8'}).trim();
+const migration=readFileSync('supabase/migrations/202610130002_release7_driver_accounts.sql','utf8');if(!/commit;\s*$/.test(migration))throw Error('Missing transaction guard');
+const query=migration.replace(/notify pgrst,'reload schema';\s*commit;\s*$/,'')+readFileSync('tests/release7-driver-accounts-security.sql','utf8')+'\nrollback;';
+const response=await fetch('https://api.supabase.com/v1/projects/fewbszrvmvjiojijogra/database/query',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({query})});const body=await response.text();if(!response.ok)throw Error(`Rollback test failed ${response.status}: ${body}`);console.log(body);

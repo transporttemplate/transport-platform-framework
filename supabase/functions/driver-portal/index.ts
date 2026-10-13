@@ -14,6 +14,7 @@ Deno.serve(async request => {
     const action = String(body.action || "");
     if (action === "login") return await login(request, body);
     if (action === "admin_save_driver") return await adminSaveDriver(request, body);
+    if (action === "admin_accounts_report") return await adminAccountsReport(request, body);
 
     const session = await requireDriverSession(String(body.session_token || ""));
     if (action === "refresh") return await refresh(session);
@@ -26,6 +27,9 @@ Deno.serve(async request => {
     if (action === "mark_cash_paid") return await markCashPaid(session, body);
     if (action === "create_unavailability") return await createUnavailability(session, body);
     if (action === "end_unavailability") return await endUnavailability(session);
+    if (action === "accounts_snapshot") return await accountsSnapshot(session, body);
+    if (action === "save_expense") return await saveExpense(session, body);
+    if (action === "delete_expense") return await deleteExpense(session, body);
     if (action === "logout") return await logout(session);
     return reply({ok:false,error:"Unknown action"},400);
   } catch (error) {
@@ -69,15 +73,16 @@ async function adminSaveDriver(request:Request, body:Record<string,unknown>) {
   const {data:{user}}=await userDb.auth.getUser();
   if(!user) throw new ApiError(401,"Admin login required");
   const companyId=String(body.company_id||"");
-  const {data:membership}=await db.from("company_users").select("company_id").eq("user_id",user.id).eq("company_id",companyId).maybeSingle();
+  const {data:membership}=await db.from("company_users").select("company_id,role").eq("user_id",user.id).eq("company_id",companyId).maybeSingle();
   if(!membership) throw new ApiError(403,"You cannot manage drivers for this company");
+  if(!["admin","owner"].includes(normal(membership.role))) throw new ApiError(403,"Admin or Owner access is required");
   const input=(body.driver||{}) as Record<string,unknown>;
   const driverId=String(body.driver_id||"")||null;
   const pin=String(body.pin||"").trim();
   if(!String(input.full_name||"").trim()||!String(input.driver_number||"").trim()) throw new ApiError(400,"Driver name and number are required");
   if(!driverId&&!pin) throw new ApiError(400,"A PIN is required for a new driver");
   if(pin&&(pin.length<4||pin.length>12||!/^[0-9]+$/.test(pin))) throw new ApiError(400,"PIN must be 4 to 12 digits");
-  const payload:Record<string,unknown>={company_id:companyId,full_name:String(input.full_name).trim(),driver_number:String(input.driver_number).trim(),phone:clean(input.phone),email:clean(input.email),vehicle:clean(input.vehicle),licence_number:clean(input.licence_number),licence_expiry:clean(input.licence_expiry),status:String(input.status||"available"),online:Boolean(input.online),pay_type:String(input.pay_type||"commission"),commission_percent:numberOrNull(input.commission_percent),fixed_job_amount:numberOrNull(input.fixed_job_amount)};
+  const payload:Record<string,unknown>={company_id:companyId,full_name:String(input.full_name).trim(),driver_number:String(input.driver_number).trim(),phone:clean(input.phone),email:clean(input.email),vehicle:clean(input.vehicle),licence_number:clean(input.licence_number),licence_expiry:clean(input.licence_expiry),status:String(input.status||"available"),online:Boolean(input.online),pay_type:String(input.pay_type||"commission"),commission_percent:numberOrNull(input.commission_percent),fixed_job_amount:numberOrNull(input.fixed_job_amount),driver_accounts_enabled:input.driver_accounts_enabled===true};
   if(pin){const {data:hash,error}=await db.rpc("hash_driver_pin",{supplied_pin:pin});if(error)throw error;payload.pin_hash=hash;payload.pin=null;}
   let query=driverId?db.from("drivers").update(payload).eq("company_id",companyId).eq("id",driverId):db.from("drivers").insert(payload);
   const {error}=await query;if(error)throw error;
@@ -115,7 +120,7 @@ async function refresh(s:DriverSession){
   const timezone=String(settingsResult.data?.timezone||"Europe/London");
   const driverJobs=jobs.map(j=>{
     const {price,job_price,driver_amount,account_customer_id,account_po_reference,...safeJob}=j;
-    const visibleAmount=driver_amount==null?(price??job_price??null):driver_amount;
+    const visibleAmount=driver_amount??null;
     const method=normal(j.payment_method),paymentType=normal(j.payment_type),paymentState=normal(j.payment_status);
     const cashEligible=["cash","pay_in_car","pay_by_cash"].includes(method)||paymentType==="pay_in_car"||(paymentType==="deposit"&&paymentState==="deposit_paid");
     const fare=Math.max(0,Number(price??job_price??0),Number(j.amount_paid||0)+Math.max(0,Number(j.balance_due||0)));
@@ -254,7 +259,51 @@ async function markCashPaid(s:DriverSession,b:Record<string,unknown>){const id=S
 async function createUnavailability(s:DriverSession,b:Record<string,unknown>){const from=new Date(String(b.from_datetime||"")),to=new Date(String(b.to_datetime||""));if(isNaN(from.valueOf())||isNaN(to.valueOf())||to<=from)throw new ApiError(400,"Invalid unavailable period");const {error}=await db.from("driver_unavailability").insert({company_id:s.company_id,driver_id:s.driver_id,from_datetime:from.toISOString(),to_datetime:to.toISOString(),reason:clean(b.reason),active:true});if(error)throw error;await db.from("drivers").update({online:false}).eq("company_id",s.company_id).eq("id",s.driver_id);return reply({ok:true});}
 async function endUnavailability(s:DriverSession){const now=new Date().toISOString();const {error}=await db.from("driver_unavailability").update({active:false,to_datetime:now}).eq("company_id",s.company_id).eq("driver_id",s.driver_id).eq("active",true);if(error)throw error;return reply({ok:true});}
 async function logout(s:DriverSession){await db.from("drivers").update({online:false}).eq("company_id",s.company_id).eq("id",s.driver_id);await db.from("driver_sessions").update({revoked_at:new Date().toISOString()}).eq("id",s.id);return reply({ok:true});}
-function safeDriver(companyId:string,driverId:string){return db.from("drivers").select("id,company_id,driver_number,full_name,phone,email,vehicle,licence_number,licence_expiry,status,online,latitude,longitude,location_updated_at,pay_type,commission_percent,fixed_job_amount").eq("company_id",companyId).eq("id",driverId).maybeSingle();}
+
+async function requireAccounts(s:DriverSession){
+  const {data,error}=await db.from("drivers").select("driver_accounts_enabled").eq("company_id",s.company_id).eq("id",s.driver_id).maybeSingle();
+  if(error)throw error;if(!data?.driver_accounts_enabled)throw new ApiError(403,"Driver Accounts is not enabled");
+}
+function reportDates(b:Record<string,unknown>){const today=new Date().toISOString().slice(0,10),from=String(b.from||`${today.slice(0,4)}-01-01`),to=String(b.to||today);if(!/^\d{4}-\d{2}-\d{2}$/.test(from)||!/^\d{4}-\d{2}-\d{2}$/.test(to)||from>to)throw new ApiError(400,"Invalid report date range");return {from,to};}
+const expenseCategories=new Set(["fuel","ev_charging","tyres","servicing","repairs","insurance","parking","tolls","taxi_plating","taxi_badge_licensing","mot","vehicle_tax","vehicle_cleaning","phone","equipment","vehicle_finance_lease","accountancy","other_business_expenses"]);
+async function accountsData(companyId:string,driverId:string,b:Record<string,unknown>){
+  const {from,to}=reportDates(b);
+  const [expensesResult,rulesResult,jobsResult,adjustmentsResult]=await Promise.all([
+    db.from("driver_expenses").select("id,expense_date,category,description,amount,supplier,notes,payment_method,receipt_path,business_use_percent,accounting_treatment,rule_id,skipped,created_at").eq("company_id",companyId).eq("driver_id",driverId).gte("expense_date",from).lte("expense_date",to).order("expense_date",{ascending:false}),
+    db.from("driver_expense_rules").select("id,category,description,amount,frequency,supplier,notes,payment_method,start_date,end_date,business_use_percent,accounting_treatment,active").eq("company_id",companyId).eq("driver_id",driverId).order("start_date",{ascending:false}),
+    db.from("bookings").select("id,booking_reference,journey_date,completed_at,driver_amount,payment_method,payment_type,payment_status,amount_paid,balance_due,price,job_price,account_customer_id").eq("company_id",companyId).eq("driver_id",driverId).eq("status","completed").gte("journey_date",from).lte("journey_date",to).order("journey_date",{ascending:false}),
+    db.from("driver_income_adjustments").select("id,effective_date,amount,adjustment_type,reason,created_at").eq("company_id",companyId).eq("driver_id",driverId).gte("effective_date",from).lte("effective_date",to)
+  ]);
+  for(const result of [expensesResult,rulesResult,jobsResult,adjustmentsResult])if(result.error)throw result.error;
+  const expenses=(expensesResult.data||[]).filter(x=>!x.skipped),jobs=(jobsResult.data||[]).map(j=>{
+    const earnings=j.driver_amount==null?null:Number(j.driver_amount),method=normal(j.payment_method),type=normal(j.payment_type),status=normal(j.payment_status);
+    const cash=["cash","pay_in_car","pay_by_cash"].includes(method)||type==="pay_in_car";
+    return {id:j.id,booking_reference:j.booking_reference,journey_date:j.journey_date,completed_at:j.completed_at,driver_earnings:earnings,payment_method:j.payment_method,payment_status:j.payment_status,cash_collected:cash&&status==="paid"?Number(j.amount_paid||0):0,outstanding:status==="paid"?0:(earnings||0)};
+  });
+  const adjustments=adjustmentsResult.data||[];
+  const totalEarnings=jobs.reduce((n,j)=>n+(j.driver_earnings||0),0)+adjustments.reduce((n,a)=>n+Number(a.amount||0),0);
+  const totalExpenses=expenses.reduce((n,e)=>n+Number(e.amount||0)*Number(e.business_use_percent||0)/100,0);
+  return {from,to,jobs,expenses,rules:rulesResult.data||[],adjustments,summary:{total_earnings:roundMoney(totalEarnings),total_expenses:roundMoney(totalExpenses),estimated_profit:roundMoney(totalEarnings-totalExpenses),outstanding_earnings:roundMoney(jobs.reduce((n,j)=>n+j.outstanding,0)),cash_collected:roundMoney(jobs.reduce((n,j)=>n+j.cash_collected,0))},disclaimer:"Management and tax-preparation records only; not a certified tax return. Payment receipt dates may be unavailable, so earnings and receipts are shown separately."};
+}
+async function accountsSnapshot(s:DriverSession,b:Record<string,unknown>){await requireAccounts(s);return reply({ok:true,...await accountsData(s.company_id,s.driver_id,b)});}
+async function saveExpense(s:DriverSession,b:Record<string,unknown>){
+  await requireAccounts(s);const input=(b.expense||{}) as Record<string,unknown>,id=clean(input.id),category=normal(input.category),date=String(input.expense_date||""),amount=Number(input.amount),frequency=normal(input.frequency||"one_off");
+  if(!expenseCategories.has(category)||!/^\d{4}-\d{2}-\d{2}$/.test(date)||!clean(input.description)||!Number.isFinite(amount)||amount<0)throw new ApiError(400,"Valid date, category, description and amount are required");
+  if(!["one_off","daily","weekly","monthly","quarterly","yearly"].includes(frequency))throw new ApiError(400,"Invalid expense frequency");
+  const common={company_id:s.company_id,driver_id:s.driver_id,category,description:clean(input.description),amount:roundMoney(amount),supplier:clean(input.supplier),notes:clean(input.notes),payment_method:clean(input.payment_method),business_use_percent:Math.max(0,Math.min(100,Number(input.business_use_percent??100))),accounting_treatment:["expense","capital","mixed_use","review"].includes(normal(input.accounting_treatment))?normal(input.accounting_treatment):"review",updated_at:new Date().toISOString()};
+  let expenseId=id;
+  if(frequency!=="one_off"&&!id){const {data:rule,error}=await db.from("driver_expense_rules").insert({...common,frequency,start_date:date,end_date:clean(input.end_date)}).select("id").single();if(error)throw error;const occurrenceKey=`${rule.id}:${date}`;const {data:expense,error:expenseError}=await db.from("driver_expenses").insert({...common,rule_id:rule.id,expense_date:date,occurrence_key:occurrenceKey}).select("id").single();if(expenseError)throw expenseError;expenseId=expense.id;}
+  else {const query=id?db.from("driver_expenses").update({...common,expense_date:date}).eq("company_id",s.company_id).eq("driver_id",s.driver_id).eq("id",id):db.from("driver_expenses").insert({...common,expense_date:date});const {data,error}=await query.select("id").single();if(error)throw error;expenseId=data.id;}
+  const receipt=input.receipt as Record<string,unknown>|undefined;
+  if(receipt?.data_base64){const mime=String(receipt.mime_type||""),extensions:Record<string,string>={"image/jpeg":"jpg","image/png":"png","image/webp":"webp","application/pdf":"pdf"};if(!extensions[mime])throw new ApiError(400,"Unsupported receipt type");let bytes:Uint8Array;try{const decoded=atob(String(receipt.data_base64));bytes=Uint8Array.from(decoded,c=>c.charCodeAt(0));}catch{throw new ApiError(400,"Invalid receipt data");}if(bytes.length>3145728)throw new ApiError(400,"Receipt must be 3 MB or smaller");const path=`${s.company_id}/${s.driver_id}/${expenseId}/${crypto.randomUUID()}.${extensions[mime]}`;const {error:uploadError}=await db.storage.from("driver-expense-receipts").upload(path,bytes,{contentType:mime,upsert:false});if(uploadError)throw uploadError;const {error:pathError}=await db.from("driver_expenses").update({receipt_path:path}).eq("company_id",s.company_id).eq("driver_id",s.driver_id).eq("id",expenseId);if(pathError)throw pathError;}
+  await db.from("driver_finance_audit").insert({company_id:s.company_id,driver_id:s.driver_id,actor_type:"driver",actor_id:s.driver_id,action:id?"expense_updated":"expense_created",entity_type:"expense",entity_id:expenseId,details:{amount:roundMoney(amount),category}});
+  return reply({ok:true,id:expenseId});
+}
+async function deleteExpense(s:DriverSession,b:Record<string,unknown>){await requireAccounts(s);const id=String(b.expense_id||"");if(!id)throw new ApiError(400,"Expense is required");const {data,error}=await db.from("driver_expenses").delete().eq("company_id",s.company_id).eq("driver_id",s.driver_id).eq("id",id).select("id").maybeSingle();if(error)throw error;if(!data)throw new ApiError(404,"Expense not found");await db.from("driver_finance_audit").insert({company_id:s.company_id,driver_id:s.driver_id,actor_type:"driver",actor_id:s.driver_id,action:"expense_deleted",entity_type:"expense",entity_id:id});return reply({ok:true});}
+async function adminIdentity(request:Request,companyId:string){const authHeader=request.headers.get("authorization")||"";const userDb=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_ANON_KEY")!,{global:{headers:{Authorization:authHeader}}});const {data:{user}}=await userDb.auth.getUser();if(!user)throw new ApiError(401,"Admin login required");const {data:m}=await db.from("company_users").select("role").eq("user_id",user.id).eq("company_id",companyId).maybeSingle();if(!m||!["admin","owner"].includes(normal(m.role)))throw new ApiError(403,"Admin or Owner access is required");return user;}
+async function adminAccountsReport(request:Request,input:Record<string,unknown>){const companyId=String(input.company_id||""),driverId=String(input.driver_id||"");await adminIdentity(request,companyId);const {data:driver,error}=await db.from("drivers").select("id,full_name,driver_accounts_enabled").eq("company_id",companyId).eq("id",driverId).maybeSingle();if(error)throw error;if(!driver)throw new ApiError(404,"Driver not found");if(!driver.driver_accounts_enabled)throw new ApiError(403,"Driver Accounts is not enabled");return reply({ok:true,driver,...await accountsData(companyId,driverId,input)});}
+function roundMoney(value:number){return Math.round((value+Number.EPSILON)*100)/100;}
+function safeDriver(companyId:string,driverId:string){return db.from("drivers").select("id,company_id,driver_number,full_name,phone,email,vehicle,licence_number,licence_expiry,status,online,latitude,longitude,location_updated_at,pay_type,commission_percent,fixed_job_amount,driver_accounts_enabled").eq("company_id",companyId).eq("id",driverId).maybeSingle();}
 const clean=(v:unknown)=>String(v??"").trim()||null;
 const normal=(v:unknown)=>String(v??"").trim().toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"");
 const numberOrNull=(v:unknown)=>v===""||v==null?null:Number(v);

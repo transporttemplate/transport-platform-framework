@@ -266,6 +266,7 @@
                 </div>
                 <div><label for="driverCommissionInput">Company commission %</label><input id="driverCommissionInput" type="number" min="0" max="100" step="0.01"></div>
                 <div><label for="driverFixedPayInput">Fixed Amount / Job</label><input id="driverFixedPayInput" type="number" min="0" step="0.01"></div>
+                <div class="full"><label><input id="driverAccountsEnabledInput" type="checkbox" style="width:auto;margin-right:8px"> Enable Driver Accounts</label><p class="muted">Allows this driver to access only their own authorised earnings and expense records.</p></div>
             </div>
 
             <div class="driver-form-actions">
@@ -290,11 +291,14 @@
         <div id="driverViewContent" class="driver-view-grid"></div>
 
         <div class="driver-form-actions">
+            <button id="driverAccountsReportButton" class="hidden" type="button">Accounts / Reports</button>
             <button id="editDriverButton" type="button">Edit Driver</button>
             <button id="closeViewDriverBottomButton" type="button">Close</button>
         </div>
     </div>
 </div>
+
+<div id="driverAccountsReportBackdrop" class="driver-modal-backdrop"><div class="driver-modal"><div class="driver-modal-header"><div><h2 id="adminAccountsTitle">Driver Accounts</h2><p class="muted">Management and tax-preparation records; not a certified tax return.</p></div><button id="closeDriverAccountsReport" type="button">✕</button></div><div class="driver-form-grid"><div><label for="adminAccountsFrom">From</label><input id="adminAccountsFrom" type="date"></div><div><label for="adminAccountsTo">To</label><input id="adminAccountsTo" type="date"></div></div><div class="driver-form-actions"><button id="adminAccountsRefresh" type="button">Update</button><button id="adminAccountsCsv" type="button">Export CSV</button></div><div id="adminAccountsContent" style="margin-top:18px"></div></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>

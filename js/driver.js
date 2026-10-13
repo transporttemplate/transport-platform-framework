@@ -29,10 +29,13 @@ let navigationRouteLine = null;
 let navigationFollowMode = true;
 let navigationCameraHeading = null;
 let navigationCameraChanging = false;
+let navigationCameraFrame = null;
+let navigationPendingCamera = null;
 let navigationDistanceToTurn = Infinity;
 let navigationGpsTimer = null;
 let mapsLoaderPromise = null;
 let mapsLoaderKey = null;
+let driverAccountsSnapshot = null;
 
 document.addEventListener("DOMContentLoaded", () => {
     bindDriverUI();
@@ -72,6 +75,12 @@ function bindDriverUI() {
     document.getElementById("paymentConfirmPaid")?.addEventListener("click", () => settlePaymentConfirmation("paid"));
     document.getElementById("paymentConfirmUnpaid")?.addEventListener("click", () => settlePaymentConfirmation("unpaid"));
     document.getElementById("paymentConfirmCancel")?.addEventListener("click", () => settlePaymentConfirmation("cancel"));
+    document.getElementById("accountsRefresh")?.addEventListener("click", loadDriverAccounts);
+    document.getElementById("accountsPeriod")?.addEventListener("change", applyAccountsPeriod);
+    document.getElementById("expenseForm")?.addEventListener("submit", saveDriverExpense);
+    document.getElementById("accountsExpenseList")?.addEventListener("click", handleExpenseAction);
+    document.getElementById("accountsCsv")?.addEventListener("click", exportAccountsCsv);
+    document.getElementById("accountsPdf")?.addEventListener("click", () => window.print());
     window.addEventListener("online", () => { showConnectionMessage("Connection restored. Refreshing…", false); refreshDriverPortal(true); });
     window.addEventListener("offline", () => showConnectionMessage("You are offline. Displayed jobs may be out of date.", true));
     document.addEventListener("visibilitychange", () => { if (!document.hidden && driverSessionToken) { refreshDriverPortal(); if (navigationController?.active) navigationController.acquireWakeLock(); } });
@@ -226,6 +235,7 @@ function applyDriverPortalData(data) {
     driverUnavailable = driverUnavailability.some(row => row.active !== false && new Date(row.from_datetime) <= now && new Date(row.to_datetime) >= now);
     renderHolidayList(driverUnavailability);
     document.getElementById("imBackButton")?.classList.toggle("hidden", !driverUnavailable);
+    document.getElementById("driverAccountsNav")?.classList.toggle("hidden", currentDriver?.driver_accounts_enabled !== true);
     populateDriverHeader();
     applyCompanyBranding();
     if (navigationController?.active) {
@@ -631,7 +641,6 @@ function initialiseIntegratedNavigation() {
             navigationDistanceToTurn = progress.current?.end_location && latestDriverPosition
                 ? window.DriverNavigation.metresBetween(latestDriverPosition, progress.current.end_location)
                 : Infinity;
-            updateNavigationCamera(latestDriverPosition);
             renderNavigationSteps(navigationController.steps, progress.index);
         },
         onStatus: setNavigationStatus,
@@ -684,7 +693,7 @@ async function loadNavigationMap() {
     document.getElementById("driverNavigationMap")?.classList.remove("hidden");
     document.getElementById("navigationMapFallback")?.classList.add("hidden");
     if (!navigationMap) {
-        navigationMap = new maps.Map(document.getElementById("driverNavigationMap"), { center: latestDriverPosition || { lat: 51.5, lng: -3.2 }, zoom: 18, heading: 0, tilt: 45, disableDefaultUI: true, zoomControl: true, gestureHandling: "greedy", clickableIcons: false, keyboardShortcuts: false });
+        navigationMap = new maps.Map(document.getElementById("driverNavigationMap"), { center: latestDriverPosition || { lat: 51.5, lng: -3.2 }, zoom: 18, heading: 0, tilt: 45, disableDefaultUI: true, zoomControl: true, gestureHandling: "greedy", clickableIcons: false, keyboardShortcuts: false, backgroundColor: "#0b1220", styles: navigationDarkMapStyles() });
         navigationMap.addListener("dragstart", pauseNavigationFollow);
         navigationMap.addListener("zoom_changed", () => { if (!navigationCameraChanging) pauseNavigationFollow(); });
     }
@@ -695,8 +704,8 @@ async function loadNavigationMap() {
 
 function drawNavigationRoute(path) {
     if (!navigationMap || !window.google?.maps || !path?.length) return;
-    navigationRouteLine?.setMap(null);
-    navigationRouteLine = new google.maps.Polyline({ path, map: navigationMap, strokeColor: "#2563eb", strokeOpacity: 0.95, strokeWeight: 7 });
+    if (!navigationRouteLine) navigationRouteLine = new google.maps.Polyline({ path, map: navigationMap, strokeColor: "#38bdf8", strokeOpacity: 0.95, strokeWeight: 7 });
+    else navigationRouteLine.setPath(path);
     updateNavigationCamera(latestDriverPosition);
 }
 
@@ -723,14 +732,35 @@ function resumeNavigationFollow() {
 function updateNavigationCamera(position, force = false) {
     if (!navigationMap || !position || (!navigationFollowMode && !force)) return;
     if (Number(position.accuracy) > 150) return;
-    navigationCameraHeading = window.DriverNavigation.smoothHeading(navigationCameraHeading, position.heading, position.speed);
-    const zoom = window.DriverNavigation.navigationZoom(position.speed, navigationDistanceToTurn, position.accuracy);
-    navigationCameraChanging = true;
-    const camera = { center: { lat: Number(position.lat), lng: Number(position.lng) }, zoom };
-    if (navigationCameraHeading !== null) camera.heading = navigationCameraHeading;
-    if (typeof navigationMap.moveCamera === "function") navigationMap.moveCamera({ ...camera, tilt: navigationCameraHeading === null ? 0 : 45 });
-    else { navigationMap.panTo(camera.center); navigationMap.setZoom(zoom); if (navigationCameraHeading !== null) navigationMap.setHeading?.(navigationCameraHeading); }
-    requestAnimationFrame(() => { navigationMap.panBy?.(0, -Math.round((document.getElementById("driverNavigationMap")?.clientHeight || 300) * .12)); navigationCameraChanging = false; });
+    navigationPendingCamera = { position, force };
+    if (navigationCameraFrame) return;
+    navigationCameraFrame = requestAnimationFrame(() => {
+        navigationCameraFrame = null;
+        const pending = navigationPendingCamera; navigationPendingCamera = null;
+        if (!pending || (!navigationFollowMode && !pending.force)) return;
+        const point = pending.position;
+        navigationCameraHeading = window.DriverNavigation.smoothHeading(navigationCameraHeading, point.heading, point.speed);
+        const zoom = window.DriverNavigation.navigationZoom(point.speed, navigationDistanceToTurn, point.accuracy);
+        navigationCameraChanging = true;
+        const camera = { center: { lat: Number(point.lat), lng: Number(point.lng) }, zoom };
+        if (navigationCameraHeading !== null) camera.heading = navigationCameraHeading;
+        if (typeof navigationMap.moveCamera === "function") navigationMap.moveCamera({ ...camera, tilt: navigationCameraHeading === null ? 0 : 45 });
+        else { navigationMap.panTo(camera.center); navigationMap.setZoom(zoom); if (navigationCameraHeading !== null) navigationMap.setHeading?.(navigationCameraHeading); }
+        google.maps.event.addListenerOnce(navigationMap, "idle", () => { navigationCameraChanging = false; });
+    });
+}
+
+function navigationDarkMapStyles() {
+    return [
+        { elementType: "geometry", stylers: [{ color: "#172033" }] },
+        { elementType: "labels.text.stroke", stylers: [{ color: "#172033" }] },
+        { elementType: "labels.text.fill", stylers: [{ color: "#a8b3c7" }] },
+        { featureType: "road", elementType: "geometry", stylers: [{ color: "#2a3548" }] },
+        { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#3a465b" }] },
+        { featureType: "water", elementType: "geometry", stylers: [{ color: "#09111f" }] },
+        { featureType: "poi", stylers: [{ visibility: "off" }] },
+        { featureType: "transit", stylers: [{ visibility: "off" }] }
+    ];
 }
 
 function showNavigationOverview() {
@@ -1009,6 +1039,7 @@ function showDriverView(name) {
     if (name === "earnings") renderEarnings();
     if (name === "completed") renderDiary();
     if (name === "holidays") refreshHolidayStatus();
+    if (name === "accounts" && currentDriver?.driver_accounts_enabled === true) loadDriverAccounts();
 
     window.scrollTo({ top: 0, behavior: "instant" });
 }
@@ -1043,6 +1074,53 @@ function jobPrice(job) {
     if (Number.isFinite(p) && p > 0) return p;
     if (Number.isFinite(jp) && jp > 0) return jp;
     return 0;
+}
+
+function defaultAccountsRange() {
+    const now = new Date(), from = new Date(now.getFullYear(), now.getMonth(), 1);
+    const iso = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const fromInput = document.getElementById("accountsFrom"), toInput = document.getElementById("accountsTo");
+    if (fromInput && !fromInput.value) fromInput.value = iso(from);
+    if (toInput && !toInput.value) toInput.value = iso(now);
+    const expenseDate = document.getElementById("expenseDate"); if (expenseDate && !expenseDate.value) expenseDate.value = iso(now);
+}
+function applyAccountsPeriod() {
+    const period=document.getElementById("accountsPeriod")?.value,now=new Date(),year=now.getFullYear();let from,to;
+    if(period==="personal_tax_year"){const startYear=now>=new Date(year,3,6)?year:year-1;from=new Date(startYear,3,6);to=new Date(startYear+1,3,5);}
+    else if(period==="business_year"){const startYear=now>=new Date(year,3,1)?year:year-1;from=new Date(startYear,3,1);to=new Date(startYear+1,2,31);}
+    else if(period==="month"){from=new Date(year,now.getMonth(),1);to=new Date(year,now.getMonth()+1,0);}else return;
+    const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;document.getElementById("accountsFrom").value=iso(from);document.getElementById("accountsTo").value=iso(to);loadDriverAccounts();
+}
+async function loadDriverAccounts() {
+    if (currentDriver?.driver_accounts_enabled !== true) return;
+    defaultAccountsRange();
+    try {
+        driverAccountsSnapshot = await driverPortalRequest("accounts_snapshot", { from: document.getElementById("accountsFrom")?.value, to: document.getElementById("accountsTo")?.value });
+        const summary = driverAccountsSnapshot.summary || {};
+        setText("accountsEarnings", money(summary.total_earnings)); setText("accountsExpenses", money(summary.total_expenses)); setText("accountsProfit", money(summary.estimated_profit)); setText("accountsOutstanding", money(summary.outstanding_earnings));
+        setText("accountsDisclaimer", driverAccountsSnapshot.disclaimer || "Management records only.");
+        const expenses = document.getElementById("accountsExpenseList");
+        expenses.innerHTML = (driverAccountsSnapshot.expenses || []).map(row => `<article class="account-row"><div><strong>${escapeHtml(prettyStatus(row.category))}</strong><span>${escapeHtml(row.expense_date)} · ${escapeHtml(row.description)}</span><small>${escapeHtml(row.accounting_treatment)} · ${escapeHtml(String(row.business_use_percent))}% business use</small></div><div><strong>${escapeHtml(money(row.amount))}</strong><button data-delete-expense="${escapeHtml(row.id)}" type="button">Delete</button></div></article>`).join("") || '<div class="empty-list">No expenses in this period.</div>';
+        const income = document.getElementById("accountsIncomeList");
+        income.innerHTML = (driverAccountsSnapshot.jobs || []).map(row => `<article class="account-row"><div><strong>${escapeHtml(row.booking_reference || "Job")}</strong><span>${escapeHtml(row.journey_date)} · ${escapeHtml(prettyStatus(row.payment_status))}</span></div><strong>${row.driver_earnings == null ? "Not authorised" : escapeHtml(money(row.driver_earnings))}</strong></article>`).join("") || '<div class="empty-list">No completed-job earnings in this period.</div>';
+    } catch (error) { alert(error.message || "Unable to load Driver Accounts."); }
+}
+async function saveDriverExpense(event) {
+    event.preventDefault();
+    const value = id => document.getElementById(id)?.value;
+    const expense = { id:value("expenseId")||null, expense_date:value("expenseDate"), amount:value("expenseAmount"), category:value("expenseCategory"), description:value("expenseDescription"), frequency:value("expenseFrequency"), end_date:value("expenseEndDate")||null, supplier:value("expenseSupplier")||null, payment_method:value("expensePaymentMethod")||null, business_use_percent:value("expenseBusinessUse"), accounting_treatment:value("expenseTreatment"), notes:value("expenseNotes")||null };
+    const file=document.getElementById("expenseReceipt")?.files?.[0];if(file){if(file.size>3145728)return alert("Receipt must be 3 MB or smaller.");expense.receipt={mime_type:file.type,data_base64:await fileToBase64(file)};}
+    try { await driverPortalRequest("save_expense", { expense }); event.target.reset(); document.getElementById("expenseBusinessUse").value="100"; defaultAccountsRange(); await loadDriverAccounts(); }
+    catch (error) { alert(error.message || "Unable to save expense."); }
+}
+function fileToBase64(file){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result||"").split(",")[1]||"");reader.onerror=()=>reject(new Error("Receipt could not be read"));reader.readAsDataURL(file);});}
+async function handleExpenseAction(event) { const id=event.target.closest("[data-delete-expense]")?.dataset.deleteExpense;if(!id)return;if(!confirm("Delete this expense record? An audit entry will remain."))return;try{await driverPortalRequest("delete_expense",{expense_id:id});await loadDriverAccounts();}catch(error){alert(error.message||"Unable to delete expense.");} }
+function exportAccountsCsv() {
+    if (!driverAccountsSnapshot) return;
+    const quote=value=>`"${String(value??"").replaceAll('"','""')}"`, rows=[["Type","Date","Reference/Category","Description","Amount GBP","Payment status"]];
+    (driverAccountsSnapshot.jobs||[]).forEach(x=>rows.push(["Income",x.journey_date,x.booking_reference,"Driver earnings",x.driver_earnings??"",x.payment_status]));
+    (driverAccountsSnapshot.expenses||[]).forEach(x=>rows.push(["Expense",x.expense_date,x.category,x.description,x.amount,x.accounting_treatment]));
+    const blob=new Blob([rows.map(row=>row.map(quote).join(",")).join("\r\n")],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`driver-accounts-${driverAccountsSnapshot.from}-${driverAccountsSnapshot.to}.csv`;a.click();URL.revokeObjectURL(url);
 }
 
 function money(value) {

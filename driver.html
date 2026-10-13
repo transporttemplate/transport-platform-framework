@@ -53,7 +53,7 @@
 
     <nav class="side-nav">
         <button type="button" data-view="jobs">🚕 <span>Driver Diary</span></button>
-        <button type="button" data-view="earnings">💷 <span>Earnings</span></button>
+        <button id="driverAccountsNav" class="hidden" type="button" data-view="accounts">💷 <span>Driver Accounts</span></button>
         <button type="button" data-view="holidays">🏖️ <span>Holidays / Off Days</span></button>
         <button type="button" data-view="completed">✅ <span>Completed Jobs</span></button>
     </nav>
@@ -160,6 +160,36 @@
         <div><span>This Week</span><strong id="earningsWeek">£0.00</strong></div>
     </div>
     <div id="earningsList" class="list-stack"><div class="empty-list">No completed jobs yet.</div></div>
+</section>
+
+<section id="view-accounts" class="driver-view">
+    <div class="page-title"><h2>Driver Accounts</h2><p>Your authorised earnings and business expense records.</p></div>
+    <div class="accounts-toolbar">
+        <label style="grid-column:1/-1">Reporting period <select id="accountsPeriod"><option value="month">This month</option><option value="personal_tax_year">UK personal tax year (6 April–5 April)</option><option value="business_year">Business year (1 April–31 March)</option><option value="custom">Custom dates</option></select></label>
+        <label>From <input id="accountsFrom" type="date"></label><label>To <input id="accountsTo" type="date"></label>
+        <button id="accountsRefresh" class="btn btn-secondary" type="button">Update</button>
+    </div>
+    <div class="accounts-summary">
+        <div><span>Earnings</span><strong id="accountsEarnings">£0.00</strong></div><div><span>Expenses</span><strong id="accountsExpenses">£0.00</strong></div>
+        <div><span>Estimated profit</span><strong id="accountsProfit">£0.00</strong></div><div><span>Outstanding</span><strong id="accountsOutstanding">£0.00</strong></div>
+    </div>
+    <div class="accounts-actions"><button id="accountsCsv" class="btn btn-secondary" type="button">Export CSV</button><button id="accountsPdf" class="btn btn-secondary" type="button">Print / PDF</button></div>
+    <form id="expenseForm" class="form-card accounts-form">
+        <input id="expenseId" type="hidden"><h3>Record an expense</h3>
+        <div class="form-grid"><div><label for="expenseDate">Date</label><input id="expenseDate" type="date" required></div><div><label for="expenseAmount">Amount (GBP)</label><input id="expenseAmount" type="number" min="0" step="0.01" required></div></div>
+        <label for="expenseCategory">Category</label><select id="expenseCategory" required><option value="fuel">Fuel</option><option value="ev_charging">EV charging</option><option value="tyres">Tyres</option><option value="servicing">Servicing</option><option value="repairs">Repairs</option><option value="insurance">Insurance</option><option value="parking">Parking</option><option value="tolls">Tolls</option><option value="taxi_plating">Taxi plating</option><option value="taxi_badge_licensing">Taxi badge/licensing</option><option value="mot">MOT</option><option value="vehicle_tax">Vehicle tax</option><option value="vehicle_cleaning">Vehicle cleaning</option><option value="phone">Phone</option><option value="equipment">Equipment</option><option value="vehicle_finance_lease">Vehicle finance or lease</option><option value="accountancy">Accountancy</option><option value="other_business_expenses">Other business expenses</option></select>
+        <label for="expenseDescription">Description</label><input id="expenseDescription" required>
+        <div class="form-grid"><div><label for="expenseFrequency">Frequency</label><select id="expenseFrequency"><option value="one_off">One-off</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="yearly">Yearly</option></select></div><div><label for="expenseEndDate">End date</label><input id="expenseEndDate" type="date"></div></div>
+        <div class="form-grid"><div><label for="expenseSupplier">Supplier</label><input id="expenseSupplier"></div><div><label for="expensePaymentMethod">Payment method</label><input id="expensePaymentMethod"></div></div>
+        <div class="form-grid"><div><label for="expenseBusinessUse">Business use %</label><input id="expenseBusinessUse" type="number" min="0" max="100" step="0.01" value="100"></div><div><label for="expenseTreatment">Accounting treatment</label><select id="expenseTreatment"><option value="review">Needs review</option><option value="expense">Business expense</option><option value="capital">Capital cost</option><option value="mixed_use">Mixed use</option></select></div></div>
+        <label for="expenseNotes">Notes</label><textarea id="expenseNotes"></textarea>
+        <label for="expenseReceipt">Receipt image or PDF (optional, max 3 MB)</label><input id="expenseReceipt" type="file" accept="image/jpeg,image/png,image/webp,application/pdf">
+        <p class="accounts-note">Receipts are stored privately. Capital, finance and mixed-use costs may need an accountant’s adjustment.</p>
+        <button class="btn btn-primary btn-full" type="submit">Save expense</button>
+    </form>
+    <h3 class="accounts-heading">Expenses</h3><div id="accountsExpenseList" class="list-stack"></div>
+    <h3 class="accounts-heading">Completed-job earnings</h3><div id="accountsIncomeList" class="list-stack"></div>
+    <p id="accountsDisclaimer" class="accounts-note"></p>
 </section>
 
 <section id="view-holidays" class="driver-view">

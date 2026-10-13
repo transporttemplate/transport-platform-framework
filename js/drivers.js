@@ -3,6 +3,7 @@ const driversDb = getSupabase();
 let currentCompanyId = null;
 let allDrivers = [];
 let selectedDriver = null;
+let adminAccountsSnapshot = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
     bindDriverManagementUI();
@@ -38,6 +39,10 @@ function bindDriverManagementUI() {
         closeViewDriver();
         openDriverForm(selectedDriver);
     });
+    document.getElementById("driverAccountsReportButton")?.addEventListener("click", openAdminAccountsReport);
+    document.getElementById("closeDriverAccountsReport")?.addEventListener("click", () => document.getElementById("driverAccountsReportBackdrop")?.classList.remove("open"));
+    document.getElementById("adminAccountsRefresh")?.addEventListener("click", loadAdminAccountsReport);
+    document.getElementById("adminAccountsCsv")?.addEventListener("click", exportAdminAccountsCsv);
 
     document.getElementById("driverNameSearch")?.addEventListener("input", renderDrivers);
     document.getElementById("driverPhoneSearch")?.addEventListener("input", renderDrivers);
@@ -51,7 +56,7 @@ async function loadDrivers() {
 
     const { data, error } = await driversDb
         .from("drivers")
-        .select("id,company_id,driver_number,full_name,phone,email,vehicle,licence_number,licence_expiry,status,online,latitude,longitude,location_updated_at,pay_type,commission_percent,fixed_job_amount")
+        .select("id,company_id,driver_number,full_name,phone,email,vehicle,licence_number,licence_expiry,status,online,latitude,longitude,location_updated_at,pay_type,commission_percent,fixed_job_amount,driver_accounts_enabled")
         .eq("company_id", currentCompanyId)
         .order("full_name", { ascending: true });
 
@@ -170,6 +175,7 @@ function openDriverForm(driver = null) {
     document.getElementById("driverPayTypeInput").value = driver?.pay_type || "commission";
     document.getElementById("driverCommissionInput").value = driver?.commission_percent ?? "";
     document.getElementById("driverFixedPayInput").value = driver?.fixed_job_amount ?? "";
+    document.getElementById("driverAccountsEnabledInput").checked = driver?.driver_accounts_enabled === true;
 
     document.getElementById("driverModalBackdrop")?.classList.add("open");
 }
@@ -198,7 +204,8 @@ async function saveDriver(event) {
         online: document.getElementById("driverOnlineInput").value === "true",
         pay_type: document.getElementById("driverPayTypeInput").value,
         commission_percent: document.getElementById("driverCommissionInput").value === "" ? null : Number(document.getElementById("driverCommissionInput").value),
-        fixed_job_amount: document.getElementById("driverFixedPayInput").value === "" ? null : Number(document.getElementById("driverFixedPayInput").value)
+        fixed_job_amount: document.getElementById("driverFixedPayInput").value === "" ? null : Number(document.getElementById("driverFixedPayInput").value),
+        driver_accounts_enabled: document.getElementById("driverAccountsEnabledInput").checked
     };
 
     if (!payload.full_name || !payload.driver_number || (!id && !pin)) {
@@ -250,9 +257,11 @@ function openViewDriver(driver) {
         viewItem("Pay Rule", driver.pay_type || "commission"),
         viewItem("Company Commission %", driver.commission_percent ?? "Company default"),
         viewItem("Fixed Amount / Job", driver.fixed_job_amount ?? "-"),
+        viewItem("Driver Accounts", driver.driver_accounts_enabled ? "Enabled" : "Disabled"),
         viewItem("Company ID", driver.company_id || "-"),
         viewItem("Driver ID", driver.id || "-")
     ].join("");
+    document.getElementById("driverAccountsReportButton")?.classList.toggle("hidden", !driver.driver_accounts_enabled);
 
     document.getElementById("viewDriverBackdrop")?.classList.add("open");
 }
@@ -260,6 +269,11 @@ function openViewDriver(driver) {
 function closeViewDriver() {
     document.getElementById("viewDriverBackdrop")?.classList.remove("open");
 }
+
+async function openAdminAccountsReport() { if(!selectedDriver?.driver_accounts_enabled)return;const now=new Date(),from=new Date(now.getFullYear(),now.getMonth(),1),iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;document.getElementById("adminAccountsFrom").value=iso(from);document.getElementById("adminAccountsTo").value=iso(now);document.getElementById("driverAccountsReportBackdrop")?.classList.add("open");await loadAdminAccountsReport(); }
+async function loadAdminAccountsReport(){if(!selectedDriver)return;const {data,error}=await driversDb.functions.invoke("driver-portal",{body:{action:"admin_accounts_report",company_id:currentCompanyId,driver_id:selectedDriver.id,from:document.getElementById("adminAccountsFrom").value,to:document.getElementById("adminAccountsTo").value}});if(error||!data?.ok){alert(data?.error||error?.message||"Unable to load report");return;}adminAccountsSnapshot=data;setText("adminAccountsTitle",`${selectedDriver.full_name} — Accounts`);const s=data.summary||{};document.getElementById("adminAccountsContent").innerHTML=`<div class="driver-view-grid">${viewItem("Total earnings",gbp(s.total_earnings))}${viewItem("Expenses",gbp(s.total_expenses))}${viewItem("Estimated profit",gbp(s.estimated_profit))}${viewItem("Outstanding",gbp(s.outstanding_earnings))}</div><h3 style="margin-top:18px">Expenses</h3>${(data.expenses||[]).map(x=>viewItem(`${x.expense_date} · ${x.category}`,`${gbp(x.amount)} — ${x.description}`)).join("")||'<p class="muted">No expenses.</p>'}<h3 style="margin-top:18px">Completed jobs</h3>${(data.jobs||[]).map(x=>viewItem(`${x.journey_date} · ${x.booking_reference}`,x.driver_earnings==null?'Not authorised':gbp(x.driver_earnings))).join("")||'<p class="muted">No completed jobs.</p>'}`;}
+function exportAdminAccountsCsv(){if(!adminAccountsSnapshot)return;const q=v=>`"${String(v??"").replaceAll('"','""')}"`,rows=[["Type","Date","Reference/Category","Description","Amount GBP","Status"]];(adminAccountsSnapshot.jobs||[]).forEach(x=>rows.push(["Income",x.journey_date,x.booking_reference,"Driver earnings",x.driver_earnings??"",x.payment_status]));(adminAccountsSnapshot.expenses||[]).forEach(x=>rows.push(["Expense",x.expense_date,x.category,x.description,x.amount,x.accounting_treatment]));const blob=new Blob([rows.map(r=>r.map(q).join(",")).join("\r\n")],{type:"text/csv"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`driver-accounts-${adminAccountsSnapshot.from}-${adminAccountsSnapshot.to}.csv`;a.click();URL.revokeObjectURL(url);}
+function gbp(value){return `£${Number(value||0).toFixed(2)}`;}
 
 function getDisplayStatus(driver) {
     const status = String(driver.status || "").trim().toLowerCase();

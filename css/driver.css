@@ -216,6 +216,13 @@ button{cursor:pointer}
 .form-card{border-radius:18px;padding:16px}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
 .form-card textarea{min-height:90px;resize:vertical}
+.form-card select,.accounts-toolbar input{width:100%;border:1px solid #33435d;border-radius:12px;background:#0c1525;color:white;padding:12px;outline:none}
+.accounts-toolbar{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}.accounts-toolbar label{color:var(--muted);font-size:12px}.accounts-toolbar .btn{grid-column:1/-1}
+.accounts-summary{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}.accounts-summary>div{padding:13px;border:1px solid var(--line);border-radius:13px;background:var(--panel)}.accounts-summary span{display:block;color:var(--muted);font-size:11px;margin-bottom:5px}.accounts-summary strong{font-size:18px}
+.accounts-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px}.accounts-form h3{margin-bottom:5px}.accounts-heading{margin:20px 2px 8px}.accounts-note{color:var(--muted);font-size:11px;line-height:1.45;margin-top:10px}
+.account-row{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:13px;border:1px solid var(--line);border-radius:13px;background:var(--panel)}.account-row>div{display:flex;flex-direction:column;gap:4px}.account-row span,.account-row small{color:var(--muted);font-size:11px}.account-row button{border:0;border-radius:7px;background:#3f1d25;color:#fecaca;padding:6px;margin-top:5px}
+
+@media print{body{background:white;color:black}.app-header,.side-menu,.accounts-actions,.accounts-form,.accounts-toolbar{display:none!important}.driver-app{max-width:none;background:white}.driver-view{display:none!important}#view-accounts{display:block!important}.account-row,.accounts-summary>div{background:white;border-color:#bbb}.accounts-note,.account-row span,.account-row small,.accounts-summary span{color:#444}}
 
 .earning-row,.holiday-row,.upcoming-job-card{
     border-radius:14px;padding:14px;
