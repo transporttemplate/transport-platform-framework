@@ -1,6 +1,6 @@
 import {createClient} from "https://esm.sh/@supabase/supabase-js@2";
 type Row=Record<string,any>;
-const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization,content-type,x-api-key,idempotency-key,x-request-id,x-api-admin","Access-Control-Allow-Methods":"GET,POST,PATCH,OPTIONS","Content-Type":"application/json"};
+const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization,x-client-info,apikey,content-type,x-api-key,idempotency-key,x-request-id,x-api-admin","Access-Control-Allow-Methods":"GET,POST,PATCH,OPTIONS","Content-Type":"application/json"};
 const db=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 const allowedScopes=new Set(["bookings:read","bookings:create","bookings.status:write","drivers.availability:read","vehicles:read","webhooks:manage"]);
 const json=(body:unknown,status=200,extra={})=>new Response(JSON.stringify(body),{status,headers:{...cors,...extra}});
