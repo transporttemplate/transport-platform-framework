@@ -347,6 +347,7 @@ async function loadDrivers() {
                 company_id,
                 driver_number,
                 full_name,
+                active,
                 vehicle,
                 status,
                 online,
@@ -2304,102 +2305,22 @@ function clearRouteQuote() {
 
 
 function refreshDriverMarkers() {
-
-    if (
-        !dispatchMap ||
-        !window.google
-    ) {
-        return;
-    }
-
-    driverMarkers.forEach(
-        marker =>
-            marker.setMap(null)
-    );
-
-    driverMarkers = [];
-
-    allDrivers
-        .filter(driver =>
-
-            driver.online === true &&
-
-            Number.isFinite(
-                Number(
-                    driver.latitude
-                )
-            ) &&
-
-            Number.isFinite(
-                Number(
-                    driver.longitude
-                )
-            )
-        )
-        .forEach(driver => {
-
-            const number =
-                String(
-                    driver.driver_number ||
-                    "DRV"
-                );
-
-            const marker =
-                new google.maps.Marker({
-
-                    position: {
-                        lat:
-                            Number(
-                                driver.latitude
-                            ),
-
-                        lng:
-                            Number(
-                                driver.longitude
-                            )
-                    },
-
-                    map:
-                        dispatchMap,
-
-                    title:
-                        `${number} ${driver.full_name || "Driver"}`,
-
-                    label: {
-                        text:
-                            number,
-
-                        color:
-                            "#ffffff",
-
-                        fontWeight:
-                            "700"
-                    }
-                });
-
-            const info =
-                new google.maps.InfoWindow({
-
-                    content:
-                        `<strong>${escapeHtml(number)} — ${escapeHtml(driver.full_name || "Driver")}</strong><br>${escapeHtml(driver.vehicle || "")}`
-                });
-
-            marker.addListener(
-                "click",
-                () =>
-                    info.open({
-                        anchor:
-                            marker,
-
-                        map:
-                            dispatchMap
-                    })
-            );
-
-            driverMarkers.push(
-                marker
-            );
-        });
+    if (!dispatchMap || !window.google) return;
+    const visibleIds=new Set();
+    allDrivers.filter(driver=>Number.isFinite(Number(driver.latitude))&&Number.isFinite(Number(driver.longitude))).forEach(driver=>{
+        const number=String(driver.driver_number||"DRV"),id=String(driver.id);visibleIds.add(id);
+        const active=allBookings.find(row=>String(row.driver_id)===id&&["on_way","arrived","passenger_onboard"].includes(bookingStatus(row)));
+        const stale=!driver.location_updated_at||Date.now()-Date.parse(driver.location_updated_at)>120000;
+        const status=!driver.online||stale||String(driver.status||"").toLowerCase().includes("unavailable")?"Offline / Unavailable":active?({on_way:"On Way",arrived:"Arrived / Outside",passenger_onboard:"Passenger On Board"})[bookingStatus(active)]:allBookings.some(row=>String(row.driver_id)===id&&bookingStatus(row)==="completed"&&row.journey_date===localDateKey(new Date()))?"Dropped Off / Completed":"Available / No Active Job";
+        const style={"Available / No Active Job":["#6d28d9","#fff"],"On Way":["#1d4ed8","#fff"],"Arrived / Outside":["#f97316","#111827"],"Passenger On Board":["#be185d","#fff"],"Dropped Off / Completed":["#fff","#111827"],"Offline / Unavailable":["#b91c1c","#fff"]}[status];
+        const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="58" height="30"><rect x="1" y="1" width="56" height="25" rx="5" fill="${style[0]}" stroke="#0f172a" stroke-width="2"/><path d="M25 26h8l-4 4z" fill="#0f172a"/></svg>`;
+        let marker=driverMarkers.find(item=>String(item.__driverId)===id);
+        if(!marker){marker=new google.maps.Marker({map:dispatchMap});marker.__driverId=driver.id;driverMarkers.push(marker);}
+        marker.setOptions({position:{lat:Number(driver.latitude),lng:Number(driver.longitude)},map:dispatchMap,title:`Driver ${number} — ${status}`,icon:{url:`data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,scaledSize:new google.maps.Size(58,30),anchor:new google.maps.Point(29,30)},label:{text:number,color:style[1],fontWeight:"900",fontSize:"14px"}});
+        if(!marker.__infoBound){marker.addListener("click",()=>{const latest=allDrivers.find(x=>String(x.id)===String(marker.__driverId))||driver;new google.maps.InfoWindow({content:`<strong>${escapeHtml(latest.driver_number||"DRV")} — ${escapeHtml(latest.full_name||"Driver")}</strong><br>Status: ${escapeHtml(marker.__status||status)}<br>Vehicle: ${escapeHtml(latest.vehicle||"Unassigned")}<br>GPS: ${escapeHtml(latest.location_updated_at?new Date(latest.location_updated_at).toLocaleString("en-GB"):"No update")}`}).open({anchor:marker,map:dispatchMap});});marker.__infoBound=true;}marker.__status=status;
+    });
+    driverMarkers.filter(marker=>!visibleIds.has(String(marker.__driverId))).forEach(marker=>marker.setMap(null));
+    driverMarkers=driverMarkers.filter(marker=>visibleIds.has(String(marker.__driverId)));
 }
 
 

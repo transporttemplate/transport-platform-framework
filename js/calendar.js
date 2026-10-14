@@ -29,6 +29,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 });
 
+document.addEventListener("contextmenu", event => {
+    const target=event.target.closest("[data-calendar-booking]"); if(!target)return; event.preventDefault();
+    const booking=calendarBookings.find(row=>String(row.id)===String(target.dataset.calendarBooking));if(!booking)return;
+    document.querySelector(".calendar-context-menu")?.remove();const menu=document.createElement("div");menu.className="booking-action-menu calendar-context-menu";menu.innerHTML=`<button data-calendar-action="view"><span>◉</span>View booking</button><button data-calendar-action="edit"><span>✎</span>Edit booking</button><button data-calendar-action="actions"><span>≡</span>All booking actions</button>`;document.body.appendChild(menu);menu.hidden=false;menu.style.left=`${Math.min(event.clientX,innerWidth-250)}px`;menu.style.top=`${Math.min(event.clientY,innerHeight-150)}px`;menu.onclick=e=>{const action=e.target.closest("button")?.dataset.calendarAction;if(action==="view")openCalendarBooking(booking.id);else if(action==="edit")location.assign(`bookings.html?company=${encodeURIComponent(new URLSearchParams(location.search).get("company")||"")}&edit=${encodeURIComponent(booking.id)}`);else if(action==="actions")location.assign(`all-bookings.html?company=${encodeURIComponent(new URLSearchParams(location.search).get("company")||"")}&booking=${encodeURIComponent(booking.id)}`);menu.remove();};
+},{capture:false});
+document.addEventListener("click",event=>{if(!event.target.closest(".calendar-context-menu"))document.querySelector(".calendar-context-menu")?.remove();});
+
 function bindCalendarEvents() {
     document.getElementById("previousMonth")?.addEventListener("click", async () => {
         calendarCursor = new Date(

@@ -342,6 +342,7 @@ async function loadDrivers() {
                 company_id,
                 driver_number,
                 full_name,
+                active,
                 vehicle,
                 status,
                 online,

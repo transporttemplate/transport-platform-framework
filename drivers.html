@@ -131,8 +131,10 @@
 
 <div class="topbar">
 <h2>Driver Management</h2>
-<div><a class="button" href="driver-documents.html">Driver Documents</a> <button id="addDriverButton" type="button">+ Add Driver</button></div>
+<div><a class="button" href="driver-documents.html">Driver Documents</a> <button id="addVehicleButton" type="button">+ Add Vehicle</button> <button id="addDriverButton" type="button">+ Add Driver</button></div>
 </div>
+
+<div class="card" style="margin-top:25px;"><div class="driver-modal-header"><div><h3>Vehicle List</h3><p class="muted">Separate fleet records and compliance dates.</p></div><input id="vehicleSearch" placeholder="Search registration, make or model" style="max-width:320px"></div><div class="table-wrap"><table><thead><tr><th>Registration</th><th>Vehicle</th><th>Seats</th><th>Taxi plate</th><th>MOT</th><th>Insurance</th><th>Status</th><th>Action</th></tr></thead><tbody id="vehiclesTableBody"><tr><td colspan="8">Loading vehicles…</td></tr></tbody></table></div></div>
 
 <div class="stats">
 <div class="card blue"><h3>Total Drivers</h3><div class="stat" id="statTotalDrivers">0</div></div>
@@ -245,6 +247,8 @@
                     <label for="driverLicenceExpiryInput">Licence Expiry</label>
                     <input id="driverLicenceExpiryInput" type="date">
                 </div>
+                <div><label for="driverLicenceAuthorityInput">Issuing authority</label><input id="driverLicenceAuthorityInput"></div>
+                <div><label for="driverActiveInput">Active status</label><select id="driverActiveInput"><option value="true">Active</option><option value="false">Inactive</option></select></div>
 
                 <div>
                     <label for="driverStatusInput">Status</label>
@@ -269,6 +273,8 @@
                 <div><label for="driverCommissionInput">Company commission %</label><input id="driverCommissionInput" type="number" min="0" max="100" step="0.01"></div>
                 <div><label for="driverFixedPayInput">Fixed Amount / Job</label><input id="driverFixedPayInput" type="number" min="0" step="0.01"></div>
                 <div class="full"><label><input id="driverExpensesEnabledInput" type="checkbox" style="width:auto;margin-right:8px"> Enable Driver Expenses</label><p class="muted">Allows this driver to manage only their own expenses and financial summary. Earnings remains available to every driver.</p></div>
+                <div class="full"><label><input id="driverPhoneSharingInput" type="checkbox" style="width:auto;margin-right:8px"> Driver permits approved customer phone sharing</label><p class="muted">Company policy must also allow sharing. Default is off.</p></div>
+                <div class="full"><label for="driverPublicPhoneInput">Approved public/business contact number</label><input id="driverPublicPhoneInput" type="tel"></div>
             </div>
 
             <div class="driver-form-actions">
@@ -278,6 +284,8 @@
         </form>
     </div>
 </div>
+
+<div id="vehicleModalBackdrop" class="driver-modal-backdrop"><div class="driver-modal"><div class="driver-modal-header"><div><h2 id="vehicleModalTitle">Add Vehicle</h2><p class="muted">Fleet identity, capacity and separate compliance dates.</p></div><button id="closeVehicleModalButton" type="button">✕</button></div><form id="vehicleForm"><input id="vehicleId" type="hidden"><div class="driver-form-grid"><div><label>Registration<input id="vehicleRegistration" required></label></div><div><label>Active<select id="vehicleActive"><option value="true">Active</option><option value="false">Inactive</option></select></label></div><div><label>Make<input id="vehicleMake"></label></div><div><label>Model<input id="vehicleModel"></label></div><div><label>Year<input id="vehicleYear" type="number" min="1900" max="2200"></label></div><div><label>Colour<input id="vehicleColour"></label></div><div><label>Passenger seats<input id="vehicleSeats" type="number" min="1" max="80" value="4" required></label></div><div><label>Vehicle type<input id="vehicleType"></label></div><div><label>Taxi plate number<input id="vehiclePlate"></label></div><div><label>Taxi plate expiry<input id="vehiclePlateExpiry" type="date"></label></div><div><label>MOT expiry<input id="vehicleMotExpiry" type="date"></label></div><div><label>Insurance expiry<input id="vehicleInsuranceExpiry" type="date"></label></div><div><label>Insurance policy reference<input id="vehicleInsuranceReference"></label></div><div><label>Licensing authority<input id="vehicleLicensingAuthority"></label></div></div><div class="driver-form-actions"><button id="cancelVehicleButton" type="button">Cancel</button><button type="submit">Save Vehicle</button></div></form></div></div>
 
 <!-- VIEW DRIVER MODAL -->
 <div id="viewDriverBackdrop" class="driver-modal-backdrop">

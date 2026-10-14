@@ -156,11 +156,16 @@ button{
     min-height:44px;
 }
 
-.menu-toggle{display:none;font-size:22px;padding:8px 13px;flex:0 0 auto}
+.menu-toggle{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:800;padding:8px 13px;flex:0 0 auto}
+.menu-toggle span:first-child{font-size:20px}.menu-toggle-label{white-space:nowrap}
+.admin-layout,.sidebar,.main{transition:grid-template-columns .2s ease,transform .2s ease,padding .2s ease}
+.admin-layout.sidebar-collapsed{grid-template-columns:0 minmax(0,1fr)}
+.admin-layout.sidebar-collapsed>.sidebar{transform:translateX(-100%);visibility:hidden}
 .topbar-left{display:flex;align-items:center;gap:14px;min-width:0}
 .admin-company-switcher{display:grid;gap:4px;min-width:220px;color:#475569;font-size:12px;font-weight:700}
 .admin-company-switcher select{min-height:42px;margin:0;padding:8px 34px 8px 10px;background:#fff;color:var(--text);font-size:14px}
 .overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:999}
+.booking-action-menu{position:fixed;z-index:10020;min-width:238px;max-height:min(72vh,560px);overflow:auto;padding:6px;border:1px solid #334155;border-radius:12px;background:#101827;box-shadow:0 18px 48px rgba(0,0,0,.42)}.booking-action-menu button{display:grid;grid-template-columns:24px 1fr;align-items:center;width:100%;min-height:36px;padding:7px 9px;border-radius:7px;background:transparent;color:#e5e7eb;text-align:left;font-size:12px}.booking-action-menu button:hover,.booking-action-menu button:focus{background:#21314a}.booking-action-menu button.danger{color:#fecaca}.booking-action-menu button.danger:hover{background:#431d25}.booking-action-dialog{width:min(92vw,520px);max-height:88vh;padding:0;border:1px solid #334155;border-radius:15px;background:#111c2e;color:#f8fafc;box-shadow:0 24px 70px rgba(0,0,0,.48)}.booking-action-dialog::backdrop{background:rgba(2,6,23,.75)}.booking-action-dialog>header{display:flex;align-items:center;justify-content:space-between;padding:15px 17px;border-bottom:1px solid #334155}.booking-action-dialog>header h2{font-size:18px}.booking-action-dialog>header button{min-height:34px;padding:5px 10px;background:#25344b}.booking-action-dialog form{display:grid;gap:12px;padding:17px}.booking-action-dialog label{display:grid;gap:5px;color:#cbd5e1;font-size:12px}.booking-action-dialog input,.booking-action-dialog textarea{margin:0;background:#0c1525;color:#fff;border-color:#475569}.booking-action-dialog textarea{min-height:110px;resize:vertical}.dialog-actions{display:flex;justify-content:flex-end;gap:8px}.dialog-actions button:first-child{background:#334155}.dialog-actions .danger{background:#991b1b}.danger-panel{padding:12px;border:1px solid #7f1d1d;border-radius:10px;background:#35151b;color:#fecaca}.danger-panel p,.danger-panel ul{margin-top:8px;font-size:12px;line-height:1.5}.danger-panel ul{padding-left:18px}.message-count{color:#94a3b8;font-size:11px}.message-count.warning{color:#fbbf24}.confirm-linked{grid-template-columns:auto 1fr!important;align-items:start}.confirm-linked input{width:auto;margin:2px 0 0}
 .table-wrap,.table-responsive{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
 .card{min-width:0;overflow-wrap:anywhere}
 
@@ -238,7 +243,6 @@ input,select,textarea{
     }
     
     .menu-toggle{
-        display:flex;
         align-items:center;
         justify-content:center;
     }

@@ -113,6 +113,7 @@
     border-bottom:1px solid #e5e7eb;
     font-size:12px;
 }
+.driver-key{display:flex;flex-wrap:wrap;gap:7px 12px;padding:9px 11px;background:#111c2e;color:#e5e7eb;font-size:10px}.driver-key span{display:inline-flex;align-items:center;gap:5px}.driver-key i{width:20px;height:11px;border:1px solid rgba(255,255,255,.5);border-radius:3px;background:var(--marker)}.driver-key i.dark{border-color:#64748b}
 .driver-dot{
     display:inline-block;
     width:9px;
@@ -522,9 +523,9 @@
 
 <section class="map-panel">
 
-<div class="driver-key">
-<span><span class="driver-dot"></span>Online driver</span>
-<span>Driver number shown on map marker</span>
+<div class="driver-key" aria-label="Driver status map key">
+<span class="driver-dot" hidden></span>
+<span><i style="--marker:#6d28d9"></i>Available</span><span><i style="--marker:#1d4ed8"></i>On Way</span><span><i class="dark" style="--marker:#f97316"></i>Arrived / Outside</span><span><i style="--marker:#be185d"></i>Passenger On Board</span><span><i class="dark" style="--marker:#fff"></i>Dropped Off / Completed</span><span><i style="--marker:#b91c1c"></i>Offline / Unavailable</span>
 </div>
 
 <div id="dispatchMap"></div>

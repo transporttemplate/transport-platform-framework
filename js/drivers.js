@@ -4,13 +4,14 @@ let currentCompanyId = null;
 let allDrivers = [];
 let selectedDriver = null;
 let adminAccountsSnapshot = null;
+let allVehicles = [];
 
 document.addEventListener("DOMContentLoaded", async () => {
     bindDriverManagementUI();
     try {
         const context = await window.getAdminCompanyContext();
         currentCompanyId = context.companyId;
-        await loadDrivers();
+        await Promise.all([loadDrivers(),loadVehicles()]);
     } catch (error) {
         console.error("Driver management startup error:", error);
         renderDriverError("Unable to load the signed-in company.");
@@ -49,6 +50,11 @@ function bindDriverManagementUI() {
     document.getElementById("driverPhoneSearch")?.addEventListener("input", renderDrivers);
     document.getElementById("driverStatusFilter")?.addEventListener("change", renderDrivers);
     document.getElementById("driverVehicleFilter")?.addEventListener("change", renderDrivers);
+    document.getElementById("addVehicleButton")?.addEventListener("click",()=>openVehicleForm());
+    document.getElementById("closeVehicleModalButton")?.addEventListener("click",closeVehicleForm);
+    document.getElementById("cancelVehicleButton")?.addEventListener("click",closeVehicleForm);
+    document.getElementById("vehicleForm")?.addEventListener("submit",saveVehicle);
+    document.getElementById("vehicleSearch")?.addEventListener("input",renderVehicles);
 }
 
 async function loadDrivers() {
@@ -57,7 +63,7 @@ async function loadDrivers() {
 
     const { data, error } = await driversDb
         .from("drivers")
-        .select("id,company_id,driver_number,full_name,phone,email,vehicle,licence_number,licence_expiry,status,online,latitude,longitude,location_updated_at,pay_type,commission_percent,fixed_job_amount,driver_expenses_enabled")
+        .select("id,company_id,driver_number,full_name,phone,email,vehicle,licence_number,licence_expiry,licence_authority,active,status,online,latitude,longitude,location_updated_at,pay_type,commission_percent,fixed_job_amount,driver_expenses_enabled,customer_phone_sharing,public_contact_phone")
         .eq("company_id", currentCompanyId)
         .order("full_name", { ascending: true });
 
@@ -171,12 +177,16 @@ function openDriverForm(driver = null) {
     document.getElementById("driverVehicleInput").value = driver?.vehicle || "";
     document.getElementById("driverLicenceInput").value = driver?.licence_number || "";
     document.getElementById("driverLicenceExpiryInput").value = driver?.licence_expiry || "";
+    document.getElementById("driverLicenceAuthorityInput").value = driver?.licence_authority || "";
+    document.getElementById("driverActiveInput").value = String(driver?.active !== false);
     document.getElementById("driverStatusInput").value = driver?.status || "available";
     document.getElementById("driverOnlineInput").value = String(Boolean(driver?.online));
     document.getElementById("driverPayTypeInput").value = driver?.pay_type || "commission";
     document.getElementById("driverCommissionInput").value = driver?.commission_percent ?? "";
     document.getElementById("driverFixedPayInput").value = driver?.fixed_job_amount ?? "";
     document.getElementById("driverExpensesEnabledInput").checked = driver?.driver_expenses_enabled === true;
+    document.getElementById("driverPhoneSharingInput").checked = driver?.customer_phone_sharing === true;
+    document.getElementById("driverPublicPhoneInput").value = driver?.public_contact_phone || "";
 
     document.getElementById("driverModalBackdrop")?.classList.add("open");
 }
@@ -201,12 +211,16 @@ async function saveDriver(event) {
         vehicle: document.getElementById("driverVehicleInput").value.trim() || null,
         licence_number: document.getElementById("driverLicenceInput").value.trim() || null,
         licence_expiry: document.getElementById("driverLicenceExpiryInput").value || null,
+        licence_authority: document.getElementById("driverLicenceAuthorityInput").value.trim() || null,
+        active: document.getElementById("driverActiveInput").value === "true",
         status: document.getElementById("driverStatusInput").value,
         online: document.getElementById("driverOnlineInput").value === "true",
         pay_type: document.getElementById("driverPayTypeInput").value,
         commission_percent: document.getElementById("driverCommissionInput").value === "" ? null : Number(document.getElementById("driverCommissionInput").value),
         fixed_job_amount: document.getElementById("driverFixedPayInput").value === "" ? null : Number(document.getElementById("driverFixedPayInput").value),
-        driver_expenses_enabled: document.getElementById("driverExpensesEnabledInput").checked
+        driver_expenses_enabled: document.getElementById("driverExpensesEnabledInput").checked,
+        customer_phone_sharing: document.getElementById("driverPhoneSharingInput").checked,
+        public_contact_phone: document.getElementById("driverPublicPhoneInput").value.trim() || null
     };
 
     if (!payload.full_name || !payload.driver_number || (!id && !pin)) {
@@ -255,10 +269,13 @@ function openViewDriver(driver) {
         viewItem("Online", driver.online ? "Yes" : "No"),
         viewItem("Licence Number", driver.licence_number || "-"),
         viewItem("Licence Expiry", driver.licence_expiry || "-"),
+        viewItem("Issuing Authority", driver.licence_authority || "-"),
+        viewItem("Active", driver.active === false ? "Inactive" : "Active"),
         viewItem("Pay Rule", driver.pay_type || "commission"),
         viewItem("Company Commission %", driver.commission_percent ?? "Company default"),
         viewItem("Fixed Amount / Job", driver.fixed_job_amount ?? "-"),
         viewItem("Driver Expenses", driver.driver_expenses_enabled ? "Enabled" : "Disabled"),
+        viewItem("Customer phone sharing", driver.customer_phone_sharing ? `Enabled · ${driver.public_contact_phone||"approved number not set"}` : "Disabled"),
         viewItem("Company ID", driver.company_id || "-"),
         viewItem("Driver ID", driver.id || "-")
     ].join("");
@@ -276,6 +293,13 @@ async function loadAdminAccountsReport(){if(!selectedDriver)return;const {data,e
 function exportAdminAccountsCsv(){if(!adminAccountsSnapshot)return;const q=v=>`"${String(v??"").replaceAll('"','""')}"`,rows=[["Type","Date","Reference/Category","Description","Amount GBP","Status"]];(adminAccountsSnapshot.jobs||[]).forEach(x=>rows.push(["Income",x.journey_date,x.booking_reference,"Driver earnings",x.driver_earnings??"",x.payment_status]));(adminAccountsSnapshot.expenses||[]).forEach(x=>rows.push(["Expense",x.expense_date,x.category,x.description,x.amount,x.accounting_treatment]));const blob=new Blob([rows.map(r=>r.map(q).join(",")).join("\r\n")],{type:"text/csv"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`driver-accounts-${adminAccountsSnapshot.from}-${adminAccountsSnapshot.to}.csv`;a.click();URL.revokeObjectURL(url);}
 function applyAdminAccountsPeriod(){const period=document.getElementById("adminAccountsPeriod").value,now=new Date(),year=now.getFullYear();let from,to;if(period==="personal_tax_year"){const y=now>=new Date(year,3,6)?year:year-1;from=new Date(y,3,6);to=new Date(y+1,3,5);}else if(period==="business_year"){const y=now>=new Date(year,3,1)?year:year-1;from=new Date(y,3,1);to=new Date(y+1,2,31);}else if(period==="month"){from=new Date(year,now.getMonth(),1);to=new Date(year,now.getMonth()+1,0);}else return;const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;document.getElementById("adminAccountsFrom").value=iso(from);document.getElementById("adminAccountsTo").value=iso(to);loadAdminAccountsReport();}
 function gbp(value){return `£${Number(value||0).toFixed(2)}`;}
+
+async function loadVehicles(){const {data,error}=await driversDb.from("vehicles").select("id,company_id,registration,make,model,model_year,colour,passenger_seats,vehicle_type,taxi_plate_number,taxi_plate_expiry,mot_expiry,insurance_policy_reference,insurance_expiry,licensing_authority,active").eq("company_id",currentCompanyId).order("registration");if(error){document.getElementById("vehiclesTableBody").innerHTML=`<tr><td colspan="8">${escapeHtml(error.message)}</td></tr>`;return;}allVehicles=data||[];renderVehicles();}
+function complianceLabel(date){if(!date)return "Not recorded";const days=Math.ceil((new Date(`${date}T00:00:00`)-new Date())/86400000);return days<0?`Expired ${date}`:days<=30?`Due soon ${date}`:date;}
+function renderVehicles(){const q=(document.getElementById("vehicleSearch")?.value||"").trim().toLowerCase(),rows=allVehicles.filter(v=>!q||[v.registration,v.make,v.model].some(x=>String(x||"").toLowerCase().includes(q))),body=document.getElementById("vehiclesTableBody");body.innerHTML=rows.map(v=>`<tr><td><strong>${escapeHtml(v.registration)}</strong></td><td>${escapeHtml([v.colour,v.make,v.model].filter(Boolean).join(" ")||"-")}</td><td>${escapeHtml(v.passenger_seats)}</td><td>${escapeHtml(v.taxi_plate_number||"-")}<br><small>${escapeHtml(complianceLabel(v.taxi_plate_expiry))}</small></td><td>${escapeHtml(complianceLabel(v.mot_expiry))}</td><td>${escapeHtml(complianceLabel(v.insurance_expiry))}</td><td>${v.active?"Active":"Inactive"}</td><td><button type="button" data-edit-vehicle="${escapeHtml(v.id)}">Edit</button></td></tr>`).join("")||'<tr><td colspan="8">No vehicles found.</td></tr>';body.querySelectorAll("[data-edit-vehicle]").forEach(button=>button.onclick=()=>openVehicleForm(allVehicles.find(v=>String(v.id)===button.dataset.editVehicle)));}
+function openVehicleForm(v=null){const set=(id,value)=>{document.getElementById(id).value=value??"";};set("vehicleId",v?.id);set("vehicleRegistration",v?.registration);set("vehicleActive",String(v?.active!==false));set("vehicleMake",v?.make);set("vehicleModel",v?.model);set("vehicleYear",v?.model_year);set("vehicleColour",v?.colour);set("vehicleSeats",v?.passenger_seats??4);set("vehicleType",v?.vehicle_type);set("vehiclePlate",v?.taxi_plate_number);set("vehiclePlateExpiry",v?.taxi_plate_expiry);set("vehicleMotExpiry",v?.mot_expiry);set("vehicleInsuranceExpiry",v?.insurance_expiry);set("vehicleInsuranceReference",v?.insurance_policy_reference);set("vehicleLicensingAuthority",v?.licensing_authority);setText("vehicleModalTitle",v?"Edit Vehicle":"Add Vehicle");document.getElementById("vehicleModalBackdrop").classList.add("open");}
+function closeVehicleForm(){document.getElementById("vehicleModalBackdrop")?.classList.remove("open");document.getElementById("vehicleForm")?.reset();}
+async function saveVehicle(event){event.preventDefault();const val=id=>document.getElementById(id).value.trim(),id=val("vehicleId"),payload={company_id:currentCompanyId,registration:val("vehicleRegistration").toUpperCase(),active:val("vehicleActive")==="true",make:val("vehicleMake")||null,model:val("vehicleModel")||null,model_year:val("vehicleYear")?Number(val("vehicleYear")):null,colour:val("vehicleColour")||null,passenger_seats:Number(val("vehicleSeats")),vehicle_type:val("vehicleType")||null,taxi_plate_number:val("vehiclePlate")||null,taxi_plate_expiry:val("vehiclePlateExpiry")||null,mot_expiry:val("vehicleMotExpiry")||null,insurance_expiry:val("vehicleInsuranceExpiry")||null,insurance_policy_reference:val("vehicleInsuranceReference")||null,licensing_authority:val("vehicleLicensingAuthority")||null,updated_at:new Date().toISOString()};const query=id?driversDb.from("vehicles").update(payload).eq("company_id",currentCompanyId).eq("id",id):driversDb.from("vehicles").insert(payload);const {error}=await query;if(error)return alert(error.message);closeVehicleForm();await loadVehicles();}
 
 function getDisplayStatus(driver) {
     const status = String(driver.status || "").trim().toLowerCase();

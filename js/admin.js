@@ -121,6 +121,7 @@ function initialiseAdminNavigation() {
     const sidebar = document.querySelector(".sidebar");
     if (!sidebar) return;
     sidebar.id ||= "adminSidebar";
+    const layout = sidebar.closest(".admin-layout");
 
     initialiseEmailNavigation(sidebar);
     if (!sidebar.querySelector('.admin-sms-nav')) {
@@ -158,7 +159,7 @@ function initialiseAdminNavigation() {
         menuButton = document.createElement("button");
         menuButton.className = "menu-toggle";
         menuButton.type = "button";
-        menuButton.textContent = "☰";
+        menuButton.innerHTML = '<span aria-hidden="true">☰</span><span class="menu-toggle-label">Admin / Menu</span>';
         (topbar || document.querySelector(".main") || document.body).prepend(menuButton);
     }
 
@@ -169,6 +170,13 @@ function initialiseAdminNavigation() {
         document.body.appendChild(overlay);
     }
 
+    const mobile = () => matchMedia("(max-width:900px)").matches;
+    const applyDesktopPreference = () => {
+        const collapsed = !mobile() && localStorage.getItem("adminSidebarCollapsed") === "true";
+        layout?.classList.toggle("sidebar-collapsed", collapsed);
+        menuButton?.setAttribute("aria-expanded", String(!collapsed));
+        menuButton?.setAttribute("aria-label", collapsed ? "Open Admin navigation" : "Close Admin navigation");
+    };
     const close = () => {
         sidebar.classList.remove("open");
         overlay.classList.remove("open");
@@ -177,6 +185,14 @@ function initialiseAdminNavigation() {
         menuButton?.setAttribute("aria-label", "Open navigation");
     };
     const toggle = () => {
+        if (!mobile()) {
+            const collapsed=!layout?.classList.contains("sidebar-collapsed");
+            layout?.classList.toggle("sidebar-collapsed",collapsed);
+            localStorage.setItem("adminSidebarCollapsed",String(collapsed));
+            menuButton?.setAttribute("aria-expanded",String(!collapsed));
+            menuButton?.setAttribute("aria-label",collapsed?"Open Admin navigation":"Close Admin navigation");
+            return;
+        }
         const open = !sidebar.classList.contains("open");
         sidebar.classList.toggle("open", open);
         overlay.classList.toggle("open", open);
@@ -192,9 +208,10 @@ function initialiseAdminNavigation() {
         menuButton.addEventListener("click", toggle);
     }
     overlay.addEventListener("click", close);
-    sidebar.querySelectorAll("a").forEach(link => link.addEventListener("click", close));
+    sidebar.querySelectorAll("a").forEach(link => link.addEventListener("click", () => { if(mobile())close(); }));
     document.addEventListener("keydown", event => { if (event.key === "Escape") close(); });
-    window.addEventListener("resize", () => { if (window.innerWidth > 900) close(); });
+    window.addEventListener("resize", () => { close(); applyDesktopPreference(); });
+    applyDesktopPreference();
 }
 
 function initialiseEmailNavigation(sidebar) {

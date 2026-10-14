@@ -82,6 +82,9 @@ function bindDriverUI() {
     document.getElementById("accountsExpenseList")?.addEventListener("click", handleExpenseAction);
     document.getElementById("accountsCsv")?.addEventListener("click", exportAccountsCsv);
     document.getElementById("accountsPdf")?.addEventListener("click", () => window.print());
+    document.getElementById("driverMessageForm")?.addEventListener("submit", sendInternalDriverMessage);
+    document.querySelector(".quick-replies")?.addEventListener("click", event => { const button=event.target.closest("button"); if(button){document.getElementById("driverMessageInput").value=button.textContent;document.getElementById("driverMessageInput").focus();} });
+    document.getElementById("driverPreferencesForm")?.addEventListener("submit", savePreferences);
     window.addEventListener("online", () => { showConnectionMessage("Connection restored. Refreshing…", false); refreshDriverPortal(true); });
     window.addEventListener("offline", () => showConnectionMessage("You are offline. Displayed jobs may be out of date.", true));
     document.addEventListener("visibilitychange", () => { if (!document.hidden && driverSessionToken) { refreshDriverPortal(); if (navigationController?.active) navigationController.acquireWakeLock(); } });
@@ -91,6 +94,7 @@ function bindDriverUI() {
     document.querySelectorAll("[data-view]").forEach(btn => {
         btn.addEventListener("click", () => {
             showDriverView(btn.dataset.view);
+            if(btn.dataset.view==="messages") loadDriverMessages(true);
             closeSideMenu();
         });
     });
@@ -230,6 +234,8 @@ function applyDriverPortalData(data) {
     driverCommissionDefault = Number(data.settings?.drivercommission || 0);
     driverCurrencySymbol = data.settings?.currencysymbol || "£";
     driverSettings = data.settings || driverSettings;
+    applyDriverPreferences(data.driver);
+    renderUnreadMessages(Number(data.unread_messages||0));
     driverNavigationConfig = data.navigation || { enabled: data.settings?.driver_integrated_navigation === true, browser_maps_key: null };
     if (data.server_time) serverClockOffset = new Date(data.server_time).getTime() - Date.now();
     const now = new Date();
@@ -383,7 +389,7 @@ async function saveDriverPosition(position) {
     latestDriverPosition = { lat: update.latitude, lng: update.longitude, accuracy: Number(position.coords.accuracy || 0), heading: position.coords.heading == null ? null : Number(position.coords.heading), speed: position.coords.speed == null ? null : Number(position.coords.speed), timestamp: Number(position.timestamp || Date.now()) };
     navigationController?.update(latestDriverPosition);
 
-    try { await driverPortalRequest("gps", update); Object.assign(currentDriver, update); }
+    try { await driverPortalRequest("gps", {...update,accuracy:latestDriverPosition.accuracy,speed:latestDriverPosition.speed,booking_id:currentJob?.id||null}); Object.assign(currentDriver, update); }
     catch (error) { console.warn("Driver GPS update:", error); }
 }
 
@@ -1144,6 +1150,30 @@ function exportAccountsCsv() {
 function money(value) {
     const n = Number(value);
     return Number.isFinite(n) ? `${driverCurrencySymbol}${n.toFixed(2)}` : `${driverCurrencySymbol}0.00`;
+}
+
+function renderUnreadMessages(count) {
+    for (const id of ["menuUnreadCount","homeUnreadCount"]) { const el=document.getElementById(id); if(el){el.textContent=String(count);el.classList.toggle("hidden",count<1);} }
+    document.getElementById("messageAlert")?.classList.toggle("hidden",count<1);
+}
+async function loadDriverMessages(markRead=false) {
+    try { const data=await driverPortalRequest("messages"); const list=document.getElementById("driverMessageList"); if(list)list.innerHTML=(data.messages||[]).map(row=>`<article class="message-bubble ${row.sender_type==='driver'?'driver':'admin'}"><p>${escapeHtml(row.body)}</p><small>${escapeHtml(new Date(row.created_at).toLocaleString('en-GB'))} · ${row.read_at?'Read':row.delivered_at?'Delivered':'Sent'}</small></article>`).join("")||'<div class="empty-list">No messages yet.</div>'; if(markRead){await driverPortalRequest("read_messages");renderUnreadMessages(0);} }
+    catch(error){showConnectionMessage(error.message||"Unable to load messages.",true);}
+}
+async function sendInternalDriverMessage(event) {
+    event.preventDefault(); const input=document.getElementById("driverMessageInput"),message=input?.value.trim(); if(!message)return;
+    const key=`driver:${currentDriver.id}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+    try{await driverPortalRequest("send_message",{message,client_key:key,booking_id:currentJob?.id||null});input.value="";await loadDriverMessages();}catch(error){showConnectionMessage(error.message||"Unable to send message.",true);}
+}
+function applyDriverPreferences(driver=currentDriver) {
+    if(!driver)return; document.body.classList.remove("theme-light","theme-dark","text-large","text-extra_large");
+    const theme=driver.portal_theme||"device"; if(theme==="light"||(theme==="device"&&matchMedia("(prefers-color-scheme: light)").matches))document.body.classList.add("theme-light"); else document.body.classList.add("theme-dark");
+    if(driver.portal_text_size==="large")document.body.classList.add("text-large"); if(driver.portal_text_size==="extra_large")document.body.classList.add("text-extra_large");
+    const set=(id,value)=>{const el=document.getElementById(id);if(el)el.value=value||"";};set("driverTheme",theme);set("driverTextSize",driver.portal_text_size||"normal");set("driverPublicPhone",driver.public_contact_phone);const sharing=document.getElementById("driverPhoneSharing");if(sharing)sharing.checked=driver.customer_phone_sharing===true;
+}
+async function savePreferences(event) {
+    event.preventDefault();const payload={theme:document.getElementById("driverTheme").value,text_size:document.getElementById("driverTextSize").value,customer_phone_sharing:document.getElementById("driverPhoneSharing").checked,public_contact_phone:document.getElementById("driverPublicPhone").value.trim()};
+    try{const data=await driverPortalRequest("save_preferences",payload);Object.assign(currentDriver,{portal_theme:payload.theme,portal_text_size:payload.text_size,customer_phone_sharing:data.customer_phone_sharing,public_contact_phone:data.customer_phone_sharing?payload.public_contact_phone:null});applyDriverPreferences();const el=document.getElementById("preferencesMessage");if(el){el.textContent="Preferences saved.";el.className="form-message success";}}catch(error){const el=document.getElementById("preferencesMessage");if(el){el.textContent=error.message||"Unable to save preferences.";el.className="form-message error";}}
 }
 
 function normaliseStatus(status) {
