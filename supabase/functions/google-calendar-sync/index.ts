@@ -23,6 +23,7 @@ Deno.serve(async request => {
   let bookingId = "";
   let verifyOnly = false;
   let existingOnly = false;
+  let permanentDeletionCleanup = false;
 
   try {
     const body = await request.json();
@@ -30,6 +31,7 @@ Deno.serve(async request => {
     bookingId = String(body.booking_id || "");
     verifyOnly = body.verify_only === true;
     existingOnly = body.existing_only === true;
+    permanentDeletionCleanup = body.permanent_deletion_cleanup === true;
 
     if (!companyId || !bookingId) {
       return json({ ok: false, stage: "request", error: "company_id and booking_id are required" }, 400);
@@ -37,6 +39,9 @@ Deno.serve(async request => {
 
     if (!await authorisedForCompany(request, companyId)) {
       return json({ ok: false, stage: "authorization", error: "Admin company access required" }, 403);
+    }
+    if (permanentDeletionCleanup && !await authorisedForPermanentDeletion(request, companyId)) {
+      return json({ ok: false, stage: "authorization", error: "Explicit permanent deletion permission is required" }, 403);
     }
 
     console.log("Google Calendar sync started", { company_id: companyId, booking_id: bookingId });
@@ -81,7 +86,7 @@ Deno.serve(async request => {
     }
     const cancelled = ["cancelled", "canceled"].includes(normaliseStatus(booking.status || booking.booking_status));
 
-    if (cancelled) {
+    if (cancelled || permanentDeletionCleanup) {
       if (!booking.google_calendar_event_id) {
         await saveSyncSuccess(companyId, bookingId, null);
         return json({ ok: true, action: "cancel", skipped: true, reason: "Booking has no linked Google event" });
@@ -184,6 +189,16 @@ async function authorisedForCompany(request: Request, companyId: string) {
     .eq("company_id", companyId)
     .maybeSingle();
   return !membershipError && adminRoles.has(String(membership?.role || "").trim().toLowerCase());
+}
+
+async function authorisedForPermanentDeletion(request: Request, companyId: string) {
+  const token = request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") || "";
+  if (!token) return false;
+  const userDb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: `Bearer ${token}` } } });
+  const { data: { user }, error } = await userDb.auth.getUser();
+  if (error || !user) return false;
+  const membership = await db.from("company_users").select("role,can_permanently_delete_bookings").eq("company_id", companyId).eq("user_id", user.id).maybeSingle();
+  return !membership.error && adminRoles.has(String(membership.data?.role || "").toLowerCase()) && membership.data?.can_permanently_delete_bookings === true;
 }
 
 function constantTimeEqual(left: string, right: string) {

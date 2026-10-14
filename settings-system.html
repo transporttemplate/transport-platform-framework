@@ -49,6 +49,12 @@
 <label>Default Currency Symbol</label><input id="currencySymbol" type="text">
 </div></div></div>
 
+<div class="card" id="bookingDeletionPermissions"><h3>Permanent booking deletion</h3>
+<p>This high-risk permission is company-scoped, defaults off, and can only be changed by a company Owner. Eligible bookings still require password reauthentication, exact-reference confirmation and server-side retention checks.</p>
+<div id="deletionPermissionNotice" role="status">Checking Owner access…</div>
+<div id="deletionPermissionMembers"></div>
+</div>
+
 </main>
 </div>
 
@@ -57,6 +63,7 @@
 <script src="js/auth.js"></script>
 <script src="js/admin.js"></script>
 <script src="js/settings.js"></script>
+<script src="js/deletion-permissions.js"></script>
 
 </body>
 </html>
