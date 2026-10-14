@@ -34,18 +34,24 @@
 <div><h2>Platform Settings</h2><small>Choose the area you want to configure</small></div>
 </div>
 </div>
-<div class="grid-2">
+<h3>Company</h3><div class="grid-2">
 <div class="card"><h3>🏢 Company</h3><p>Company details, contact information, licence, VAT and regional settings.</p><a href="settings-company.html">Open Company Settings →</a></div>
 <div class="card"><h3>🕒 Hours & Status</h3><p>Opening hours, holiday mode, closures, notices and advance booking limits.</p><a href="settings-hours.html">Open Hours & Status →</a></div>
-<div class="card"><h3>💷 Pricing</h3><p>Distance fares, mileage bands, waiting charges, discounts and surcharges.</p><a href="settings-pricing.html">Open Pricing →</a></div>
-<div class="card"><h3>✈️ Airports & Areas</h3><p>Airport fixed fares and the service areas that qualify for fixed pricing.</p><a href="settings-airports.html">Open Airports & Areas →</a></div>
+</div><h3>Bookings & Dispatch</h3><div class="grid-2">
 <div class="card"><h3>📋 Booking Rules</h3><p>Deposits, returns, multiple stops, cancellations and system behaviour.</p><a href="settings-booking.html">Open Booking Rules →</a></div>
+<div class="card"><h3>✈️ Airports & Areas</h3><p>Airport fixed fares and the service areas that qualify for fixed pricing.</p><a href="settings-airports.html">Open Airports & Areas →</a></div>
+</div><h3>Pricing & Payments</h3><div class="grid-2">
+<div class="card"><h3>💷 Pricing</h3><p>Distance fares, mileage bands, waiting charges, discounts and surcharges.</p><a href="settings-pricing.html">Open Pricing →</a></div>
 <div class="card"><h3>💳 Payments</h3><p>Payment methods, Stripe publishable settings and account terms.</p><a href="settings-payments.html">Open Payments →</a></div>
+</div><h3>Notifications</h3><div class="grid-2">
 <div class="card"><h3>✉️ Email Notifications</h3><p>Customer, office and driver notifications, sender details and unallocated-job reminders.</p><a href="settings-email.html">Open Email Settings →</a></div>
-<div class="card"><h3>🔌 Integrations</h3><p>Google Maps, Places, Routes and Calendar configuration.</p><a href="settings-integrations.html">Open Integrations →</a></div>
+<div class="card"><h3>SMS</h3><p>Company-specific SMS gateway, inbox, templates and automation.</p><a href="sms-admin.html">Open SMS Settings →</a></div>
+</div><h3>Integrations</h3><div class="grid-2">
+<div class="card"><h3>🔌 Google Integrations</h3><p>Google Maps, Places, Routes and Calendar configuration.</p><a href="settings-integrations.html">Open Google Integrations →</a></div>
+<div class="card" id="apiManagementCard"><h3>API Management</h3><p>Company-scoped third-party integrations. Platform authority is verified server-side.</p><a href="api-management.html">Open API Management →</a><small id="apiManagementAccess"></small></div>
+</div><h3>Security & System</h3><div class="grid-2">
+<div class="card"><h3>Security & Permissions</h3><p>Owner-controlled high-risk permissions, including permanent booking deletion.</p><a href="settings-security.html">Open Security Settings →</a></div>
 <div class="card"><h3>⚙️ System</h3><p>Booking prefixes, date/time format, language and currency symbol.</p><a href="settings-system.html">Open System Settings →</a></div>
-<div class="card"><h3>Security</h3><p>Owner-controlled high-risk permissions, including permanent booking deletion.</p><a href="settings-security.html">Open Security Settings →</a></div>
-<div class="card" id="apiManagementCard" hidden><h3>API Management</h3><p>Platform-admin control plane for company integrations, credentials, scopes, limits and webhooks.</p><a href="api-management.html">Open API Management →</a></div>
 </div>
 </main>
 </div>
@@ -53,6 +59,6 @@
 <script src="js/supabase.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/admin.js"></script>
-<script>getAdminCompanyContext().then(c=>{if(["platform_admin","super_admin","owner"].includes(String(c.platformRole||"").toLowerCase()))document.getElementById("apiManagementCard").hidden=false})</script>
+<script>getAdminCompanyContext().then(c=>{const ok=["platform_admin","super_admin"].includes(String(c.platformRole||"").toLowerCase());document.getElementById("apiManagementAccess").textContent=ok?" Authorised platform administration session.":" Platform administrator access is required to manage integrations."})</script>
 </body>
 </html>
