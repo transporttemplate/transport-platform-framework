@@ -36,6 +36,8 @@ let navigationGpsTimer = null;
 let mapsLoaderPromise = null;
 let mapsLoaderKey = null;
 let driverAccountsSnapshot = null;
+let driverMessageSending = false;
+let driverMessagePollTimer = null;
 
 document.addEventListener("DOMContentLoaded", () => {
     bindDriverUI();
@@ -159,6 +161,7 @@ async function enterDriverPortal() {
     if (driverRefreshTimer) clearInterval(driverRefreshTimer);
     driverRefreshTimer = setInterval(refreshDriverPortal, 7000);
     if (driverStaleTimer) clearInterval(driverStaleTimer);
+    if (driverMessagePollTimer) clearInterval(driverMessagePollTimer);
     driverStaleTimer = setInterval(updateLastUpdatedText, 5000);
 
     if (isDriverOnline(currentDriver) && !driverUnavailable) startGpsTracking();
@@ -1050,6 +1053,8 @@ function showDriverView(name) {
     if (name === "completed") renderDiary();
     if (name === "holidays") refreshHolidayStatus();
     if (name === "accounts" && currentDriver?.driver_expenses_enabled === true) loadDriverAccounts();
+    if (driverMessagePollTimer) clearInterval(driverMessagePollTimer);
+    driverMessagePollTimer=name==="messages"?setInterval(()=>loadDriverMessages(false),15000):null;
 
     window.scrollTo({ top: 0, behavior: "instant" });
 }
@@ -1157,14 +1162,16 @@ function renderUnreadMessages(count) {
     document.getElementById("messageAlert")?.classList.toggle("hidden",count<1);
 }
 async function loadDriverMessages(markRead=false) {
-    try { const data=await driverPortalRequest("messages"); const list=document.getElementById("driverMessageList"); if(list)list.innerHTML=(data.messages||[]).map(row=>`<article class="message-bubble ${row.sender_type==='driver'?'driver':'admin'}"><p>${escapeHtml(row.body)}</p><small>${escapeHtml(new Date(row.created_at).toLocaleString('en-GB'))} · ${row.read_at?'Read':row.delivered_at?'Delivered':'Sent'}</small></article>`).join("")||'<div class="empty-list">No messages yet.</div>'; if(markRead){await driverPortalRequest("read_messages");renderUnreadMessages(0);} }
-    catch(error){showConnectionMessage(error.message||"Unable to load messages.",true);}
+    try { const data=await driverPortalRequest("messages"); const list=document.getElementById("driverMessageList"); if(list)list.innerHTML=(data.messages||[]).map(row=>`<article class="message-bubble ${row.sender_type==='driver'?'driver':'admin'}"><p>${escapeHtml(row.body)}</p><small>${escapeHtml(new Date(row.created_at).toLocaleString('en-GB'))} · ${row.read_at?'Read':row.delivered_at?'Delivered':'Sent'}</small></article>`).join("")||'<div class="empty-list">No messages yet. You can start a conversation with your office below.</div>'; if(markRead){await driverPortalRequest("read_messages");renderUnreadMessages(0);} setDriverMessageStatus(""); }
+    catch(error){setDriverMessageStatus(error.message||"Unable to load messages.",true);}
 }
 async function sendInternalDriverMessage(event) {
-    event.preventDefault(); const input=document.getElementById("driverMessageInput"),message=input?.value.trim(); if(!message)return;
+    event.preventDefault(); const input=document.getElementById("driverMessageInput"),message=input?.value.trim(); if(!message||driverMessageSending)return;
     const key=`driver:${currentDriver.id}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-    try{await driverPortalRequest("send_message",{message,client_key:key,booking_id:currentJob?.id||null});input.value="";await loadDriverMessages();}catch(error){showConnectionMessage(error.message||"Unable to send message.",true);}
+    driverMessageSending=true;const button=document.getElementById("driverMessageSend");if(button)button.disabled=true;setDriverMessageStatus("Sending…");
+    try{await driverPortalRequest("send_message",{message,client_key:key,booking_id:currentJob?.id||null});input.value="";await loadDriverMessages();setDriverMessageStatus("Message sent to your office.",false,true);}catch(error){setDriverMessageStatus(error.message||"Unable to send message. Please try again.",true);}finally{driverMessageSending=false;if(button)button.disabled=false;}
 }
+function setDriverMessageStatus(message,error=false,success=false){const el=document.getElementById("driverMessageStatus");if(!el)return;el.textContent=message;el.className=`message-send-status${error?" error":success?" success":""}`;}
 function applyDriverPreferences(driver=currentDriver) {
     if(!driver)return; document.body.classList.remove("theme-light","theme-dark","text-large","text-extra_large");
     const theme=driver.portal_theme||"device"; if(theme==="light"||(theme==="device"&&matchMedia("(prefers-color-scheme: light)").matches))document.body.classList.add("theme-light"); else document.body.classList.add("theme-dark");

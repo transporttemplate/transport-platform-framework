@@ -144,6 +144,15 @@ function initialiseAdminNavigation() {
         driversLink?.after(link);
     }
 
+    if (!sidebar.querySelector('a[href="driver-messages.html"]')) {
+        const driversLink = sidebar.querySelector('a[href="drivers.html"]');
+        const link = document.createElement("a");
+        link.href = "driver-messages.html";
+        link.innerHTML = '✉ Driver Messages <span class="admin-message-count hidden" aria-label="Unread driver messages">0</span>';
+        if (location.pathname.endsWith("/driver-messages.html")) link.classList.add("active");
+        driversLink?.after(link);
+    }
+
     if (!sidebar.querySelector('a[href="contracts.html"]')) {
         const customersLink = sidebar.querySelector('a[href="customers.html"]');
         const link = document.createElement("a");
@@ -212,7 +221,10 @@ function initialiseAdminNavigation() {
     document.addEventListener("keydown", event => { if (event.key === "Escape") close(); });
     window.addEventListener("resize", () => { close(); applyDesktopPreference(); });
     applyDesktopPreference();
+    loadAdminDriverMessageBadge();
 }
+
+async function loadAdminDriverMessageBadge(){try{if(typeof window.getAdminCompanyContext!=="function")return;const context=await window.getAdminCompanyContext(),db=getSupabase();const{data,error}=await db.functions.invoke("driver-portal",{body:{action:"admin_message_inbox",company_id:context.companyId}});if(error||!data?.ok)return;const unread=(data.messages||[]).filter(row=>row.sender_type==="driver"&&!row.read_at).length;document.querySelectorAll(".admin-message-count").forEach(el=>{el.textContent=String(unread);el.classList.toggle("hidden",unread<1);});}catch(error){console.warn("Driver message badge unavailable",error);}}
 
 function initialiseEmailNavigation(sidebar) {
     if (sidebar.querySelector(".admin-email-nav")) return;

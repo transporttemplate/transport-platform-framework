@@ -41,6 +41,7 @@ function bindDriverManagementUI() {
         openDriverForm(selectedDriver);
     });
     document.getElementById("driverAccountsReportButton")?.addEventListener("click", openAdminAccountsReport);
+    document.getElementById("messageSelectedDriverButton")?.addEventListener("click",()=>{if(selectedDriver)location.assign(`driver-messages.html?driver=${encodeURIComponent(selectedDriver.id)}`);});
     document.getElementById("closeDriverAccountsReport")?.addEventListener("click", () => document.getElementById("driverAccountsReportBackdrop")?.classList.remove("open"));
     document.getElementById("adminAccountsRefresh")?.addEventListener("click", loadAdminAccountsReport);
     document.getElementById("adminAccountsPeriod")?.addEventListener("change", applyAdminAccountsPeriod);
@@ -61,11 +62,7 @@ async function loadDrivers() {
     const body = document.getElementById("driversTableBody");
     if (body) body.innerHTML = '<tr><td colspan="8" class="muted">Loading drivers...</td></tr>';
 
-    const { data, error } = await driversDb
-        .from("drivers")
-        .select("id,company_id,driver_number,full_name,phone,email,vehicle,licence_number,licence_expiry,licence_authority,active,status,online,latitude,longitude,location_updated_at,pay_type,commission_percent,fixed_job_amount,driver_expenses_enabled,customer_phone_sharing,public_contact_phone")
-        .eq("company_id", currentCompanyId)
-        .order("full_name", { ascending: true });
+    const { data, error } = await driversDb.functions.invoke("driver-portal", { body: { action:"admin_list_drivers", company_id:currentCompanyId } });
 
     if (error) {
         console.error("Driver load error:", error);
@@ -73,7 +70,7 @@ async function loadDrivers() {
         return;
     }
 
-    allDrivers = data || [];
+    allDrivers = data?.drivers || [];
     buildVehicleFilter();
     updateDriverStats();
     renderDrivers();
