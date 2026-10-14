@@ -36,9 +36,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const {data:memberships,error:membershipError}=await db
             .from("company_users")
-            .select("company_id,role,companies!inner(company_code)")
+            .select("company_id,role,active,companies!inner(company_code)")
             .eq("user_id",user.id);
-        const adminMemberships=(memberships||[]).filter(item=>["admin","owner"].includes(String(item.role||"").trim().toLowerCase()));
+        const adminMemberships=(memberships||[]).filter(item=>item.active!==false&&["admin","owner","office_manager","office_staff"].includes(String(item.role||"").trim().toLowerCase()));
         if(membershipError||!adminMemberships.length){
             await db.auth.signOut();
             message.textContent=membershipError?.message||"Your login is not linked to an Admin account.";

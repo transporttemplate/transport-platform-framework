@@ -1,10 +1,10 @@
 const adminDb = getSupabase();
-const ADMIN_ALLOWED_ROLES = new Set(["admin", "owner"]);
+const ADMIN_ALLOWED_ROLES = new Set(["admin", "owner", "office_manager", "office_staff"]);
 
 document.body?.classList.remove("admin-authenticated");
 
 function isAdminMembership(membership) {
-    return ADMIN_ALLOWED_ROLES.has(String(membership?.role || "").trim().toLowerCase());
+    return membership?.active !== false && ADMIN_ALLOWED_ROLES.has(String(membership?.role || "").trim().toLowerCase());
 }
 
 async function loginCompanyCode() {
@@ -112,7 +112,7 @@ window.addEventListener("pageshow", async event => {
         return;
     }
     const { data: membership } = await adminDb.from("company_users")
-        .select("company_id,role")
+        .select("company_id,role,active")
         .eq("user_id", user.id)
         .eq("company_id", window.ADMIN_COMPANY_ID)
         .maybeSingle();
@@ -165,6 +165,9 @@ window.adminCompanyReadyPromise = (async () => {
         .select(`
             company_id,
             role,
+            active,
+            permission_grants,
+            permission_denials,
             companies (
                 id,
                 company_code,
@@ -218,6 +221,7 @@ window.adminCompanyReadyPromise = (async () => {
     window.ADMIN_COMPANY_ID = companyUser.company_id;
     window.ADMIN_COMPANY = companyUser.companies || null;
     window.ADMIN_ROLE = companyUser.role || "admin";
+    window.ADMIN_PERMISSIONS = { grants: companyUser.permission_grants || [], denials: companyUser.permission_denials || [] };
     window.ADMIN_PLATFORM_ROLE = String(user.app_metadata?.platform_role || "");
     window.ADMIN_COMPANIES = memberships;
 
@@ -233,6 +237,7 @@ window.adminCompanyReadyPromise = (async () => {
             companyId: window.ADMIN_COMPANY_ID,
             company: window.ADMIN_COMPANY,
             role: window.ADMIN_ROLE,
+            permissions: window.ADMIN_PERMISSIONS,
             platformRole: window.ADMIN_PLATFORM_ROLE,
             memberships: window.ADMIN_COMPANIES
         }
@@ -243,6 +248,7 @@ window.adminCompanyReadyPromise = (async () => {
         companyId: window.ADMIN_COMPANY_ID,
         company: window.ADMIN_COMPANY,
         role: window.ADMIN_ROLE,
+        permissions: window.ADMIN_PERMISSIONS,
         platformRole: window.ADMIN_PLATFORM_ROLE,
         memberships: window.ADMIN_COMPANIES
     };

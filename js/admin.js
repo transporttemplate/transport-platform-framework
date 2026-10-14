@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         preserveAdminCompanyLinks(context.company?.company_code);
         initialiseAdminCompanySwitcher(context);
         initialiseTrialAccount(context);
+        applyStaffNavigationPermissions(context);
     }
     await loadAdminCompanyTheme();
 });
@@ -15,6 +16,16 @@ function ensureAdminCompanyQuery(companyCode) {
     const url = new URL(location.href);
     url.searchParams.set("company", companyCode);
     history.replaceState(null, "", url);
+}
+
+function applyStaffNavigationPermissions(context) {
+    const role=String(context.role||"").toLowerCase();
+    if(!["office_manager","office_staff"].includes(role))return;
+    const grants=new Set(context.permissions?.grants||[]),denials=new Set(context.permissions?.denials||[]);
+    const preset=role==="office_manager"?["bookings.read","bookings.create","bookings.update","bookings.assign_driver","bookings.cancel","customers.read","customers.message","drivers.read","drivers.message","vehicles.read","availability.manage","reports.operational.read"]:["bookings.read","bookings.create","bookings.update","bookings.assign_driver","customers.read","customers.message","drivers.read","drivers.message","vehicles.read"];
+    const allowed=p=>!denials.has(p)&&(grants.has(p)||preset.includes(p));
+    const rules={"accounts.html":"payments.read","reports.html":"reports.operational.read","drivers.html":"drivers.read","availability.html":"availability.manage","customers.html":"customers.read","settings.html":"security.permissions.manage","api-management.html":"integrations.company.manage","sms-admin.html":"sms.inbox.read","email-templates.html":"email.settings.manage","email-usage.html":"email.settings.manage"};
+    document.querySelectorAll("a[href]").forEach(link=>{const path=new URL(link.href,location.href).pathname.split("/").pop();const permission=rules[path];if(permission&&!allowed(permission))link.hidden=true});
 }
 
 function preserveAdminCompanyLinks(companyCode) {

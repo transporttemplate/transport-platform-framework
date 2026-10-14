@@ -27,7 +27,7 @@ test('every discovered Admin HTML route loads the shared authentication guard', 
 test('protected content stays hidden until server-validated user, role and membership checks pass', () => {
   assert.match(css, /body:not\(\.login-page\):not\(\.admin-authenticated\)\{visibility:hidden\}/);
   assert.match(auth, /adminDb\.auth\.getUser\(\)/);
-  assert.match(auth, /ADMIN_ALLOWED_ROLES = new Set\(\["admin", "owner"\]\)/);
+  assert.match(auth, /ADMIN_ALLOWED_ROLES = new Set\(\["admin", "owner", "office_manager", "office_staff"\]\)/);
   assert.match(auth, /\.from\("company_users"\)/);
   assert.match(auth, /adminMemberships = \(companyUsers \|\| \[\]\)\.filter\(isAdminMembership\)/);
   const initialGuard = auth.slice(auth.indexOf('window.adminCompanyReadyPromise'));
@@ -39,7 +39,7 @@ test('company identity is preserved and wrong-company logins are rejected', () =
   assert.match(auth, /adminAuthUrl\("login\.html", companyCode\)/);
   assert.match(login, /resolveLoginCompanyCode\(db\)/);
   assert.match(login, /Your login is not authorised for this company/);
-  assert.match(login, /\["admin","owner"\]/);
+  assert.match(login, /\["admin","owner","office_manager","office_staff"\]/);
 });
 
 test('idle logout, warning, multi-tab logout and bfcache revalidation remain enforced', () => {
