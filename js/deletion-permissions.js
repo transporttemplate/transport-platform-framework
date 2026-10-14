@@ -7,9 +7,9 @@
   const client=getSupabase(),context=await window.getAdminCompanyContext(),user=(await client.auth.getUser()).data.user;
   const companiesResult=await client.rpc("booking_deletion_management_companies");
   if(companiesResult.error||!companiesResult.data?.length){picker.hidden=true;notice.textContent="Permission remains disabled. A verified company Owner for this company or an authorised platform administrator must manage it here.";notice.classList.add("error");return;}
-  picker.innerHTML=companiesResult.data.map(c=>`<option value="${escape(c.company_id)}">${escape(c.company_code)} — ${escape(c.company_name)} (${escape(c.authority.replace("_"," "))})</option>`).join("");
-  const preferred=companiesResult.data.find(c=>c.company_id===context.companyId);if(preferred)picker.value=preferred.company_id;
-  picker.onchange=load;await load();
+  const preferred=companiesResult.data.find(c=>c.company_id===context.companyId),options=companiesResult.data.map(c=>`<option value="${escape(c.company_id)}">${escape(c.company_code)} — ${escape(c.company_name)} (${escape(c.authority.replace("_"," "))})</option>`).join("");
+  picker.innerHTML=preferred?options:`<option value="" selected disabled>${escape(context.company?.company_code||"Active company")} — Owner or platform administrator authority required</option>${options}`;if(preferred)picker.value=preferred.company_id;
+  picker.onchange=load;if(preferred)await load();else{notice.textContent="Permission remains disabled for the active company. Select a company you own below, or ask an authorised platform administrator to manage this company.";notice.classList.add("error");list.innerHTML="No authorised users can be managed in the active company from this session.";history.innerHTML="Audit history is available only to that company's Owner or an authorised platform administrator.";}
   async function load(){
    const companyId=picker.value;notice.classList.remove("error");notice.textContent="Loading company-scoped permissions…";
    const [membersResult,historyResult]=await Promise.all([client.rpc("booking_deletion_permission_members",{target_company_id:companyId}),client.rpc("booking_deletion_permission_history",{target_company_id:companyId})]);
