@@ -21,7 +21,7 @@ test("cancellation is locked atomic scoped and preserves financial data",()=>{
 test("deletion permission is owner-managed off-by-default and never mass granted",()=>{
   assert.match(sql,/lower\(role\)='owner'/);assert.match(sql,/set_booking_deletion_permission/);
   assert.doesNotMatch(sql,/update public\.company_users set can_permanently_delete_bookings=true/i);
-  assert.match(read("settings-system.html"),/deletion-permissions\.js/);
+  assert.match(read("settings-security.html"),/deletion-permissions\.js/);
 });
 test("permanent deletion retains real password reauthentication and recoverable calendar cleanup",()=>{
   assert.match(menu,/signInWithPassword/);assert.match(menu,/permanent_deletion_cleanup:true/);assert.match(menu,/exact-reference|Type \$\{escapeMenu/i);
