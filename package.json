@@ -1,6 +1,8 @@
 {
   "scripts": {
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "backup:synthetic": "node scripts/backup/synthetic-recovery.mjs",
+    "backup:production": "node scripts/backup/run.mjs --production"
   },
   "devDependencies": {
     "supabase": "^2.117.0"
