@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
         const context = await window.getAdminCompanyContext();
         currentCompanyId = context.companyId;
-        await Promise.all([loadDrivers(),loadVehicles()]);
+        await Promise.all([loadDrivers(),loadVehicles(),loadPrivacyNotice()]);
     } catch (error) {
         console.error("Driver management startup error:", error);
         renderDriverError("Unable to load the signed-in company.");
@@ -56,7 +56,11 @@ function bindDriverManagementUI() {
     document.getElementById("cancelVehicleButton")?.addEventListener("click",closeVehicleForm);
     document.getElementById("vehicleForm")?.addEventListener("submit",saveVehicle);
     document.getElementById("vehicleSearch")?.addEventListener("input",renderVehicles);
+    document.getElementById("driverPrivacyAdminForm")?.addEventListener("submit",savePrivacyNotice);
 }
+
+async function loadPrivacyNotice(){const{data,error}=await driversDb.functions.invoke('driver-portal',{body:{action:'admin_get_privacy',company_id:currentCompanyId}});if(error||!data?.ok)return;document.getElementById('driverPrivacyAdminText').value=data.notice.notice_text;document.getElementById('driverPrivacyAdminContact').value=data.notice.privacy_contact;document.getElementById('driverPrivacyAdminStatus').textContent=`Current version ${data.notice.version}`}
+async function savePrivacyNotice(event){event.preventDefault();const status=document.getElementById('driverPrivacyAdminStatus'),body={action:'admin_save_privacy',company_id:currentCompanyId,notice_text:document.getElementById('driverPrivacyAdminText').value,privacy_contact:document.getElementById('driverPrivacyAdminContact').value};const{data,error}=await driversDb.functions.invoke('driver-portal',{body});status.textContent=error||!data?.ok?(data?.error||error?.message||'Unable to save notice'):`Saved version ${data.version}${data.reacknowledgement_required?' · drivers must acknowledge again':''}`}
 
 async function loadDrivers() {
     const body = document.getElementById("driversTableBody");

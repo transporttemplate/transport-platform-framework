@@ -134,6 +134,8 @@
 <div><a class="button" href="driver-documents.html">Driver Documents</a> <button id="addVehicleButton" type="button">+ Add Vehicle</button> <button id="addDriverButton" type="button">+ Add Driver</button></div>
 </div>
 
+<div class="card" style="margin-top:25px"><h3>Driver Privacy Notice</h3><p class="muted">Essential transparency text cannot be removed. Material edits create a new version and require acknowledgement again.</p><form id="driverPrivacyAdminForm"><label>Notice text<textarea id="driverPrivacyAdminText" rows="7" minlength="300" required style="width:100%"></textarea></label><label>Privacy contact<input id="driverPrivacyAdminContact" required style="width:100%"></label><button type="submit">Save notice version</button> <span id="driverPrivacyAdminStatus" class="muted"></span></form></div>
+
 <div class="card" style="margin-top:25px;"><div class="driver-modal-header"><div><h3>Vehicle List</h3><p class="muted">Separate fleet records and compliance dates.</p></div><input id="vehicleSearch" placeholder="Search registration, make or model" style="max-width:320px"></div><div class="table-wrap"><table><thead><tr><th>Registration</th><th>Vehicle</th><th>Seats</th><th>Taxi plate</th><th>MOT</th><th>Insurance</th><th>Status</th><th>Action</th></tr></thead><tbody id="vehiclesTableBody"><tr><td colspan="8">Loading vehicles…</td></tr></tbody></table></div></div>
 
 <div class="stats">

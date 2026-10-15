@@ -98,7 +98,7 @@ begin
    clone:=to_jsonb(b)-array['id','company_id','booking_reference','driver_id','accepted_at','on_way_at','arrived_at','passenger_onboard_at','completed_at','cancelled_at','created_at','updated_at','creation_idempotency_key'];
    clone:=clone||jsonb_build_object('id',gen_random_uuid(),'company_id',o.receiver_company_id,'booking_reference',new_ref,'driver_id',null,
      'status','waiting','booking_status','waiting','booking_source','job_exchange','price',0,'amount_paid',0,'balance_due',0,
-     'payment_status','paid','driver_amount',o.supplier_payment,'creation_idempotency_key','exchange_'||o.id);
+     'payment_status','unpaid','driver_amount',0,'creation_idempotency_key','exchange_'||o.id);
    created:=jsonb_populate_record(null::bookings,clone);insert into bookings select created.* returning * into created;
    new_status:='accepted';update job_exchange_offers set status=new_status,receiving_booking_id=created.id,accepted_by=target_actor,accepted_at=now(),journey_status='waiting',updated_at=now() where id=o.id;
  else raise exception 'Unsupported offer action';end if;

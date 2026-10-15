@@ -159,13 +159,15 @@
 </section>
 
 <section id="view-settings" class="driver-view">
-    <div class="page-title"><span class="eyebrow">PREFERENCES</span><h2>Driver settings</h2><p>Appearance and customer contact sharing.</p></div>
+    <div class="page-title"><span class="eyebrow">PREFERENCES</span><h2>Driver settings</h2><p>Appearance, privacy notice and optional contact sharing.</p></div>
+    <article class="form-card privacy-notice"><h3>Driver Privacy Notice</h3><div id="driverPrivacyNotice">Loading the company privacy notice…</div><p><strong>Privacy contact:</strong> <span id="driverPrivacyContact">Company office</span></p><label class="preference-check"><input id="driverPrivacyAcknowledged" type="checkbox"><span>I have read and understood the Driver Privacy Notice.</span></label><button id="acknowledgePrivacy" class="btn" type="button">Save acknowledgement</button><p id="privacyMessage" class="form-message" role="status"></p></article>
     <form id="driverPreferencesForm" class="form-card preferences-form">
       <label for="driverTheme">Appearance</label><select id="driverTheme"><option value="device">Follow device theme</option><option value="dark">Dark mode</option><option value="light">Light mode</option></select>
       <label for="driverTextSize">Text size</label><select id="driverTextSize"><option value="normal">Normal</option><option value="large">Large</option><option value="extra_large">Extra large</option></select>
-      <label class="preference-check"><input id="driverPhoneSharing" type="checkbox"><span>Allow customers to see my phone number for assigned journeys</span></label>
+      <h3>Privacy</h3><label class="preference-check"><input id="driverProviderPhoneSharing" type="checkbox"><span>Share my phone number with authorised booking providers.</span></label>
+      <label class="preference-check"><input id="driverPassengerPhoneSharing" type="checkbox"><span>Share my phone number with passengers on my assigned journeys.</span></label>
       <label for="driverPublicPhone">Approved public/business contact number</label><input id="driverPublicPhone" type="tel" autocomplete="tel">
-      <p class="accounts-note">This is off by default and also requires company approval. Personal contact details are never shared merely because they are stored.</p>
+      <p class="accounts-note">Both choices are off by default and also require company approval. Withdrawing either choice prevents subsequent disclosures. A privacy acknowledgement does not enable phone sharing.</p>
       <div id="preferencesMessage" class="form-message hidden" role="status"></div><button class="btn btn-primary" type="submit">Save preferences</button>
     </form>
 </section>

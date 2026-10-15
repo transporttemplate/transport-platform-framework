@@ -2,6 +2,7 @@ const driverdb = getSupabase();
 
 let currentCompany = null;
 let currentDriver = null;
+let currentPrivacyNotice = null;
 let currentJob = null;
 let selectedJob = null;
 let driverBookings = [];
@@ -87,6 +88,7 @@ function bindDriverUI() {
     document.getElementById("driverMessageForm")?.addEventListener("submit", sendInternalDriverMessage);
     document.querySelector(".quick-replies")?.addEventListener("click", event => { const button=event.target.closest("button"); if(button){document.getElementById("driverMessageInput").value=button.textContent;document.getElementById("driverMessageInput").focus();} });
     document.getElementById("driverPreferencesForm")?.addEventListener("submit", savePreferences);
+    document.getElementById("acknowledgePrivacy")?.addEventListener("click", acknowledgePrivacyNotice);
     window.addEventListener("online", () => { showConnectionMessage("Connection restored. Refreshing…", false); refreshDriverPortal(true); });
     window.addEventListener("offline", () => showConnectionMessage("You are offline. Displayed jobs may be out of date.", true));
     document.addEventListener("visibilitychange", () => { if (!document.hidden && driverSessionToken) { refreshDriverPortal(); if (navigationController?.active) navigationController.acquireWakeLock(); } });
@@ -237,6 +239,7 @@ function applyDriverPortalData(data) {
     driverCommissionDefault = Number(data.settings?.drivercommission || 0);
     driverCurrencySymbol = data.settings?.currencysymbol || "£";
     driverSettings = data.settings || driverSettings;
+    currentPrivacyNotice=data.privacy||currentPrivacyNotice;renderPrivacyNotice();
     applyDriverPreferences(data.driver);
     renderUnreadMessages(Number(data.unread_messages||0));
     driverNavigationConfig = data.navigation || { enabled: data.settings?.driver_integrated_navigation === true, browser_maps_key: null };
@@ -1176,12 +1179,14 @@ function applyDriverPreferences(driver=currentDriver) {
     if(!driver)return; document.body.classList.remove("theme-light","theme-dark","text-large","text-extra_large");
     const theme=driver.portal_theme||"device"; if(theme==="light"||(theme==="device"&&matchMedia("(prefers-color-scheme: light)").matches))document.body.classList.add("theme-light"); else document.body.classList.add("theme-dark");
     if(driver.portal_text_size==="large")document.body.classList.add("text-large"); if(driver.portal_text_size==="extra_large")document.body.classList.add("text-extra_large");
-    const set=(id,value)=>{const el=document.getElementById(id);if(el)el.value=value||"";};set("driverTheme",theme);set("driverTextSize",driver.portal_text_size||"normal");set("driverPublicPhone",driver.public_contact_phone);const sharing=document.getElementById("driverPhoneSharing");if(sharing)sharing.checked=driver.customer_phone_sharing===true;
+    const set=(id,value)=>{const el=document.getElementById(id);if(el)el.value=value||"";};set("driverTheme",theme);set("driverTextSize",driver.portal_text_size||"normal");set("driverPublicPhone",driver.public_contact_phone);const provider=document.getElementById("driverProviderPhoneSharing"),passenger=document.getElementById("driverPassengerPhoneSharing");if(provider)provider.checked=driver.provider_phone_sharing===true;if(passenger)passenger.checked=driver.passenger_phone_sharing===true;
 }
 async function savePreferences(event) {
-    event.preventDefault();const payload={theme:document.getElementById("driverTheme").value,text_size:document.getElementById("driverTextSize").value,customer_phone_sharing:document.getElementById("driverPhoneSharing").checked,public_contact_phone:document.getElementById("driverPublicPhone").value.trim()};
-    try{const data=await driverPortalRequest("save_preferences",payload);Object.assign(currentDriver,{portal_theme:payload.theme,portal_text_size:payload.text_size,customer_phone_sharing:data.customer_phone_sharing,public_contact_phone:data.customer_phone_sharing?payload.public_contact_phone:null});applyDriverPreferences();const el=document.getElementById("preferencesMessage");if(el){el.textContent="Preferences saved.";el.className="form-message success";}}catch(error){const el=document.getElementById("preferencesMessage");if(el){el.textContent=error.message||"Unable to save preferences.";el.className="form-message error";}}
+    event.preventDefault();const payload={theme:document.getElementById("driverTheme").value,text_size:document.getElementById("driverTextSize").value,provider_phone_sharing:document.getElementById("driverProviderPhoneSharing").checked,passenger_phone_sharing:document.getElementById("driverPassengerPhoneSharing").checked,public_contact_phone:document.getElementById("driverPublicPhone").value.trim()};
+    try{const data=await driverPortalRequest("save_preferences",payload);Object.assign(currentDriver,{portal_theme:payload.theme,portal_text_size:payload.text_size});Object.assign(currentDriver,data);currentDriver.public_contact_phone=data.provider_phone_sharing||data.passenger_phone_sharing?payload.public_contact_phone:null;applyDriverPreferences();const el=document.getElementById("preferencesMessage");if(el){el.textContent="Privacy preferences saved.";el.className="form-message success";}}catch(error){const el=document.getElementById("preferencesMessage");if(el){el.textContent=error.message||"Unable to save preferences.";el.className="form-message error";}}
 }
+function renderPrivacyNotice(){if(!currentPrivacyNotice)return;const text=document.getElementById('driverPrivacyNotice'),contact=document.getElementById('driverPrivacyContact'),check=document.getElementById('driverPrivacyAcknowledged');if(text)text.textContent=currentPrivacyNotice.notice_text;if(contact)contact.textContent=currentPrivacyNotice.privacy_contact;if(check){check.checked=Boolean(currentPrivacyNotice.acknowledged_at);check.disabled=Boolean(currentPrivacyNotice.acknowledged_at)}document.getElementById('acknowledgePrivacy').disabled=Boolean(currentPrivacyNotice.acknowledged_at)}
+async function acknowledgePrivacyNotice(){const check=document.getElementById('driverPrivacyAcknowledged'),message=document.getElementById('privacyMessage');if(!check?.checked){message.textContent='Tick the acknowledgement after reading the notice.';message.className='form-message error';return}try{const result=await driverPortalRequest('acknowledge_privacy',{notice_version:currentPrivacyNotice.version,acknowledged:true});currentPrivacyNotice.acknowledged_at=result.acknowledged_at;renderPrivacyNotice();message.textContent='Privacy notice acknowledgement saved.';message.className='form-message success'}catch(error){message.textContent=error.message||'Unable to save acknowledgement.';message.className='form-message error'}}
 
 function normaliseStatus(status) {
     return String(status || "").trim().toLowerCase().replaceAll(" ", "_");
