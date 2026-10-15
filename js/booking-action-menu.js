@@ -10,7 +10,7 @@
     const statusOf = booking => String(booking?.status || booking?.booking_status || "waiting").toLowerCase();
     const close = () => { menu.hidden = true; activeBooking = null; };
     const findBooking = id => allBookings.find(row => String(row.id) === String(id));
-    const icons={view:"◉",edit:"✎",driver:"⇄",customer_message:"✉",driver_message:"↗",resend:"↻",payments:"£",journey:"⌖",activity:"≡",complete:"✓",cancel:"×",archive:"□",delete:"!"};
+    const icons={view:"◉",edit:"✎",exchange:"⇆",driver:"⇄",customer_message:"✉",driver_message:"↗",resend:"↻",payments:"£",journey:"⌖",activity:"≡",complete:"✓",cancel:"×",archive:"□",delete:"!"};
     const action = (label, name, options = {}) => `<button type="button" role="menuitem" data-menu-action="${name}"${options.danger ? ' class="danger"' : ""}><span aria-hidden="true">${icons[name]||"•"}</span>${label}</button>`;
 
     function openMenu(booking, x, y, anchor) {
@@ -20,6 +20,7 @@
         menu.innerHTML = [
             action("View booking details", "view"),
             editable ? action("Edit booking", "edit") : "",
+            editable ? action("Offer to another company", "exchange") : "",
             editable ? action(booking.driver_id ? "Change driver" : "Assign driver", "driver") : "",
             booking.customer_phone || booking.phone ? action("Message customer", "customer_message") : "",
             booking.driver_id ? action("Message driver", "driver_message") : "",
@@ -46,6 +47,7 @@
         const booking = activeBooking; close(); if (!booking) return;
         if (name === "view") return openBookingView(booking.id);
         if (name === "edit") return typeof beginBookingEdit === "function" ? beginBookingEdit(booking.id) : location.assign(`bookings.html?edit=${encodeURIComponent(booking.id)}`);
+        if (name === "exchange") return location.assign(`job-exchange.html?booking=${encodeURIComponent(booking.id)}`);
         if (name === "driver") return assignDriver(booking);
         if (name === "journey") return location.assign(`journey-playback.html?company=${encodeURIComponent(new URLSearchParams(location.search).get("company")||"")}&booking=${encodeURIComponent(booking.id)}`);
         if (name === "customer_message") return messageCustomer(booking);

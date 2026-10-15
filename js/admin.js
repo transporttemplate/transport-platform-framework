@@ -24,7 +24,7 @@ function applyStaffNavigationPermissions(context) {
     const grants=new Set(context.permissions?.grants||[]),denials=new Set(context.permissions?.denials||[]);
     const preset=role==="office_manager"?["bookings.read","bookings.create","bookings.update","bookings.assign_driver","bookings.cancel","customers.read","customers.message","drivers.read","drivers.message","vehicles.read","availability.manage","reports.operational.read"]:["bookings.read","bookings.create","bookings.update","bookings.assign_driver","customers.read","customers.message","drivers.read","drivers.message","vehicles.read"];
     const allowed=p=>!denials.has(p)&&(grants.has(p)||preset.includes(p));
-    const rules={"accounts.html":"payments.read","reports.html":"reports.operational.read","drivers.html":"drivers.read","availability.html":"availability.manage","customers.html":"customers.read","settings.html":"security.permissions.manage","api-management.html":"integrations.company.manage","sms-admin.html":"sms.inbox.read","email-templates.html":"email.settings.manage","email-usage.html":"email.settings.manage"};
+    const rules={"accounts.html":"payments.read","reports.html":"reports.operational.read","drivers.html":"drivers.read","availability.html":"availability.manage","customers.html":"customers.read","settings.html":"security.permissions.manage","api-management.html":"integrations.company.manage","integrations-centre.html":"integrations.company.manage","job-exchange.html":"integrations.company.manage","sms-admin.html":"sms.inbox.read","email-templates.html":"email.settings.manage","email-usage.html":"email.settings.manage"};
     document.querySelectorAll("a[href]").forEach(link=>{const path=new URL(link.href,location.href).pathname.split("/").pop();const permission=rules[path];if(permission&&!allowed(permission))link.hidden=true});
 }
 
@@ -135,6 +135,11 @@ function initialiseAdminNavigation() {
     const layout = sidebar.closest(".admin-layout");
 
     initialiseEmailNavigation(sidebar);
+    if (!sidebar.querySelector('a[href="job-exchange.html"]')) {
+        const bookingsLink = sidebar.querySelector('a[href="all-bookings.html"]') || sidebar.querySelector('a[href="bookings.html"]');
+        const link = document.createElement('a');link.href='job-exchange.html';link.textContent='🔁 Job Exchange';
+        if(location.pathname.endsWith('/job-exchange.html'))link.classList.add('active');bookingsLink?.after(link);
+    }
     if (!sidebar.querySelector('.admin-sms-nav')) {
         const group = document.createElement('nav');
         group.className = 'admin-email-nav admin-sms-nav';

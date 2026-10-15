@@ -3,10 +3,11 @@ const bookingsDb = getSupabase();
 let allBookings = [];
 let allDrivers = [];
 let allAccountCustomers = [];
-let currentTab = "all";
+let currentTab = "upcoming";
 let activeQuickRange = "this_month";
 let adminCompanyId = null;
 let adminCompany = null;
+let adminTimezone = "Europe/London";
 let adminStopCounters = { pickup: 0, dropoff: 0 };
 
 let dispatchMap = null;
@@ -30,7 +31,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         const context = await window.getAdminCompanyContext();
         adminCompanyId = context.companyId;
         adminCompany = context.company;
-
+        const timezoneResult=await bookingsDb.from("settings").select("timezone").eq("company_id",adminCompanyId).maybeSingle();
+        adminTimezone=timezoneResult.data?.timezone||"Europe/London";
+        currentTab = resolveInitialBookingTab();
+        applyBookingTabSelection();
         setRangeForTab(currentTab);
         bindBookingEvents();
 
@@ -133,6 +137,8 @@ function bindBookingEvents() {
 
                 currentTab =
                     button.dataset.status;
+
+                localStorage.setItem(`bookingsDefaultView:${adminCompanyId}`,currentTab);
 
                 setRangeForTab(currentTab);
                 updateStatusFilterForTab();
@@ -533,8 +539,8 @@ function matchesTab(booking) {
     if (currentTab === "cancelled") return ["cancelled", "canceled"].includes(status);
     if (currentTab === "on_job") return ["accepted", "on_way", "arrived", "passenger_onboard"].includes(status);
     if (currentTab === "upcoming") {
-        const activeOrFinal = ["accepted", "on_way", "arrived", "passenger_onboard", "completed", "cancelled", "canceled", "no_show"];
-        return booking.journey_date >= localDateKey(new Date()) && !activeOrFinal.includes(status);
+        const finalStatuses = ["completed", "cancelled", "canceled", "no_show", "archived"];
+        return booking.journey_date >= companyTodayKey() && !finalStatuses.includes(status);
     }
     return true;
 }
@@ -2038,8 +2044,8 @@ function referenceRoot(reference) {
 
 function updateCounts() {
     const count = statuses => allBookings.filter(booking => statuses.includes(bookingStatus(booking))).length;
-    const today = localDateKey(new Date());
-    const finalOrActive = ["accepted", "on_way", "arrived", "passenger_onboard", "completed", "cancelled", "canceled", "no_show"];
+    const today = companyTodayKey();
+    const finalOrActive = ["completed", "cancelled", "canceled", "no_show", "archived"];
     setCount("countAll", allBookings.length);
     setCount("countUpcoming", allBookings.filter(booking => booking.journey_date >= today && !finalOrActive.includes(bookingStatus(booking))).length);
     setCount("countOnJob", count(["accepted", "on_way", "arrived", "passenger_onboard"]));
@@ -2047,6 +2053,10 @@ function updateCounts() {
     setCount("countNoShow", count(["no_show"]));
     setCount("countCancelled", count(["cancelled", "canceled"]));
 }
+
+function resolveInitialBookingTab(){const params=new URLSearchParams(location.search),explicit=params.get('view')||params.get('status_tab')||params.get('status');if(['all','upcoming','on_job','completed','no_show','cancelled'].includes(explicit))return explicit;const saved=localStorage.getItem(`bookingsDefaultView:${adminCompanyId}`);return ['all','upcoming','on_job','completed','no_show','cancelled'].includes(saved)?saved:'upcoming'}
+function applyBookingTabSelection(){document.querySelectorAll('.booking-tabs button').forEach(button=>button.classList.toggle('active',button.dataset.status===currentTab))}
+function companyTodayKey(){try{const parts=new Intl.DateTimeFormat('en-GB',{timeZone:adminTimezone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()),get=t=>parts.find(x=>x.type===t)?.value;return `${get('year')}-${get('month')}-${get('day')}`}catch{return localDateKey(new Date())}}
 
 
 function setCount(
