@@ -85,6 +85,8 @@ function bindBookingEvents() {
     document.getElementById("dateFrom")?.addEventListener("change", onCustomDateChange);
     document.getElementById("dateTo")?.addEventListener("change", onCustomDateChange);
     document.getElementById("paymentFilter")?.addEventListener("change", renderBookings);
+    document.getElementById("sourceFilter")?.addEventListener("change", renderBookings);
+    document.getElementById("accountFilter")?.addEventListener("change", renderBookings);
     document.querySelectorAll("[data-range]").forEach(button => button.addEventListener("click", () => applyQuickRange(button.dataset.range)));
 
     document
@@ -163,10 +165,12 @@ function bindBookingEvents() {
 
 async function loadAccountCustomers() {
     const { data, error } = await bookingsDb.from("account_customers")
-        .select("id,company_id,account_code,business_name,status,po_required,default_po_reference")
+        .select("id,company_id,account_code,business_name,account_colour,status,po_required,default_po_reference")
         .eq("company_id", adminCompanyId).order("business_name");
     if (error) { console.error("Unable to load account customers:", error); return; }
     allAccountCustomers = data || [];
+    const accountFilter=document.getElementById("accountFilter");
+    if(accountFilter)accountFilter.innerHTML='<option value="">All accounts</option>'+allAccountCustomers.map(account=>`<option value="${escapeHtml(account.id)}">${escapeHtml(account.business_name)}</option>`).join("");
     for (const id of ["accountCustomerSelect", "editAccountCustomer"]) {
         const select = document.getElementById(id);
         if (!select) continue;
@@ -566,6 +570,8 @@ function renderBookings() {
             .getElementById("statusFilter")
             ?.value || "";
     const paymentFilter=document.getElementById("paymentFilter")?.value||"";
+    const sourceFilter=document.getElementById("sourceFilter")?.value||"";
+    const accountFilter=document.getElementById("accountFilter")?.value||"";
 
     const rows =
         allBookings.filter(booking => {
@@ -600,6 +606,9 @@ function renderBookings() {
                 return false;
             }
             if(paymentFilter&&bookingPaymentKind(booking)!==paymentFilter)return false;
+            const source=booking.source_channel||({integration:"external_api",external_dispatch:"external_api",job_exchange:"internal_job_exchange",admin:"manual_admin"}[booking.booking_source]||booking.booking_source||"website");
+            if(sourceFilter&&source!==sourceFilter)return false;
+            if(accountFilter&&String(booking.account_customer_id||"")!==accountFilter)return false;
 
             if (search) {
 
@@ -641,7 +650,7 @@ function renderBookings() {
     if (!rows.length) {
 
         body.innerHTML =
-            '<tr><td colspan="10" class="empty-row">No bookings found for this view.</td></tr>';
+            '<tr><td colspan="11" class="empty-row">No bookings found for this view.</td></tr>';
 
         return;
     }
@@ -766,6 +775,8 @@ function bookingRowHtml(booking) {
                 )}
                 ${booking.account_customer_id ? `<br><small>${escapeHtml(accountBookingLabel(booking))}</small>` : ""}
             </td>
+
+            <td data-label="Source / Account">${sourceAccountLabel(booking)}</td>
 
             <td data-label="Route" class="compact-route-cell" title="${escapeHtml(`${booking.pickup_address||booking.pickup||"-"} → ${booking.dropoff_address||booking.destination||"-"}`)}"><span>${escapeHtml(booking.pickup_address||booking.pickup||"-")}</span><b>→</b><span>${escapeHtml(booking.dropoff_address||booking.destination||"-")}</span></td>
 
@@ -1354,8 +1365,7 @@ async function openBookingView(id) {
 
     setText(
         "viewSource",
-        booking.booking_source ||
-        "website"
+        booking.source_account_name ? `${booking.source_account_name} — ${prettyStatus(booking.source_channel || booking.booking_source || "website")}` : booking.source_channel || booking.booking_source || "website"
     );
 
     setText(
@@ -2203,6 +2213,7 @@ function accountBookingLabel(booking) {
     const account = allAccountCustomers.find(row => String(row.id) === String(booking.account_customer_id));
     return account ? `${account.account_code} — ${account.business_name}` : "Account customer";
 }
+function sourceAccountLabel(booking){const account=allAccountCustomers.find(row=>String(row.id)===String(booking.account_customer_id));const source=booking.source_channel||({integration:"External API",external_dispatch:"External API",job_exchange:"Internal Job Exchange",admin:"Manual Admin"}[booking.booking_source])||booking.booking_source||"Website";const name=booking.source_account_name||account?.business_name;const colour=booking.source_account_colour||account?.account_colour||"#64748b";return `<span class="account-source-label" style="--account-colour:${escapeHtml(colour)}">${escapeHtml(name?`${name} — ${prettyStatus(source)}`:prettyStatus(source))}</span>`;}
 
 function driverCommissionDisplay(booking) {
     const companyRate = Number(quoteSettings.drivercommission || 0);

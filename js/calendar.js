@@ -506,7 +506,7 @@ function openCalendarBooking(id) {
     setText("detailPrice", money(booking.price ?? booking.job_price));
     setText("detailPayment", booking.payment_method || booking.payment_status || "-");
     setText("detailViaStops", (booking.via_stops || []).map(stop => `${stop.stop_order}. ${stop.formatted_address}`).join("\n") || "-");
-    setText("detailSource", booking.booking_source || "website");
+    setText("detailSource", booking.source_account_name ? `${booking.source_account_name} — ${String(booking.source_channel || booking.booking_source || "website").replaceAll("_"," ")}` : booking.source_channel || booking.booking_source || "website");
     setText("detailNotes", booking.notes || "-");
 
     document.getElementById("calendarBookingBackdrop")?.classList.add("open");

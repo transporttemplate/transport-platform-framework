@@ -481,6 +481,8 @@ Status
 <label>Payment
 <select id="paymentFilter"><option value="">All</option><option value="paid">Paid</option><option value="unpaid">Unpaid</option><option value="part_paid">Part Paid</option><option value="account">Account / Invoice</option></select>
 </label>
+<label>Source<select id="sourceFilter"><option value="">All sources</option><option value="website">Website</option><option value="passenger_app">Passenger app</option><option value="phone_office">Phone / office</option><option value="corporate_account">Corporate account</option><option value="external_api">External API</option><option value="internal_job_exchange">Internal Job Exchange</option><option value="manual_admin">Manual Admin</option><option value="other">Other</option></select></label>
+<label>Account<select id="accountFilter"><option value="">All accounts</option></select></label>
 
 <button id="refreshBookings" type="button">
 Refresh
@@ -496,6 +498,7 @@ Refresh
 <th>Date / Time</th>
 <th>Reference</th>
 <th>Customer</th>
+<th>Source / Account</th>
 <th>Route</th>
 <th>Driver</th>
 <th>Journey</th>
@@ -508,7 +511,7 @@ Refresh
 
 <tbody id="bookingsBody">
 <tr>
-<td colspan="10" class="empty-row">
+<td colspan="11" class="empty-row">
 Loading bookings…
 </td>
 </tr>

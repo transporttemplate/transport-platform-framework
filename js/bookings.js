@@ -1632,8 +1632,7 @@ async function openBookingView(id) {
 
     setText(
         "viewSource",
-        booking.booking_source ||
-        "website"
+        booking.source_account_name ? `${booking.source_account_name} — ${prettyStatus(booking.source_channel || booking.booking_source || "website")}` : booking.source_channel || booking.booking_source || "website"
     );
 
     setText(

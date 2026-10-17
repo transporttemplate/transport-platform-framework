@@ -3,32 +3,41 @@
 <head><style data-admin-canvas>html,body{background:#0b1220}</style>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Contracts / Account Customers</title>
-<link rel="stylesheet" href="css/admin.css">
+<title>Accounts Management</title>
+<link rel="stylesheet" href="css/admin.css"><link rel="stylesheet" href="css/admin-release8.css">
 </head>
 <body>
 <div class="admin-layout">
 <aside class="sidebar"><h2>Transport Admin</h2><a href="dashboard.html">🏠 Dashboard</a><a href="bookings.html">📖 Bookings</a>
 <a href="all-bookings.html">📚 All Bookings</a><a href="customers.html">👥 Customers</a><a class="active" href="contracts.html">🏢 Contracts / Accounts</a><a href="drivers.html">🚖 Drivers</a><a href="availability.html">🟢 Availability</a><a href="accounts.html">💷 Finance</a><a href="invoices.html">🧾 Invoices</a><a href="calendar.html">📅 Calendar</a><a href="reports.html">📊 Reports</a><a href="email-templates.html">📧 Email Templates</a><a href="settings.html">⚙️ Settings</a><hr><a href="login.html">🚪 Logout</a></aside>
 <main class="main">
-<div class="topbar"><div><h2>Contracts / Account Customers</h2><small>Private business accounts and invoice details</small></div><button id="newAccount" type="button">+ New Account</button></div>
-<section class="card"><div class="grid-2"><label>Search<input id="accountSearch" type="search" placeholder="Account code, business or contact"></label><label>Status<select id="accountStatusFilter"><option value="">All statuses</option><option value="active">Active</option><option value="suspended">Suspended</option><option value="closed">Closed</option></select></label></div><div style="overflow-x:auto"><table><thead><tr><th>Code</th><th>Business</th><th>Contact</th><th>Billing email</th><th>Terms</th><th>Status</th><th></th></tr></thead><tbody id="accountRows"><tr><td colspan="7">Loading accounts…</td></tr></tbody></table></div></section>
-<section class="card" id="accountFormCard" hidden><div class="topbar"><div><h3 id="accountFormTitle">New Account Customer</h3><small>Account details are visible only to this company's authenticated admins.</small></div><button id="cancelAccount" type="button">Cancel</button></div>
+<div class="topbar"><div><h2>Contracts / Accounts</h2><small>Customers, suppliers, payment rules and verified provider connections</small></div><button id="newAccount" type="button">+ New Account</button></div>
+<section class="card"><div class="grid-2"><label>Search<input id="accountSearch" type="search" placeholder="Account code, organisation or contact"></label><label>Status<select id="accountStatusFilter"><option value="">All statuses</option><option value="active">Active</option><option value="suspended">Suspended</option><option value="archived">Archived</option></select></label></div><div style="overflow-x:auto"><table><thead><tr><th>Account</th><th>Category</th><th>Relationship</th><th>Contact</th><th>Payment terms</th><th>API</th><th>Status</th><th></th></tr></thead><tbody id="accountRows"><tr><td colspan="8">Loading accounts…</td></tr></tbody></table></div></section>
+<section class="card" id="accountFormCard" hidden><div class="topbar"><div><h3 id="accountFormTitle">New Account</h3><small>Account details and rules remain isolated to this company.</small></div><button id="cancelAccount" type="button">Cancel</button></div>
 <form id="accountForm"><input id="accountId" type="hidden"><div class="grid-2">
 <label>Account code<input id="accountCode" required maxlength="40" placeholder="ET547"></label>
-<label>Business name<input id="businessName" required maxlength="160"></label>
+<label>Account name<input id="businessName" required maxlength="160"></label>
+<label>Category<select id="accountCategory"><option value="external_dispatch_provider">External dispatch provider</option><option value="taxi_company">Taxi company</option><option value="corporate_customer">Corporate customer</option><option value="school">School</option><option value="council">Council</option><option value="nhs_healthcare">NHS / healthcare</option><option value="hotel">Hotel</option><option value="travel_agency">Travel agency</option><option value="private_business" selected>Private business</option><option value="other">Other</option></select></label>
+<label>Relationship<select id="accountRelationship"><option value="customer">Customer</option><option value="supplier">Supplier</option><option value="both">Customer and supplier</option></select></label>
+<label>Account colour<span class="account-colour-control"><input id="accountColour" type="color" value="#64748b"><select id="accountColourPreset"><option value="#64748b">Neutral</option><option value="#7c3aed">Purple</option><option value="#2563eb">Blue</option><option value="#16a34a">Green</option><option value="#dc2626">Red</option><option value="#d97706">Amber</option></select></span></label>
 <label>Main contact name<input id="contactName" maxlength="160"></label>
 <label>Contact phone<input id="contactPhone" type="tel" maxlength="50"></label>
 <label>Authorised contact email<input id="contactEmail" type="email" maxlength="254"></label>
 <label>Billing email<input id="billingEmail" type="email" maxlength="254"></label>
 <label>Invoice contact/name<input id="invoiceContactName" maxlength="160"></label>
 <label>Billing postcode<input id="billingPostcode" maxlength="16"></label>
+<label>Company registration<input id="companyRegistration" maxlength="80"></label>
+<label>VAT number<input id="vatNumber" maxlength="80"></label>
 <label>Payment terms (days)<input id="paymentTermsDays" type="number" min="0" max="365" value="30"></label>
-<label>Status<select id="accountStatus"><option value="active">Active</option><option value="suspended">Suspended</option><option value="closed">Closed</option></select></label>
+<label>Default customer payment<select id="defaultPaymentMethod"><option value="cash">Cash / pay in car</option><option value="card">Card / online</option><option value="prepaid">Prepaid</option><option value="on_account" selected>On account</option><option value="invoice_later">Invoice later</option><option value="other">Other</option></select></label>
+<label>Supplier settlement<select id="supplierPaymentTerms"><option value="on_account">On account</option><option value="direct">Direct</option><option value="receiver_retains">Receiver retains</option><option value="other">Other</option></select></label>
+<label>Invoice frequency<select id="invoiceFrequency"><option value="weekly">Weekly</option><option value="fortnightly">Fortnightly</option><option value="monthly" selected>Monthly</option><option value="per_booking">Per booking</option><option value="other">Other</option></select></label>
+<label>Status<select id="accountStatus"><option value="active">Active</option><option value="suspended">Suspended</option><option value="archived">Archived</option></select></label>
 <label><input id="poRequired" type="checkbox" style="width:auto"> PO/reference required</label>
 <label>Default PO/reference<input id="defaultPoReference" maxlength="120"></label>
 <label style="grid-column:1/-1">Billing address<textarea id="billingAddress" rows="3"></textarea></label>
 <label style="grid-column:1/-1">Private admin notes<textarea id="accountNotes" rows="3"></textarea></label>
+<fieldset style="grid-column:1/-1"><legend>Booking and privacy rules</legend><div class="grid-2"><label><input id="shareDriverPhone" type="checkbox" style="width:auto"> Allow driver phone sharing when the driver also opts in</label><label><input id="customerNotifications" type="checkbox" style="width:auto" checked> Customer notifications enabled</label><label>Allowed vehicle categories<input id="allowedVehicleCategories" placeholder="Saloon, MPV, Executive"></label><label>Provider reference format<input id="providerReferenceFormat" maxlength="100"></label></div></fieldset>
 </div><button type="submit" id="saveAccount">Save Account</button><span id="accountMessage" role="status"></span></form></section>
 </main></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/supabase.js"></script><script src="js/auth.js"></script><script src="js/admin.js"></script><script src="js/contracts.js"></script>
