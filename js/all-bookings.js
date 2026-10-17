@@ -376,7 +376,7 @@ async function loadDrivers() {
             "Unable to load drivers:",
             error
         );
-
+        allDrivers=[];const select=document.getElementById("driverSelect");if(select)select.innerHTML='<option value="">Drivers unavailable — refresh or contact an administrator</option>';
         return;
     }
 
@@ -412,7 +412,7 @@ function populateDriverDropdown() {
             driver.id;
 
         option.textContent =
-            `${driver.driver_number || "-"} — ${driver.full_name || "Driver"}${driver.online ? " • ONLINE" : ""}`;
+            `${driver.driver_number || "-"} — ${driver.full_name || "Driver"} • ${driver.active===false?"INACTIVE":driver.online?"ONLINE":"OFFLINE"}`;
 
         select.appendChild(option);
     });
