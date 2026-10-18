@@ -192,29 +192,44 @@
 
     async function loadPublicSettings(db, companyId) {
         const baseColumns = "company_id,companyname,tradingname,companyphone,companyemail,companyaddress,companylogo,currencysymbol,allowairportoutsidearea,primarycolour,secondarycolour,accentcolour,buttoncolour,buttontextcolour,businessstatus,holidayfrom,holidayto,websitenotice,acceptadvancebookings,bookwhileclosed,closedmessage,timezone,empty_legs_enabled,empty_legs_public_enabled";
+        const coreColumns = baseColumns.replace(",empty_legs_enabled,empty_legs_public_enabled", "");
+        const featureColumns = "empty_legs_enabled,empty_legs_public_enabled";
         const publicThemeColumns = "publicbackgroundcolour,publiccardcolour,publicheadercolour,publictextcolour,publicmutedcolour,publicfootercolour";
         const hoursColumns = "monopen,monclose,monenabled,mon24hours,tueopen,tueclose,tueenabled,tue24hours,wedopen,wedclose,wedenabled,wed24hours,thuopen,thuclose,thuenabled,thu24hours,friopen,friclose,frienabled,fri24hours,satopen,satclose,satenabled,sat24hours,sunopen,sunclose,sunenabled,sun24hours";
         const homeColumns = "homeheroheading,homeherodescription,homeherobuttontext,homesellingpoint1enabled,homesellingpoint1text,homesellingpoint2enabled,homesellingpoint2text,homesellingpoint3enabled,homesellingpoint3text,homesellingpoint4enabled,homesellingpoint4text";
-        const mediaColumns = `${baseColumns},homeheroimage,bookingheroimage,contactheroimage,fleetimage,${homeColumns},${publicThemeColumns},${hoursColumns}`;
+        const mediaColumns = `${coreColumns},homeheroimage,bookingheroimage,contactheroimage,fleetimage,${homeColumns},${publicThemeColumns},${hoursColumns}`;
         const closureColumns = `${mediaColumns},holidayfromtime,holidaytotime`;
-        const result = await db.from("settings")
+        let coreResult = await db.from("settings")
             .select(closureColumns)
             .eq("company_id", companyId)
             .maybeSingle();
 
-        if (!result.error) return result;
+        if (coreResult.error) {
+            coreResult = await db.from("settings")
+                .select(`${coreColumns},holidayfromtime,holidaytotime`)
+                .eq("company_id", companyId)
+                .maybeSingle();
+        }
+        if (coreResult.error) {
+            console.warn("Closure time columns are not installed yet; using date-only public settings.");
+            coreResult = await db.from("settings")
+                .select(coreColumns)
+                .eq("company_id", companyId)
+                .maybeSingle();
+        }
+        if (coreResult.error) return coreResult;
 
-        const closureResult = await db.from("settings")
-            .select(`${baseColumns},holidayfromtime,holidaytotime`)
+        // Optional public features must never prevent core company branding from loading.
+        const featureResult = await db.from("settings")
+            .select(featureColumns)
             .eq("company_id", companyId)
             .maybeSingle();
-
-        if (!closureResult.error) return closureResult;
-
-        console.warn("Closure time columns are not installed yet; using date-only public settings.");
-        return db.from("settings")
-            .select(baseColumns)
-            .eq("company_id", companyId)
-            .maybeSingle();
+        if (featureResult.error) {
+            console.warn("Optional public feature settings are unavailable; core branding remains active.", { code: featureResult.error.code || "unknown" });
+        }
+        return {
+            data: { ...(coreResult.data || {}), ...(featureResult.data || {}) },
+            error: null
+        };
     }
 })();
