@@ -1018,9 +1018,6 @@ async function beginBookingEdit(id) {
     }
     if (!booking) return alert("This company booking could not be loaded.");
     const status = bookingStatus(booking);
-    if (["accepted", "on_way", "arrived", "passenger_onboard", "completed", "cancelled", "canceled", "no_show"].includes(status)) {
-        return alert("This booking is active or closed. Journey, fare and allocation changes are locked to protect the driver workflow and payment history.");
-    }
     editingBooking = booking;
     editInitialSnapshot = JSON.stringify(editableBookingValues(booking));
     document.getElementById("adminBookingForm")?.reset();
@@ -1048,7 +1045,8 @@ async function beginBookingEdit(id) {
     document.getElementById("bookingFormTitle").textContent = `Edit Booking ${booking.booking_reference || shortId(booking.id)}`;
     document.getElementById("saveBookingButton").textContent = "Save Changes";
     document.getElementById("cancelBookingEdit").hidden = false;
-    const notice=document.getElementById("bookingEditNotice"); notice.hidden=false; notice.textContent=`Editing ${booking.booking_reference || shortId(booking.id)}. Payment records and status will not be changed. Customer/driver notifications are not sent automatically.`;
+    const notice=document.getElementById("bookingEditNotice"); notice.hidden=false; notice.textContent=`Editing ${booking.booking_reference || shortId(booking.id)} (${status}). Journey progress, timestamps, payments and identity links are preserved. Active operational changes notify the assigned driver through enabled channels.`;
+    const correctionReasonField=document.getElementById("bookingCorrectionReasonField"),correctionReason=document.getElementById("bookingCorrectionReason");correctionReasonField.hidden=false;correctionReason.required=true;correctionReason.value="";
     const paid=String(booking.payment_status||"").toLowerCase()==="paid" || Number(booking.amount_paid||0)>0;
     const warning=document.getElementById("paidFareWarning"); warning.hidden=!paid; warning.textContent=paid ? `Paid ${money(Number(booking.amount_paid||booking.price||0))}. Changing the fare will not charge or refund the customer.` : "";
     updatePriceOverrideUi(); closeBookingView(); adminBookingFormDirty=false;
@@ -1072,7 +1070,7 @@ function cancelBookingEdit(confirmDirty=false) {
     const form=document.getElementById("adminBookingForm"); form?.reset();
     document.getElementById("adminPickupStops").innerHTML=""; document.getElementById("adminDropoffStops").innerHTML="";
     document.getElementById("bookingFormTitle").textContent="New Admin Booking"; document.getElementById("saveBookingButton").textContent="Save Job";
-    document.getElementById("cancelBookingEdit").hidden=true; document.getElementById("bookingEditNotice").hidden=true; document.getElementById("paidFareWarning").hidden=true; document.getElementById("priceOverrideReasonField").hidden=true;
+    document.getElementById("cancelBookingEdit").hidden=true; document.getElementById("bookingEditNotice").hidden=true; document.getElementById("paidFareWarning").hidden=true; document.getElementById("priceOverrideReasonField").hidden=true;document.getElementById("bookingCorrectionReasonField").hidden=true;document.getElementById("bookingCorrectionReason").required=false;
     document.getElementById("suitcases").value="0"; document.getElementById("handLuggage").value="0"; updateReturnFields(); clearRouteQuote();
     history.replaceState({}, "", location.pathname);
 }
@@ -1089,11 +1087,15 @@ async function saveAdminBookingEdit() {
     const manualOverride=price!==oldPrice && !(lastRouteQuote?.fare!=null && Math.abs(price-Number(lastRouteQuote.fare))<0.005);
     const changes={customer_name:document.getElementById("customerName").value.trim(),customer_email:document.getElementById("customerEmail").value.trim()||null,customer_phone:document.getElementById("customerPhone").value.trim()||null,pickup_address:pickup.formattedAddress,pickup_name:document.getElementById("pickupName").value.trim()||null,pickup_postcode:pickup.postcode,pickup_place_id:pickup.placeId,pickup_lat:pickup.latitude,pickup_lng:pickup.longitude,dropoff_address:dropoff.formattedAddress,dropoff_name:document.getElementById("dropoffName").value.trim()||null,dropoff_postcode:dropoff.postcode,dropoff_place_id:dropoff.placeId,dropoff_lat:dropoff.latitude,dropoff_lng:dropoff.longitude,journey_date:document.getElementById("journeyDate").value,journey_time:document.getElementById("journeyTime").value,passengers:Number(document.getElementById("passengers").value),suitcases:Number(document.getElementById("suitcases").value||0),hand_luggage:Number(document.getElementById("handLuggage").value||0),flight_number:document.getElementById("flightNumber").value.trim()||null,notes:document.getElementById("notes").value.trim()||null,price,driver_id:document.getElementById("driverSelect").value||null,driver_amount:document.getElementById("driverAmount").value===""?null:Number(document.getElementById("driverAmount").value),payment_method:document.getElementById("paymentMethod").value,account_customer_id:document.getElementById("paymentMethod").value==="account"?(document.getElementById("accountCustomerSelect").value||null):null,account_po_reference:document.getElementById("paymentMethod").value==="account"?(document.getElementById("accountPoReference").value.trim()||null):null,return_journey:document.getElementById("returnJourney").checked,return_date:document.getElementById("returnJourney").checked?document.getElementById("returnDate").value:null,return_time:document.getElementById("returnJourney").checked?document.getElementById("returnTime").value:null,route_distance_miles:lastRouteQuote?.miles??editingBooking.route_distance_miles,route_duration_minutes:lastRouteQuote?.minutes==null?editingBooking.route_duration_minutes:Math.round(lastRouteQuote.minutes),pricing_method:lastRouteQuote?.method||editingBooking.pricing_method};
     button.disabled=true; message.textContent="Saving changes…";
-    const fareReason = manualOverride ? document.getElementById("priceOverrideReason").value.trim() : (price!==oldPrice ? "Route recalculated using company pricing" : null);
+    const correctionReason=document.getElementById("bookingCorrectionReason").value.trim();
+    if(correctionReason.length<5){button.disabled=false;message.textContent="Enter a meaningful correction reason for the audit history.";return;}
+    const fareReason = price!==oldPrice ? `${correctionReason}${manualOverride?` — ${document.getElementById("priceOverrideReason").value.trim()}`:" — route recalculated using company pricing"}` : correctionReason;
     const {data,error}=await bookingsDb.rpc("admin_edit_booking",{target_company_id:adminCompanyId,target_booking_id:editingBooking.id,expected_edit_version:Number(editingBooking.edit_version||0),requested_changes:changes,requested_stops:collectAdminViaStops(),override_reason:fareReason});
     button.disabled=false;
     if(error){message.textContent=error.message.includes("conflict")?"This booking was changed elsewhere. Reload and review it before trying again.":`Could not save: ${error.message}`;return;}
-    const id=editingBooking.id; adminBookingFormDirty=false; cancelBookingEdit(false); await loadBookings(); message.textContent="Booking changes saved. Notify the customer or driver if required."; openBookingView(id);
+    const id=editingBooking.id,previousDriver=editingBooking.driver_id; adminBookingFormDirty=false; cancelBookingEdit(false); await loadBookings();
+    let notification="";if(data?.notification_required){const event=data.driver_changed?"driver_assignment":"booking_changed",sent=await bookingsDb.functions.invoke("send-booking-email",{body:{company_id:adminCompanyId,booking_id:id,event,audience:"driver",event_id:data.audit_id,previous_driver_id:previousDriver}});notification=sent.error||!sent.data?.ok?" The correction was saved, but the driver email was not accepted; contact the driver directly.":" The assigned driver was notified through the enabled email channel.";}
+    message.textContent=`Booking correction saved with immutable audit history.${data?.document_resolution_required?" An issued invoice requires its separate correction workflow.":""}${notification}`; openBookingView(id);
 }
 
 async function createAdminBooking(event) {

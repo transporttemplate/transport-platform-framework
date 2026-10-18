@@ -64,8 +64,9 @@ test("booking action menu is tenant-scoped, status-aware and keyboard/touch acce
   assert.match(css, /booking-menu-trigger\{[^}]*min-width:44px/);
 });
 
-test("existing Edit Booking protection remains in place", () => {
+test("Edit Booking uses the protected status-aware correction RPC", () => {
   assert.match(primary, /rpc\("admin_edit_booking"/);
-  assert.match(primary, /This booking is active or closed/);
+  assert.doesNotMatch(primary, /This booking is active or closed/);
+  assert.match(primary, /bookingCorrectionReason/);
   assert.match(primary, /Changing the fare will not charge or refund the customer/);
 });

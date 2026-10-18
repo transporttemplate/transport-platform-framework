@@ -8,6 +8,7 @@ const html = read("bookings.html");
 const primary = read("js/bookings.js");
 const secondary = read("js/all-bookings.js");
 const migration = read("supabase/migrations/202610110001_admin_edit_booking.sql");
+const correction = read("supabase/migrations/202610180001_status_aware_booking_corrections.sql");
 
 test("the compact Admin form provides a responsive create/edit experience", () => {
   assert.match(html, /id="bookingFormTitle"/);
@@ -42,10 +43,12 @@ test("server edit RPC enforces tenant ownership, roles and concurrent-edit safet
   assert.match(migration, /revoke all on function public\.admin_edit_booking[\s\S]*from public,anon/);
 });
 
-test("paid, active and completed booking protections are explicit", () => {
+test("paid, active and completed booking protections are status-aware", () => {
   assert.match(primary, /Changing the fare will not charge or refund the customer/);
-  assert.match(migration, /'accepted','on_way','passenger_onboard','completed','cancelled','canceled','no_show'/);
-  assert.match(migration, /locked to protect driver workflow and payment history/);
+  assert.doesNotMatch(primary, /This booking is active or closed/);
+  assert.match(correction, /Completed or closed journey history cannot change route, schedule, stops or driver/);
+  assert.match(correction, /assigned driver cannot be replaced after passenger pickup/);
+  assert.match(correction, /separate financial correction workflow/);
   assert.doesNotMatch(migration, /amount_paid\s*=/i);
   assert.doesNotMatch(migration, /paid_at\s*=/i);
 });
