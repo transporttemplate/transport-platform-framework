@@ -1,1 +1,78 @@
-:root{--premium-bg:#07111f;--premium-panel:#101d30;--premium-border:#26374f;--premium-text:#e8eef7;--premium-muted:#9fb0c7;--premium-accent:#38bdf8}body{background:radial-gradient(circle at 75% 0,#17304f 0,transparent 34%),var(--premium-bg);color:var(--premium-text)}.main{max-width:1680px}.topbar{border:1px solid var(--premium-border);background:linear-gradient(135deg,#132238,#0e1929);box-shadow:0 16px 45px #02061733;border-radius:16px}.card{border:1px solid var(--premium-border);background:linear-gradient(145deg,#111f33,#0d1929);box-shadow:0 12px 34px #0206172b;border-radius:16px}.card small,.topbar small,.field-help{color:var(--premium-muted)}table{border-collapse:separate;border-spacing:0}th{color:#b9c8db;text-transform:uppercase;font-size:.72rem;letter-spacing:.06em}td,th{border-bottom:1px solid #26374f}input,select,textarea{border:1px solid #3a4b63;background:#0a1525;color:#f8fafc;border-radius:10px}button,.button{border-radius:10px;min-height:40px;font-weight:750}.status-pill,.payment-pill,.source-pill{border-radius:999px;padding:5px 9px}.account-tabs,.booking-tabs{display:flex;gap:6px;padding:5px;overflow:auto;border:1px solid var(--premium-border);border-radius:13px;background:#0a1525}.account-tabs button,.booking-tabs button{white-space:nowrap;background:transparent}.account-tabs button.active,.booking-tabs button.active{background:#2563eb}.sidebar{background:linear-gradient(180deg,#0c1728,#07111f);border-right:1px solid #26374f}.sidebar a{border-radius:9px}.sidebar a:hover,.sidebar a.active{background:#1b304b}@media(max-width:760px){.main{padding:12px}.topbar{padding:13px}.stats{grid-template-columns:1fr 1fr}.grid-2{grid-template-columns:1fr}.card{padding:14px}table{font-size:.84rem}.account-tabs{margin-inline:-4px}}@media(max-width:420px){.stats{grid-template-columns:1fr}.topbar{border-radius:12px}}
+:root {
+  --premium-bg: #07111f;
+  --premium-panel: #101d30;
+  --premium-panel-raised: #172338;
+  --premium-border: #3a4b63;
+  --premium-text: #e8eef7;
+  --premium-muted: #aebdd0;
+  --premium-link: #7dd3fc;
+  --premium-accent: #38bdf8;
+}
+body { background: radial-gradient(circle at 75% 0, #17304f 0, transparent 34%), var(--premium-bg); color: var(--premium-text); }
+.main { max-width: 1680px; }
+.topbar { border: 1px solid var(--premium-border); border-radius: 16px; background: linear-gradient(135deg, #132238, #0e1929); box-shadow: 0 16px 45px #02061733; }
+.card { border: 1px solid var(--premium-border); border-radius: 16px; background: linear-gradient(145deg, #111f33, #0d1929); box-shadow: 0 12px 34px #0206172b; }
+.card small, .topbar small, .field-help, .settings-helper, .dashboard-map-message, .dashboard-table-message { color: var(--premium-muted); }
+.main a:not(.button), .main a:not(.button):visited { color: var(--premium-link); }
+table { border-collapse: separate; border-spacing: 0; }
+th { background: var(--premium-panel-raised); color: #c7d4e5; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; }
+td, th { border-bottom: 1px solid var(--premium-border); }
+input, select, textarea { border: 1px solid var(--premium-border); border-radius: 10px; background: #0a1525; color: #f8fafc; }
+input::placeholder, textarea::placeholder { color: #9fb0c7; opacity: 1; }
+input:disabled, select:disabled, textarea:disabled { color: #b8c5d6; opacity: .72; }
+button, .button { min-height: 40px; border-radius: 10px; font-weight: 750; }
+.status-pill, .payment-pill, .source-pill { border-radius: 999px; padding: 5px 9px; }
+.account-tabs, .booking-tabs { display: flex; gap: 6px; padding: 5px; overflow: auto; border: 1px solid var(--premium-border); border-radius: 13px; background: #0a1525; }
+.account-tabs button, .booking-tabs button { white-space: nowrap; background: transparent; }
+.account-tabs button.active, .booking-tabs button.active { background: #2563eb; }
+.sidebar { border-right: 1px solid #26374f; background: linear-gradient(180deg, #0c1728, #07111f); }
+.sidebar a { border-radius: 9px; }
+.sidebar a:hover, .sidebar a.active { background: #1b304b; }
+
+/* Legacy light surfaces that sit inside the premium Admin canvas. */
+.availability-form, .availability-form .form-actions, .template-preview, .email-status, .usage-stat, .integration-status, .server-only-box, .company-media-preview, .fleet-settings-item { border-color: var(--premium-border) !important; background: #111c2e !important; color: var(--premium-text) !important; }
+.integration-intro, .integration-status span, .field-helper { color: var(--premium-muted) !important; }
+.availability-calendar-day { border-color: var(--premium-border) !important; background: #0d1929; }
+.availability-calendar-day.blocked { border-color: #b4535a !important; background: #35151b !important; color: #fecaca; }
+.availability-calendar-head { color: #bdc9d9 !important; }
+
+/* Calendar keeps semantic job colours, while its structural surfaces follow the dark theme. */
+.calendar-toolbar button { background: #25344b; color: #f8fafc; }
+.calendar-table th { border-color: var(--premium-border); background: var(--premium-panel-raised); }
+.calendar-table td { border-color: var(--premium-border); background: #0d1929; }
+.calendar-day.other-month { background: #101827; color: #94a3b8; }
+.google-calendar-banner { border-color: #31557b; background: #102844; }
+.google-calendar-banner p { color: #cbd5e1; }
+.calendar-modal, .calendar-modal-header { border-color: var(--premium-border); background: #101827; color: var(--premium-text); }
+.calendar-modal-header p { color: var(--premium-muted); }
+.detail-item { border-color: var(--premium-border); background: #172338; }
+.detail-item small { color: var(--premium-muted); }
+.detail-item strong { color: #f8fafc; }
+.mobile-calendar-day { border-color: var(--premium-border); background: #0d1929; color: var(--premium-text); }
+.mobile-calendar-day.other-month { background: #101827; color: #8393a8; }
+.mobile-selected-jobs { border-color: var(--premium-border); }
+.mobile-calendar-job { border-color: var(--premium-border); background: #172338; color: var(--premium-text); }
+.mobile-calendar-job-time { color: #7dd3fc; }
+.mobile-calendar-meta, .mobile-calendar-empty, .mobile-calendar-weekdays span { color: var(--premium-muted); }
+
+/* The late legacy menu rules in admin.css used a white menu. Restore one premium menu. */
+.booking-action-menu { border-color: #475569 !important; background: #101827 !important; color: var(--premium-text) !important; box-shadow: 0 18px 48px rgba(0, 0, 0, .48) !important; }
+.booking-action-menu button { display: grid !important; grid-template-columns: 24px 1fr; background: transparent !important; color: #e5e7eb !important; }
+.booking-action-menu button:hover, .booking-action-menu button:focus { background: #21314a !important; }
+.booking-action-menu button.danger { color: #fecaca !important; }
+.booking-history-dialog, .booking-history-dialog header { border-color: var(--premium-border); background: #111c2e; color: var(--premium-text); }
+.booking-history-dialog header button { background: #25344b; color: #f8fafc; }
+
+@media (max-width: 760px) {
+  .main { padding: 12px; }
+  .topbar { padding: 13px; }
+  .stats { grid-template-columns: 1fr 1fr; }
+  .grid-2 { grid-template-columns: 1fr; }
+  .card { padding: 14px; }
+  table { font-size: .84rem; }
+  .account-tabs { margin-inline: -4px; }
+}
+@media (max-width: 420px) {
+  .stats { grid-template-columns: 1fr; }
+  .topbar { border-radius: 12px; }
+}

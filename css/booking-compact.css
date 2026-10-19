@@ -8,7 +8,12 @@
 .jobs-panel tbody tr:hover td{background:rgba(79,140,255,.07)!important}
 .jobs-panel td strong{display:block;font-size:11px}.jobs-panel td small{display:block;margin-top:3px;color:#94a3b8;font-size:9px}
 .jobs-panel th:nth-child(1){width:92px}.jobs-panel th:nth-child(2){width:104px}.jobs-panel th:nth-child(3){width:126px}.jobs-panel th:nth-child(4){width:135px}.jobs-panel th:nth-child(5){width:auto}.jobs-panel th:nth-child(6){width:205px}.jobs-panel th:nth-child(7){width:82px}.jobs-panel th:nth-child(8){width:104px}.jobs-panel th:nth-last-child(2){width:92px}.jobs-panel th:last-child{width:92px}
-.compact-route-cell{max-width:none!important}.compact-route-cell span{display:-webkit-box!important;overflow:hidden;white-space:normal!important;text-overflow:ellipsis;-webkit-line-clamp:1;-webkit-box-orient:vertical}.compact-route-cell b{display:block;margin:1px 0;color:#64748b;font-size:9px}.compact-route-cell:focus{outline:2px solid #75a7ff;outline-offset:2px}
+.compact-route-cell{max-width:none!important}.compact-route-cell span{display:-webkit-box!important;overflow:hidden;white-space:normal!important;text-overflow:ellipsis;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}.compact-route-cell b{display:block;margin:1px 0;color:#94a3b8;font-size:9px}.compact-route-cell:focus{outline:2px solid #75a7ff;outline-offset:2px}
+.jobs-panel tr.payment-paid,.jobs-panel tr.payment-paid td:last-child{background:#102a22!important}
+.jobs-panel tr.payment-unpaid,.jobs-panel tr.payment-unpaid td:last-child{background:#2b171d!important}
+.jobs-panel tr.payment-partial,.jobs-panel tr.payment-partial td:last-child{background:#2b2514!important}
+.jobs-panel tr.payment-account,.jobs-panel tr.payment-account td:last-child{background:#221b35!important}
+.jobs-panel tr.payment-prepaid,.jobs-panel tr.payment-prepaid td:last-child{background:#132443!important}
 .account-source-label{display:block;padding-left:8px;border-left:4px solid var(--account-colour,#64748b);font-size:10px;font-weight:750;line-height:1.25;overflow-wrap:anywhere}
 .booking-driver-select{width:100%;min-width:0!important;min-height:31px!important;padding:4px 24px 4px 6px!important;border:1px solid #33435d!important;border-radius:7px!important;background:#0c1525!important;color:#f8fafc!important;font-size:10px!important;text-overflow:ellipsis}
 .booking-menu-trigger{min-width:78px!important;min-height:32px!important;padding:5px 8px!important;border:1px solid #49617e!important;border-radius:7px!important;background:#18253a!important;color:#eff6ff!important;font-size:10px!important;font-weight:800!important;white-space:nowrap}
