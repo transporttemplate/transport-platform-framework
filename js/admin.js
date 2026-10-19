@@ -135,6 +135,7 @@ function initialiseAdminNavigation() {
     const layout = sidebar.closest(".admin-layout");
 
     initialiseEmailNavigation(sidebar);
+    if(!sidebar.querySelector('a[href="system-health.html"]')){const settings=sidebar.querySelector('a[href^="settings.html"]'),link=document.createElement('a');link.href='system-health.html';link.textContent='🩺 System Health';if(location.pathname.endsWith('/system-health.html'))link.classList.add('active');sidebar.insertBefore(link,settings||null);}
     if (!sidebar.querySelector('a[href="job-exchange.html"]')) {
         const bookingsLink = sidebar.querySelector('a[href="all-bookings.html"]') || sidebar.querySelector('a[href="bookings.html"]');
         const link = document.createElement('a');link.href='job-exchange.html';link.textContent='🔁 Job Exchange';
