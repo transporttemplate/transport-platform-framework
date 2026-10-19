@@ -1,4 +1,5 @@
 document.addEventListener("DOMContentLoaded", async () => {
+    if(!document.querySelector('link[href="css/admin-premium.css"]')){const style=document.createElement('link');style.rel='stylesheet';style.href='css/admin-premium.css';document.head.appendChild(style);}
     initialiseAdminNavigation();
     const context = await window.getAdminCompanyContext?.();
     if (context) {
