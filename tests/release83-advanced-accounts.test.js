@@ -1,0 +1,4 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');const read=p=>fs.readFileSync(p,'utf8');
+test('accounts expose every release 8.3 workspace',()=>{const page=read('contracts.html');for(const label of ['Overview','Contacts','Booking Rules','Payments','Invoice Settings','API','Hooks','Activity'])assert.match(page,new RegExp(label));});
+test('invoice preferences and activity remain additive',()=>{const sql=read('supabase/migrations/202610190004_release83_advanced_accounts.sql');assert.match(sql,/invoice_preferences/);assert.match(sql,/account_activity/);assert.doesNotMatch(sql,/delete from|truncate|drop table/i)});
+test('account workspace remains company scoped',()=>{const js=read('js/contracts.js');assert.match(js,/\.eq\("company_id", contractsCompanyId\)/);assert.match(js,/account_contacts/);assert.match(js,/outbound_webhook_endpoints/);assert.match(js,/account_activity/)});

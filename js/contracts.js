@@ -2,6 +2,7 @@ const contractsDb = getSupabase();
 let contractsCompanyId = null;
 let contractRows = [];
 let contractIntegrations = [];
+let contractContacts=[],contractHooks=[],contractActivity=[];
 
 document.addEventListener("DOMContentLoaded", async () => {
     try {
@@ -21,6 +22,8 @@ function bindContractEvents() {
     document.getElementById("accountSearch").oninput = renderContracts;
     document.getElementById("accountStatusFilter").onchange = renderContracts;
     document.getElementById("accountColourPreset").onchange = event => { document.getElementById("accountColour").value = event.target.value; };
+    document.querySelectorAll("[data-account-tab]").forEach(button=>button.onclick=()=>showAccountTab(button.dataset.accountTab));
+    document.getElementById("saveExtraContact").onclick=saveExtraContact;
 }
 
 async function loadContracts() {
@@ -43,7 +46,7 @@ function renderContracts() {
     body.querySelectorAll("[data-edit-account]").forEach(button => button.onclick = () => openContractForm(button.dataset.editAccount));
 }
 
-function openContractForm(id = "") {
+async function openContractForm(id = "") {
     const account = contractRows.find(row => row.id === id) || {};
     document.getElementById("accountForm").reset();
     document.getElementById("accountId").value = account.id || "";
@@ -74,10 +77,18 @@ function openContractForm(id = "") {
     document.getElementById("customerNotifications").checked = rules.customer_notifications !== false;
     document.getElementById("allowedVehicleCategories").value = Array.isArray(rules.allowed_vehicle_categories) ? rules.allowed_vehicle_categories.join(", ") : "";
     document.getElementById("providerReferenceFormat").value = rules.provider_reference_format || "";
+    const invoice=account.invoice_preferences||{};document.getElementById("invoiceShowReference").checked=invoice.show_booking_reference!==false;document.getElementById("invoiceShowJourney").checked=invoice.show_journey_date!==false;document.getElementById("invoiceShowRoute").checked=invoice.show_route!==false;document.getElementById("invoiceGroupBy").value=invoice.group_by||"booking";document.getElementById("invoiceFooter").value=invoice.footer||"";document.getElementById("invoiceCustomFields").value=Array.isArray(invoice.custom_fields)?invoice.custom_fields.join(", "):"";
     document.getElementById("accountFormTitle").textContent = account.id ? `Edit ${account.account_code}` : "New Account Customer";
     document.getElementById("accountFormCard").hidden = false;
     document.getElementById("accountCode").focus();
+    showAccountTab("overview");
+    await loadAccountWorkspace(account.id);
 }
+
+function showAccountTab(tab){document.querySelectorAll("[data-account-tab]").forEach(b=>b.classList.toggle("active",b.dataset.accountTab===tab));const groups={contacts:["accountContactsPanel"],booking:["shareDriverPhone","customerNotifications","allowedVehicleCategories","providerReferenceFormat"],payments:["paymentTermsDays","defaultPaymentMethod","supplierPaymentTerms","invoiceFrequency","poRequired","defaultPoReference"],invoice:["billingEmail","billingAddress","billingPostcode","invoiceContactName","accountInvoicePanel"],api:["accountApiPanel"],hooks:["accountHooksPanel"],activity:["accountActivityPanel"]};document.querySelectorAll("#accountFields>label,#accountFields>fieldset,#accountFields>section").forEach(node=>node.hidden=tab!=="overview");if(tab!=="overview")for(const id of groups[tab]||[]){const el=document.getElementById(id);if(el)(el.closest("label")||el).hidden=false}}
+async function loadAccountWorkspace(id){contractContacts=[];contractHooks=[];contractActivity=[];if(id){const [contacts,hooks,activity,apis]=await Promise.all([contractsDb.from("account_contacts").select("*").eq("company_id",contractsCompanyId).eq("account_customer_id",id).order("is_primary",{ascending:false}),contractsDb.from("outbound_webhook_endpoints").select("id,url,event_types,status,event_mapping,payload_schema_key,gps_authorised").eq("company_id",contractsCompanyId).eq("account_customer_id",id),contractsDb.from("account_activity").select("action,details,created_at").eq("company_id",contractsCompanyId).eq("account_customer_id",id).order("created_at",{ascending:false}).limit(100),contractsDb.from("api_integrations").select("id,name,status,scopes,integration_type").eq("company_id",contractsCompanyId).eq("account_customer_id",id)]);contractContacts=contacts.data||[];contractHooks=hooks.data||[];contractActivity=activity.data||[];document.getElementById("accountApiList").innerHTML=(apis.data||[]).map(x=>`<p><strong>${escContract(x.name)}</strong> · ${escContract(x.status)}<br><small>${escContract((x.scopes||[]).join(", "))}</small></p>`).join("")||'<p>No API integration mapped.</p>'}renderAccountWorkspace()}
+function renderAccountWorkspace(){document.getElementById("accountContactList").innerHTML=contractContacts.map(x=>`<p><strong>${escContract(x.name)}</strong> · ${escContract(x.role||"")}<br><small>${escContract(x.email||x.phone||"")}${x.is_primary?" · Primary":""}${x.billing_contact?" · Billing":""}</small></p>`).join("")||'<p>No additional contacts.</p>';document.getElementById("accountHookList").innerHTML=contractHooks.map(x=>`<p><strong>${escContract(x.status)}</strong> · ${escContract(new URL(x.url).hostname)}<br><small>${escContract((x.event_types||[]).join(", "))}</small></p>`).join("")||'<p>No webhook mapped. Configure dormant hooks in API Management.</p>';document.getElementById("accountActivityList").innerHTML=contractActivity.map(x=>`<p><strong>${escContract(titleContract(x.action))}</strong><br><small>${new Date(x.created_at).toLocaleString()} · ${escContract((x.details?.changed_fields||[]).join(", "))}</small></p>`).join("")||'<p>No activity yet.</p>'}
+async function saveExtraContact(){const accountId=document.getElementById("accountId").value;if(!accountId)return showContractMessage("Save the account before adding contacts.",true);const name=valueOrNull("extraContactName");if(!name)return showContractMessage("Contact name is required.",true);const{error}=await contractsDb.from("account_contacts").insert({company_id:contractsCompanyId,account_customer_id:accountId,name,role:valueOrNull("extraContactRole"),email:valueOrNull("extraContactEmail"),phone:valueOrNull("extraContactPhone"),is_primary:document.getElementById("extraContactPrimary").checked,billing_contact:document.getElementById("extraContactBilling").checked});if(error)return showContractMessage(error.message,true);await loadAccountWorkspace(accountId);showContractMessage("Contact added.")}
 
 function closeContractForm() { document.getElementById("accountFormCard").hidden = true; }
 
@@ -97,7 +108,8 @@ async function saveContract(event) {
         default_payment_method: document.getElementById("defaultPaymentMethod").value, supplier_payment_terms: document.getElementById("supplierPaymentTerms").value, invoice_frequency: document.getElementById("invoiceFrequency").value,
         po_required: document.getElementById("poRequired").checked, default_po_reference: valueOrNull("defaultPoReference"),
         status: document.getElementById("accountStatus").value, notes: valueOrNull("accountNotes"),
-        booking_rules: { share_driver_phone: document.getElementById("shareDriverPhone").checked, customer_notifications: document.getElementById("customerNotifications").checked, allowed_vehicle_categories: document.getElementById("allowedVehicleCategories").value.split(",").map(value=>value.trim()).filter(Boolean), provider_reference_format: valueOrNull("providerReferenceFormat") }
+        booking_rules: { share_driver_phone: document.getElementById("shareDriverPhone").checked, customer_notifications: document.getElementById("customerNotifications").checked, allowed_vehicle_categories: document.getElementById("allowedVehicleCategories").value.split(",").map(value=>value.trim()).filter(Boolean), provider_reference_format: valueOrNull("providerReferenceFormat") },
+        invoice_preferences:{show_booking_reference:document.getElementById("invoiceShowReference").checked,show_journey_date:document.getElementById("invoiceShowJourney").checked,show_route:document.getElementById("invoiceShowRoute").checked,group_by:document.getElementById("invoiceGroupBy").value,footer:valueOrNull("invoiceFooter"),custom_fields:document.getElementById("invoiceCustomFields").value.split(",").map(x=>x.trim()).filter(Boolean)}
     };
     if (!payload.account_code || !payload.business_name) return showContractMessage("Account code and business name are required.", true);
     const query = id
