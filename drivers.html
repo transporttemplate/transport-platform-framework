@@ -136,7 +136,7 @@
 
 <div class="card" style="margin-top:25px"><h3>Driver Privacy Notice</h3><p class="muted">Essential transparency text cannot be removed. Material edits create a new version and require acknowledgement again.</p><form id="driverPrivacyAdminForm"><label>Notice text<textarea id="driverPrivacyAdminText" rows="7" minlength="300" required style="width:100%"></textarea></label><label>Privacy contact<input id="driverPrivacyAdminContact" required style="width:100%"></label><button type="submit">Save notice version</button> <span id="driverPrivacyAdminStatus" class="muted"></span></form></div>
 
-<div class="card" style="margin-top:25px;"><div class="driver-modal-header"><div><h3>Vehicle List</h3><p class="muted">Separate fleet records and compliance dates.</p></div><input id="vehicleSearch" placeholder="Search registration, make or model" style="max-width:320px"></div><div class="table-wrap"><table><thead><tr><th>Registration</th><th>Vehicle</th><th>Seats</th><th>Taxi plate</th><th>MOT</th><th>Insurance</th><th>Status</th><th>Action</th></tr></thead><tbody id="vehiclesTableBody"><tr><td colspan="8">Loading vehicles…</td></tr></tbody></table></div></div>
+<div class="card" style="margin-top:25px;"><div class="driver-modal-header"><div><h3>Vehicle List</h3><p class="muted">Ownership and current assignment are managed independently.</p></div><input id="vehicleSearch" placeholder="Search registration, make or model" style="max-width:320px"></div><div class="table-wrap"><table><thead><tr><th>Registration</th><th>Vehicle</th><th>Ownership</th><th>Owner-driver</th><th>Current driver</th><th>Status</th><th>Action</th></tr></thead><tbody id="vehiclesTableBody"><tr><td colspan="7">Loading vehicles…</td></tr></tbody></table></div></div>
 
 <div class="stats">
 <div class="card blue"><h3>Total Drivers</h3><div class="stat" id="statTotalDrivers">0</div></div>
@@ -174,11 +174,11 @@
 <tr>
 <th>Driver</th>
 <th>Driver #</th>
-<th>Status</th>
-<th>Vehicle</th>
+<th>Type</th>
+<th>Owned / default vehicle</th>
+<th>Current vehicle</th>
+<th>Availability</th>
 <th>Today's Jobs</th>
-<th>Phone</th>
-<th>Licence</th>
 <th>Action</th>
 </tr>
 </thead>
@@ -235,10 +235,11 @@
                     <input id="driverEmailInput" type="email">
                 </div>
 
-                <div>
-                    <label for="driverVehicleInput">Vehicle</label>
-                    <input id="driverVehicleInput" type="text" placeholder="Tesla Model 3">
-                </div>
+                <div><label for="driverTypeInput">Driver type</label><select id="driverTypeInput"><option value="fleet_driver">Fleet driver</option><option value="owner_driver">Owner-driver</option></select></div>
+                <div><label for="driverOwnedVehiclesInput">Owned vehicles</label><select id="driverOwnedVehiclesInput" multiple size="4"></select></div>
+                <div><label for="driverDefaultVehicleInput">Default vehicle</label><select id="driverDefaultVehicleInput"><option value="">None</option></select></div>
+                <div><label for="driverCurrentVehicleInput">Current assigned vehicle</label><select id="driverCurrentVehicleInput"><option value="">None</option></select></div>
+                <div class="full"><label for="driverEligibleVehiclesInput">Eligible fleet/private vehicles (explicit authorisation)</label><select id="driverEligibleVehiclesInput" multiple size="5"></select></div>
 
                 <div>
                     <label for="driverLicenceInput">Licence Number</label>
@@ -287,7 +288,7 @@
     </div>
 </div>
 
-<div id="vehicleModalBackdrop" class="driver-modal-backdrop"><div class="driver-modal"><div class="driver-modal-header"><div><h2 id="vehicleModalTitle">Add Vehicle</h2><p class="muted">Fleet identity, capacity and separate compliance dates.</p></div><button id="closeVehicleModalButton" type="button">✕</button></div><form id="vehicleForm"><input id="vehicleId" type="hidden"><div class="driver-form-grid"><div><label>Registration<input id="vehicleRegistration" required></label></div><div><label>Active<select id="vehicleActive"><option value="true">Active</option><option value="false">Inactive</option></select></label></div><div><label>Make<input id="vehicleMake"></label></div><div><label>Model<input id="vehicleModel"></label></div><div><label>Year<input id="vehicleYear" type="number" min="1900" max="2200"></label></div><div><label>Colour<input id="vehicleColour"></label></div><div><label>Passenger seats<input id="vehicleSeats" type="number" min="1" max="80" value="4" required></label></div><div><label>Vehicle type<input id="vehicleType"></label></div><div><label>Taxi plate number<input id="vehiclePlate"></label></div><div><label>Taxi plate expiry<input id="vehiclePlateExpiry" type="date"></label></div><div><label>MOT expiry<input id="vehicleMotExpiry" type="date"></label></div><div><label>Insurance expiry<input id="vehicleInsuranceExpiry" type="date"></label></div><div><label>Insurance policy reference<input id="vehicleInsuranceReference"></label></div><div><label>Licensing authority<input id="vehicleLicensingAuthority"></label></div></div><div class="driver-form-actions"><button id="cancelVehicleButton" type="button">Cancel</button><button type="submit">Save Vehicle</button></div></form></div></div>
+<div id="vehicleModalBackdrop" class="driver-modal-backdrop"><div class="driver-modal"><div class="driver-modal-header"><div><h2 id="vehicleModalTitle">Add Vehicle</h2><p class="muted">Vehicle identity, ownership and current assignment.</p></div><button id="closeVehicleModalButton" type="button">✕</button></div><form id="vehicleForm"><input id="vehicleId" type="hidden"><div class="driver-form-grid"><div><label>Registration<input id="vehicleRegistration" required></label></div><div><label>Active<select id="vehicleActive"><option value="true">Active</option><option value="false">Inactive</option></select></label></div><div><label>Make<input id="vehicleMake"></label></div><div><label>Model<input id="vehicleModel"></label></div><div><label>Year<input id="vehicleYear" type="number" min="1900" max="2200"></label></div><div><label>Colour<input id="vehicleColour"></label></div><div><label>Passenger seats<input id="vehicleSeats" type="number" min="1" max="80" value="4" required></label></div><div><label>Vehicle type<input id="vehicleType"></label></div><div><label>Ownership type<select id="vehicleOwnershipType"><option value="company_fleet">Company fleet</option><option value="driver_owned">Driver-owned</option><option value="other_leased">Other / leased</option></select></label></div><div><label>Owner-driver<select id="vehicleOwnerDriver"><option value="">None</option></select></label></div><div><label>Current assigned driver<select id="vehicleCurrentDriver"><option value="">None</option></select></label></div><div><label>Operational status<select id="vehicleOperationalStatus"><option value="available">Available</option><option value="unavailable">Unavailable</option><option value="off_road">Off road</option></select></label></div><div><label>Taxi plate number<input id="vehiclePlate"></label></div><div><label>Taxi plate expiry<input id="vehiclePlateExpiry" type="date"></label></div><div><label>MOT expiry<input id="vehicleMotExpiry" type="date"></label></div><div><label>Insurance expiry<input id="vehicleInsuranceExpiry" type="date"></label></div><div><label>Insurance policy reference<input id="vehicleInsuranceReference"></label></div><div><label>Licensing authority<input id="vehicleLicensingAuthority"></label></div><div class="full"><label>Notes<textarea id="vehicleNotes" rows="3" style="width:100%"></textarea></label></div></div><div class="driver-form-actions"><button id="cancelVehicleButton" type="button">Cancel</button><button type="submit">Save Vehicle</button></div></form></div></div>
 
 <!-- VIEW DRIVER MODAL -->
 <div id="viewDriverBackdrop" class="driver-modal-backdrop">

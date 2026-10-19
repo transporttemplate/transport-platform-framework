@@ -5,6 +5,8 @@ let allDrivers = [];
 let selectedDriver = null;
 let adminAccountsSnapshot = null;
 let allVehicles = [];
+let driverVehicleLinks = [];
+let driverVehicleAssignments = [];
 
 document.addEventListener("DOMContentLoaded", async () => {
     bindDriverManagementUI();
@@ -12,6 +14,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const context = await window.getAdminCompanyContext();
         currentCompanyId = context.companyId;
         await Promise.all([loadDrivers(),loadVehicles(),loadPrivacyNotice()]);
+        await loadDriverVehicleRelationships();
     } catch (error) {
         console.error("Driver management startup error:", error);
         renderDriverError("Unable to load the signed-in company.");
@@ -92,7 +95,7 @@ function renderDrivers() {
     const filtered = allDrivers.filter(driver => {
         const name = String(driver.full_name || "").toLowerCase();
         const phone = String(driver.phone || "").toLowerCase();
-        const vehicle = String(driver.vehicle || "").toLowerCase();
+        const vehicle = String(driver.current_vehicle?.registration || driver.default_vehicle?.registration || driver.vehicle || "").toLowerCase();
         const displayStatus = getDisplayStatus(driver).toLowerCase();
 
         if (nameSearch && !name.includes(nameSearch)) return false;
@@ -112,11 +115,11 @@ function renderDrivers() {
         <tr>
             <td>${escapeHtml(driver.full_name || "Unnamed")}</td>
             <td>${escapeHtml(driver.driver_number || "-")}</td>
+            <td>${escapeHtml(driver.driver_type === "owner_driver" ? "Owner-driver" : "Fleet driver")}</td>
+            <td>${escapeHtml(vehicleSummary(driver.owned_vehicles) || driver.default_vehicle?.registration || "-")}</td>
+            <td>${escapeHtml(driver.current_vehicle?.registration || "-")}</td>
             <td>${statusHtml(driver)}</td>
-            <td>${escapeHtml(driver.vehicle || "-")}</td>
             <td>${Number(driver.today_jobs || 0)}</td>
-            <td>${escapeHtml(driver.phone || "-")}</td>
-            <td>${escapeHtml(licenceText(driver))}</td>
             <td>
                 <button type="button" data-view-driver="${escapeHtml(driver.id)}">View</button>
             </td>
@@ -138,7 +141,7 @@ function buildVehicleFilter() {
     const current = select.value;
     const vehicles = [...new Set(
         allDrivers
-            .map(driver => String(driver.vehicle || "").trim())
+            .map(driver => String(driver.current_vehicle?.registration || driver.default_vehicle?.registration || driver.vehicle || "").trim())
             .filter(Boolean)
     )].sort((a, b) => a.localeCompare(b));
 
@@ -175,7 +178,7 @@ function openDriverForm(driver = null) {
     document.getElementById("driverPinInput").placeholder = isEdit ? "Leave blank to keep current PIN" : "4–12 digits";
     document.getElementById("driverPhoneInput").value = driver?.phone || "";
     document.getElementById("driverEmailInput").value = driver?.email || "";
-    document.getElementById("driverVehicleInput").value = driver?.vehicle || "";
+    populateDriverVehicleInputs(driver);
     document.getElementById("driverLicenceInput").value = driver?.licence_number || "";
     document.getElementById("driverLicenceExpiryInput").value = driver?.licence_expiry || "";
     document.getElementById("driverLicenceAuthorityInput").value = driver?.licence_authority || "";
@@ -209,7 +212,6 @@ async function saveDriver(event) {
         driver_number: document.getElementById("driverNumberInput").value.trim(),
         phone: document.getElementById("driverPhoneInput").value.trim() || null,
         email: document.getElementById("driverEmailInput").value.trim() || null,
-        vehicle: document.getElementById("driverVehicleInput").value.trim() || null,
         licence_number: document.getElementById("driverLicenceInput").value.trim() || null,
         licence_expiry: document.getElementById("driverLicenceExpiryInput").value || null,
         licence_authority: document.getElementById("driverLicenceAuthorityInput").value.trim() || null,
@@ -249,8 +251,11 @@ async function saveDriver(event) {
         return;
     }
 
+    const driverId=result.data?.driver_id||id;
+    const relationshipResult=await driversDb.rpc("set_driver_vehicle_relationships",{target_company_id:currentCompanyId,target_driver_id:driverId,target_driver_type:document.getElementById("driverTypeInput").value,target_owned_vehicle_ids:selectedValues("driverOwnedVehiclesInput"),target_default_vehicle_id:document.getElementById("driverDefaultVehicleInput").value||null,target_eligible_vehicle_ids:selectedValues("driverEligibleVehiclesInput"),target_current_vehicle_id:document.getElementById("driverCurrentVehicleInput").value||null,target_assignment_type:"current",target_reason:"Admin driver management update"});
+    if(relationshipResult.error){alert(`Driver details were saved, but vehicle links were not updated.\n\n${relationshipResult.error.message}`);return;}
     closeDriverForm();
-    await loadDrivers();
+    await Promise.all([loadDrivers(),loadVehicles()]);await loadDriverVehicleRelationships();
 }
 
 function openViewDriver(driver) {
@@ -265,7 +270,10 @@ function openViewDriver(driver) {
         viewItem("PIN", "Stored securely — use Edit Driver to replace it"),
         viewItem("Phone", driver.phone || "-"),
         viewItem("Email", driver.email || "-"),
-        viewItem("Vehicle", driver.vehicle || "-"),
+        viewItem("Driver type", driver.driver_type === "owner_driver" ? "Owner-driver" : "Fleet driver"),
+        viewItem("Owned vehicles", vehicleSummary(driver.owned_vehicles) || "-"),
+        viewItem("Default vehicle", driver.default_vehicle?.registration || "-"),
+        viewItem("Current vehicle", driver.current_vehicle?.registration || "-"),
         viewItem("Status", getDisplayStatus(driver)),
         viewItem("Online", driver.online ? "Yes" : "No"),
         viewItem("Licence Number", driver.licence_number || "-"),
@@ -295,12 +303,22 @@ function exportAdminAccountsCsv(){if(!adminAccountsSnapshot)return;const q=v=>`"
 function applyAdminAccountsPeriod(){const period=document.getElementById("adminAccountsPeriod").value,now=new Date(),year=now.getFullYear();let from,to;if(period==="personal_tax_year"){const y=now>=new Date(year,3,6)?year:year-1;from=new Date(y,3,6);to=new Date(y+1,3,5);}else if(period==="business_year"){const y=now>=new Date(year,3,1)?year:year-1;from=new Date(y,3,1);to=new Date(y+1,2,31);}else if(period==="month"){from=new Date(year,now.getMonth(),1);to=new Date(year,now.getMonth()+1,0);}else return;const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;document.getElementById("adminAccountsFrom").value=iso(from);document.getElementById("adminAccountsTo").value=iso(to);loadAdminAccountsReport();}
 function gbp(value){return `£${Number(value||0).toFixed(2)}`;}
 
-async function loadVehicles(){const {data,error}=await driversDb.from("vehicles").select("id,company_id,registration,make,model,model_year,colour,passenger_seats,vehicle_type,taxi_plate_number,taxi_plate_expiry,mot_expiry,insurance_policy_reference,insurance_expiry,licensing_authority,active").eq("company_id",currentCompanyId).order("registration");if(error){document.getElementById("vehiclesTableBody").innerHTML=`<tr><td colspan="8">${escapeHtml(error.message)}</td></tr>`;return;}allVehicles=data||[];renderVehicles();}
+async function loadVehicles(){const {data,error}=await driversDb.from("vehicles").select("id,company_id,registration,make,model,model_year,colour,passenger_seats,vehicle_type,taxi_plate_number,taxi_plate_expiry,mot_expiry,insurance_policy_reference,insurance_expiry,licensing_authority,active,ownership_type,operational_status,notes").eq("company_id",currentCompanyId).order("registration");if(error){document.getElementById("vehiclesTableBody").innerHTML=`<tr><td colspan="7">${escapeHtml(error.message)}</td></tr>`;return;}allVehicles=data||[];renderVehicles();}
 function complianceLabel(date){if(!date)return "Not recorded";const days=Math.ceil((new Date(`${date}T00:00:00`)-new Date())/86400000);return days<0?`Expired ${date}`:days<=30?`Due soon ${date}`:date;}
-function renderVehicles(){const q=(document.getElementById("vehicleSearch")?.value||"").trim().toLowerCase(),rows=allVehicles.filter(v=>!q||[v.registration,v.make,v.model].some(x=>String(x||"").toLowerCase().includes(q))),body=document.getElementById("vehiclesTableBody");body.innerHTML=rows.map(v=>`<tr><td><strong>${escapeHtml(v.registration)}</strong></td><td>${escapeHtml([v.colour,v.make,v.model].filter(Boolean).join(" ")||"-")}</td><td>${escapeHtml(v.passenger_seats)}</td><td>${escapeHtml(v.taxi_plate_number||"-")}<br><small>${escapeHtml(complianceLabel(v.taxi_plate_expiry))}</small></td><td>${escapeHtml(complianceLabel(v.mot_expiry))}</td><td>${escapeHtml(complianceLabel(v.insurance_expiry))}</td><td>${v.active?"Active":"Inactive"}</td><td><button type="button" data-edit-vehicle="${escapeHtml(v.id)}">Edit</button></td></tr>`).join("")||'<tr><td colspan="8">No vehicles found.</td></tr>';body.querySelectorAll("[data-edit-vehicle]").forEach(button=>button.onclick=()=>openVehicleForm(allVehicles.find(v=>String(v.id)===button.dataset.editVehicle)));}
-function openVehicleForm(v=null){const set=(id,value)=>{document.getElementById(id).value=value??"";};set("vehicleId",v?.id);set("vehicleRegistration",v?.registration);set("vehicleActive",String(v?.active!==false));set("vehicleMake",v?.make);set("vehicleModel",v?.model);set("vehicleYear",v?.model_year);set("vehicleColour",v?.colour);set("vehicleSeats",v?.passenger_seats??4);set("vehicleType",v?.vehicle_type);set("vehiclePlate",v?.taxi_plate_number);set("vehiclePlateExpiry",v?.taxi_plate_expiry);set("vehicleMotExpiry",v?.mot_expiry);set("vehicleInsuranceExpiry",v?.insurance_expiry);set("vehicleInsuranceReference",v?.insurance_policy_reference);set("vehicleLicensingAuthority",v?.licensing_authority);setText("vehicleModalTitle",v?"Edit Vehicle":"Add Vehicle");document.getElementById("vehicleModalBackdrop").classList.add("open");}
+function renderVehicles(){const q=(document.getElementById("vehicleSearch")?.value||"").trim().toLowerCase(),rows=allVehicles.filter(v=>!q||[v.registration,v.make,v.model].some(x=>String(x||"").toLowerCase().includes(q))),body=document.getElementById("vehiclesTableBody");body.innerHTML=rows.map(v=>`<tr><td><strong>${escapeHtml(v.registration)}</strong></td><td>${escapeHtml([v.colour,v.make,v.model].filter(Boolean).join(" ")||"-")}</td><td>${escapeHtml(ownershipLabel(v.ownership_type))}</td><td>${escapeHtml(v.owner_driver?.full_name||"-")}</td><td>${escapeHtml(v.current_driver?.full_name||"-")}</td><td>${escapeHtml(v.active===false?"Inactive":statusLabel(v.operational_status))}</td><td><button type="button" data-edit-vehicle="${escapeHtml(v.id)}">Edit</button></td></tr>`).join("")||'<tr><td colspan="7">No vehicles found.</td></tr>';body.querySelectorAll("[data-edit-vehicle]").forEach(button=>button.onclick=()=>openVehicleForm(allVehicles.find(v=>String(v.id)===button.dataset.editVehicle)));}
+function openVehicleForm(v=null){const set=(id,value)=>{document.getElementById(id).value=value??"";};set("vehicleId",v?.id);set("vehicleRegistration",v?.registration);set("vehicleActive",String(v?.active!==false));set("vehicleMake",v?.make);set("vehicleModel",v?.model);set("vehicleYear",v?.model_year);set("vehicleColour",v?.colour);set("vehicleSeats",v?.passenger_seats??4);set("vehicleType",v?.vehicle_type);set("vehicleOwnershipType",v?.ownership_type||"company_fleet");set("vehicleOperationalStatus",v?.operational_status||"available");set("vehicleNotes",v?.notes);populateDriverSelect("vehicleOwnerDriver",v?.owner_driver?.id);populateDriverSelect("vehicleCurrentDriver",v?.current_driver?.id);set("vehiclePlate",v?.taxi_plate_number);set("vehiclePlateExpiry",v?.taxi_plate_expiry);set("vehicleMotExpiry",v?.mot_expiry);set("vehicleInsuranceExpiry",v?.insurance_expiry);set("vehicleInsuranceReference",v?.insurance_policy_reference);set("vehicleLicensingAuthority",v?.licensing_authority);setText("vehicleModalTitle",v?"Edit Vehicle":"Add Vehicle");document.getElementById("vehicleModalBackdrop").classList.add("open");}
 function closeVehicleForm(){document.getElementById("vehicleModalBackdrop")?.classList.remove("open");document.getElementById("vehicleForm")?.reset();}
-async function saveVehicle(event){event.preventDefault();const val=id=>document.getElementById(id).value.trim(),id=val("vehicleId"),payload={company_id:currentCompanyId,registration:val("vehicleRegistration").toUpperCase(),active:val("vehicleActive")==="true",make:val("vehicleMake")||null,model:val("vehicleModel")||null,model_year:val("vehicleYear")?Number(val("vehicleYear")):null,colour:val("vehicleColour")||null,passenger_seats:Number(val("vehicleSeats")),vehicle_type:val("vehicleType")||null,taxi_plate_number:val("vehiclePlate")||null,taxi_plate_expiry:val("vehiclePlateExpiry")||null,mot_expiry:val("vehicleMotExpiry")||null,insurance_expiry:val("vehicleInsuranceExpiry")||null,insurance_policy_reference:val("vehicleInsuranceReference")||null,licensing_authority:val("vehicleLicensingAuthority")||null,updated_at:new Date().toISOString()};const query=id?driversDb.from("vehicles").update(payload).eq("company_id",currentCompanyId).eq("id",id):driversDb.from("vehicles").insert(payload);const {error}=await query;if(error)return alert(error.message);closeVehicleForm();await loadVehicles();}
+async function saveVehicle(event){event.preventDefault();const val=id=>document.getElementById(id).value.trim(),id=val("vehicleId"),payload={company_id:currentCompanyId,registration:val("vehicleRegistration").toUpperCase(),active:val("vehicleActive")==="true",make:val("vehicleMake")||null,model:val("vehicleModel")||null,model_year:val("vehicleYear")?Number(val("vehicleYear")):null,colour:val("vehicleColour")||null,passenger_seats:Number(val("vehicleSeats")),vehicle_type:val("vehicleType")||null,ownership_type:val("vehicleOwnershipType"),operational_status:val("vehicleOperationalStatus"),notes:val("vehicleNotes")||null,taxi_plate_number:val("vehiclePlate")||null,taxi_plate_expiry:val("vehiclePlateExpiry")||null,mot_expiry:val("vehicleMotExpiry")||null,insurance_expiry:val("vehicleInsuranceExpiry")||null,insurance_policy_reference:val("vehicleInsuranceReference")||null,licensing_authority:val("vehicleLicensingAuthority")||null,updated_at:new Date().toISOString()};const query=(id?driversDb.from("vehicles").update(payload).eq("company_id",currentCompanyId).eq("id",id):driversDb.from("vehicles").insert(payload)).select("id").single();const {data,error}=await query;if(error)return alert(error.message);const links=await driversDb.rpc("save_vehicle_relationships",{target_company_id:currentCompanyId,target_vehicle_id:data.id,target_ownership_type:payload.ownership_type,target_owner_driver_id:val("vehicleOwnerDriver")||null,target_current_driver_id:val("vehicleCurrentDriver")||null,target_notes:payload.notes});if(links.error)return alert(`Vehicle details were saved, but links were not updated.\n\n${links.error.message}`);closeVehicleForm();await Promise.all([loadDrivers(),loadVehicles()]);await loadDriverVehicleRelationships();}
+
+async function loadDriverVehicleRelationships(){const [linksResult,assignmentsResult]=await Promise.all([driversDb.from("driver_vehicle_links").select("driver_id,vehicle_id,link_type,authorised_at").eq("company_id",currentCompanyId),driversDb.from("driver_vehicle_assignments").select("id,driver_id,vehicle_id,effective_from,effective_to,assignment_type,reason").eq("company_id",currentCompanyId).order("effective_from",{ascending:false})]);if(linksResult.error||assignmentsResult.error){console.error("Unable to load vehicle relationships",linksResult.error||assignmentsResult.error);return;}driverVehicleLinks=linksResult.data||[];driverVehicleAssignments=assignmentsResult.data||[];allDrivers.forEach(d=>{d.driver_type=d.driver_type||"fleet_driver";d.owned_vehicles=vehiclesFor(d.id,"owner");d.default_vehicle=vehiclesFor(d.id,"default")[0]||null;d.eligible_vehicles=vehiclesFor(d.id,"eligible");const a=driverVehicleAssignments.find(x=>x.driver_id===d.id&&!x.effective_to);d.current_vehicle=allVehicles.find(v=>v.id===a?.vehicle_id)||null;});allVehicles.forEach(v=>{const owner=driverVehicleLinks.find(x=>x.vehicle_id===v.id&&x.link_type==="owner");const current=driverVehicleAssignments.find(x=>x.vehicle_id===v.id&&!x.effective_to);v.owner_driver=allDrivers.find(d=>d.id===owner?.driver_id)||null;v.current_driver=allDrivers.find(d=>d.id===current?.driver_id)||null;});buildVehicleFilter();renderDrivers();renderVehicles();}
+function vehiclesFor(driverId,type){return driverVehicleLinks.filter(x=>x.driver_id===driverId&&x.link_type===type).map(x=>allVehicles.find(v=>v.id===x.vehicle_id)).filter(Boolean);}
+function vehicleSummary(rows=[]){return rows.map(v=>v.registration).join(", ");}
+function populateDriverVehicleInputs(driver){document.getElementById("driverTypeInput").value=driver?.driver_type||"fleet_driver";populateVehicleSelect("driverOwnedVehiclesInput",(driver?.owned_vehicles||[]).map(v=>v.id),true);populateVehicleSelect("driverDefaultVehicleInput",driver?.default_vehicle?.id);populateVehicleSelect("driverCurrentVehicleInput",driver?.current_vehicle?.id);populateVehicleSelect("driverEligibleVehiclesInput",(driver?.eligible_vehicles||[]).map(v=>v.id),true);}
+function populateVehicleSelect(id,selected,multiple=false){const el=document.getElementById(id);if(!el)return;el.innerHTML=(multiple?"":'<option value="">None</option>')+allVehicles.map(v=>`<option value="${escapeHtml(v.id)}">${escapeHtml(`${v.registration} — ${v.make||""} ${v.model||""}`.trim())}</option>`).join("");const values=new Set(Array.isArray(selected)?selected:[selected]);[...el.options].forEach(o=>o.selected=values.has(o.value));}
+function populateDriverSelect(id,selected){const el=document.getElementById(id);el.innerHTML='<option value="">None</option>'+allDrivers.map(d=>`<option value="${escapeHtml(d.id)}">${escapeHtml(`${d.driver_number||"-"} — ${d.full_name}`)}</option>`).join("");el.value=selected||"";}
+function selectedValues(id){return [...document.getElementById(id).selectedOptions].map(o=>o.value);}
+function ownershipLabel(value){return ({driver_owned:"Driver-owned",company_fleet:"Company fleet",other_leased:"Other / leased"})[value]||"Company fleet";}
+function statusLabel(value){return ({available:"Available",unavailable:"Unavailable",off_road:"Off road"})[value]||"Available";}
 
 function getDisplayStatus(driver) {
     const status = String(driver.status || "").trim().toLowerCase();

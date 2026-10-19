@@ -387,6 +387,8 @@ async function loadDrivers() {
     allDrivers =
         data || [];
 
+    await loadDriverVehicleSuggestions();
+
     populateDriverDropdown();
 }
 
@@ -416,7 +418,7 @@ function populateDriverDropdown() {
             driver.id;
 
         option.textContent =
-            `${driver.driver_number || "-"} — ${driver.full_name || "Driver"} • ${driver.active===false?"INACTIVE":driver.online?"ONLINE":"OFFLINE"}`;
+            `${driver.driver_number || "-"} — ${driver.full_name || "Driver"} • ${driver.suggested_vehicle_registration?`Vehicle ${driver.suggested_vehicle_registration}`:"NO VEHICLE"} • ${driver.active===false?"INACTIVE":driver.online?"ONLINE":"OFFLINE"}`;
 
         select.appendChild(option);
     });
@@ -2256,8 +2258,10 @@ function driverDisplayName(id) {
         return "Driver";
     }
 
-    return `${driver.driver_number || "-"} — ${driver.full_name || "Driver"}`;
+    return `${driver.driver_number || "-"} — ${driver.full_name || "Driver"}${driver.suggested_vehicle_registration?` · ${driver.suggested_vehicle_registration}`:" · No vehicle"}`;
 }
+
+async function loadDriverVehicleSuggestions(){const [links,assignments,vehicles]=await Promise.all([bookingsDb.from("driver_vehicle_links").select("driver_id,vehicle_id,link_type").eq("company_id",adminCompanyId),bookingsDb.from("driver_vehicle_assignments").select("driver_id,vehicle_id,effective_from").eq("company_id",adminCompanyId).is("effective_to",null),bookingsDb.from("vehicles").select("id,registration,active,operational_status").eq("company_id",adminCompanyId)]);if(links.error||assignments.error||vehicles.error){console.warn("Vehicle suggestions unavailable",links.error||assignments.error||vehicles.error);return;}const byId=new Map((vehicles.data||[]).filter(v=>v.active&&v.operational_status==="available").map(v=>[v.id,v]));allDrivers.forEach(driver=>{const current=(assignments.data||[]).filter(a=>a.driver_id===driver.id).sort((a,b)=>String(b.effective_from).localeCompare(String(a.effective_from)))[0],fallback=(links.data||[]).find(l=>l.driver_id===driver.id&&l.link_type==="default"),vehicle=byId.get(current?.vehicle_id)||byId.get(fallback?.vehicle_id);driver.suggested_vehicle_registration=vehicle?.registration||null;});}
 
 
 function shortId(id) {

@@ -139,6 +139,14 @@
         <p>Your accepted work is listed below.</p>
     </section>
 
+    <section class="form-card" aria-labelledby="assignedVehicleHeading">
+        <h2 id="assignedVehicleHeading">Assigned Vehicle</h2>
+        <div id="driverVehicleDetails" class="job-grid"><div><small>Registration</small><strong>Not assigned</strong></div></div>
+        <label for="driverVehicleSelect">Vehicle for this shift</label>
+        <select id="driverVehicleSelect"><option value="">No vehicle assigned</option></select>
+        <p id="driverVehicleMessage" class="form-message" role="status"></p>
+    </section>
+
     <section class="diary-section" aria-labelledby="awaitingHeading">
         <div class="section-heading"><div><span class="section-kicker">ACTION REQUIRED</span><h2 id="awaitingHeading">Awaiting Your Response</h2></div><span id="awaitingCount" class="count-badge">0</span></div>
         <div id="awaitingJobsList" class="list-stack"><div class="empty-list">No jobs awaiting your response.</div></div>

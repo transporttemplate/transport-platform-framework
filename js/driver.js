@@ -12,6 +12,8 @@ let driverCurrencySymbol = "£";
 let driverSessionToken = null;
 let driverUnavailability = [];
 let driverSettings = {};
+let driverVehicles = [];
+let currentDriverVehicle = null;
 let driverNavigationConfig = { enabled: false, browser_maps_key: null };
 let serverClockOffset = 0;
 let lastSuccessfulRefresh = null;
@@ -52,6 +54,7 @@ function bindDriverUI() {
     document.getElementById("closeMenuButton")?.addEventListener("click", closeSideMenu);
     document.getElementById("menuOverlay")?.addEventListener("click", closeSideMenu);
     document.getElementById("availabilityButton")?.addEventListener("click", toggleAvailability);
+    document.getElementById("driverVehicleSelect")?.addEventListener("change", selectShiftVehicle);
     document.getElementById("arrivedButton")?.addEventListener("click", setArrived);
     document.getElementById("pobButton")?.addEventListener("click", setPOB);
     document.getElementById("dropOffButton")?.addEventListener("click", completeCurrentJob);
@@ -239,6 +242,9 @@ function applyDriverPortalData(data) {
     driverCommissionDefault = Number(data.settings?.drivercommission || 0);
     driverCurrencySymbol = data.settings?.currencysymbol || "£";
     driverSettings = data.settings || driverSettings;
+    driverVehicles = data.vehicles || [];
+    currentDriverVehicle = data.current_vehicle || null;
+    renderDriverVehicle();
     currentPrivacyNotice=data.privacy||currentPrivacyNotice;renderPrivacyNotice();
     applyDriverPreferences(data.driver);
     renderUnreadMessages(Number(data.unread_messages||0));
@@ -257,6 +263,9 @@ function applyDriverPortalData(data) {
         navigationController.authoritativeJob(updatedJob);
     }
 }
+
+function renderDriverVehicle(){const box=document.getElementById("driverVehicleDetails"),select=document.getElementById("driverVehicleSelect");if(!box||!select)return;const v=currentDriverVehicle;box.innerHTML=v?`<div><small>Registration</small><strong>${escapeHtml(v.registration||"-")}</strong></div><div><small>Make / model</small><strong>${escapeHtml([v.make,v.model].filter(Boolean).join(" ")||"-")}</strong></div><div><small>Colour</small><strong>${escapeHtml(v.colour||"-")}</strong></div><div><small>Status</small><strong>${escapeHtml(String(v.operational_status||"available").replaceAll("_"," "))}</strong></div>`:'<div><small>Registration</small><strong>Not assigned</strong></div>';select.innerHTML='<option value="">No vehicle assigned</option>'+driverVehicles.map(vehicle=>`<option value="${escapeHtml(vehicle.id)}" ${vehicle.active!==true||vehicle.operational_status!=="available"?"disabled":""}>${escapeHtml(`${vehicle.registration} — ${vehicle.make||""} ${vehicle.model||""}${vehicle.operational_status!=="available"?` • ${vehicle.operational_status}`:""}`.trim())}</option>`).join("");select.value=v?.id||"";}
+async function selectShiftVehicle(){const select=document.getElementById("driverVehicleSelect"),message=document.getElementById("driverVehicleMessage"),previous=currentDriverVehicle?.id||"";select.disabled=true;message.textContent="Updating vehicle…";try{await driverPortalRequest("select_vehicle",{vehicle_id:select.value||null});message.textContent="Vehicle assignment updated.";applyDriverPortalData(await driverPortalRequest("refresh"));}catch(error){select.value=previous;message.textContent=error.message||"Unable to change vehicle.";}finally{select.disabled=false;}}
 
 async function refreshDriverPortal(showLoading = false) {
     if (!driverSessionToken) return;
