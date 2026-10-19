@@ -104,7 +104,7 @@ async function deliverQueued(db: any, message: Row) {
   const inserted = await db.from("email_attempts").upsert({ company_id: message.company_id, message_id: message.id, attempt_number: attempt, state: "started" }, { onConflict: "message_id,attempt_number", ignoreDuplicates: true });
   if (inserted.error) throw inserted.error;
   try {
-    const payload = message.booking_id ? await bookingPayload(db, message) : await documentPayload(db, message);
+    const payload = message.category === "external_offer" ? await externalOfferPayload(db, message) : message.booking_id ? await bookingPayload(db, message) : await documentPayload(db, message);
     if (!payload) throw new PermanentError("Related record is no longer eligible");
     const providerId = await deliverEmail(message.recipient, payload.subject, payload.text, { html: payload.html, replyTo: payload.replyTo, senderEmail: payload.senderEmail, senderName: payload.senderName, idempotencyKey: `reminder/${message.id}` });
     await completeAttempt(db, message, attempt, "accepted", "accepted", providerId, null, null);
@@ -165,6 +165,19 @@ async function documentPayload(db: any, message: Row) {
   return compose(message, settings, { company_name: settings.tradingname || settings.companyname || "Transport Company", driver_name: driver?.full_name || "Driver", document_type: document.document_type === "other" ? (document.document_label || "Other") : document.document_type.replaceAll("_", " "), document_expiry_date: document.expiry_date, days_remaining: 3 }, null, []);
 }
 
+async function externalOfferPayload(db: any, message: Row) {
+  const [{ data: offer }, { data: settings }, { data: company }] = await Promise.all([
+    db.from("external_dispatch_offers").select("id,external_booking_reference,status,booking_payload,supplier_payment,expires_at").eq("id", message.metadata?.offer_id).eq("receiving_company_id", message.company_id).maybeSingle(),
+    db.from("settings").select("*").eq("company_id", message.company_id).maybeSingle(),
+    db.from("companies").select("name,trading_name,company_status").eq("id", message.company_id).maybeSingle(),
+  ]);
+  if (!offer || !settings || company?.company_status !== "active" || settings.emailnotifications === false || settings.external_offer_emails !== true || !["offered", "viewed"].includes(offer.status)) return null;
+  const recipients = [firstEmail(settings.office_notification_email, settings.officeemail, settings.companyemail), ...String(settings.additional_office_recipients || "").split(/[,;\s]+/).map((value: string) => firstEmail(value))].filter(Boolean);
+  if (!recipients.includes(String(message.recipient).toLowerCase())) return null;
+  const payload = offer.booking_payload || {}, when = formatCompanyLocalDateTime(payload.journey_date, payload.journey_time, settings.timezone);
+  return compose(message, settings, { company_name: settings.tradingname || company?.trading_name || settings.companyname || company?.name || "Transport Company", external_booking_reference: offer.external_booking_reference, customer_name: payload.customer_name || "Customer", journey_datetime: when.dateTime, pickup_address: payload.pickup_address || "—", dropoff_address: payload.dropoff_address || "—", passengers: payload.passengers || 1, supplier_payment: `${settings.currencysymbol || "£"}${Number(offer.supplier_payment || 0).toFixed(2)}`, expires_at: new Date(offer.expires_at).toLocaleString("en-GB", { timeZone: validZone(settings.timezone) }), decision_url: message.metadata?.decision_url || "" }, null, []);
+}
+
 function reminderAllowed(settings: Row, category: string) {
   if (settings.emailnotifications === false) return false;
   if (category === "office_booking_reminder") return emailPreferenceEnabled(settings, "office_booking_reminder_24h", settings.office_booking_reminder_emails === true);
@@ -189,6 +202,7 @@ async function compose(message: Row, settings: Row, values: Row, booking: Row | 
     office_unallocated_48h: ["DRIVER NOT ALLOCATED — {{booking_reference}} (48 hours)", "Booking {{booking_reference}} is due within 48 hours and still has no driver.\n\n{{journey_summary}}"],
     office_unallocated_24h: ["URGENT: DRIVER NOT ALLOCATED — {{booking_reference}} (24 hours)", "Booking {{booking_reference}} is due within 24 hours and still has no driver.\n\n{{journey_summary}}"],
     office_driver_document_expiry: ["DRIVER DOCUMENT EXPIRY — {{driver_name}}", "Driver: {{driver_name}}\nDocument: {{document_type}}\nExpiry/recheck date: {{document_expiry_date}}\nDays remaining: {{days_remaining}}"],
+    office_external_offer: ["NEW EXTERNAL BOOKING — {{external_booking_reference}}", "A new external booking requires a decision.\n\nReference: {{external_booking_reference}}\nCustomer: {{customer_name}}\nJourney: {{journey_datetime}}\n{{pickup_address}} → {{dropoff_address}}\nPassengers: {{passengers}}\nSupplier payment: {{supplier_payment}}\nExpires: {{expires_at}}\n\nReview securely: {{decision_url}}"],
   };
   const fallback = defaults[message.template_key] || [message.category, "Notification from {{company_name}}"];
   const safeValues = message.recipient_type === "driver" ? { ...values, price: "", amount_paid: "", balance_due: "", payment_method: "", payment_status: "", payment_summary: "" } : values;

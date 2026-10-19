@@ -238,7 +238,10 @@ function initialiseAdminNavigation() {
     window.addEventListener("resize", () => { close(); applyDesktopPreference(); });
     applyDesktopPreference();
     loadAdminDriverMessageBadge();
+    loadAdminNotificationBadge();
 }
+
+async function loadAdminNotificationBadge(){try{if(typeof window.getAdminCompanyContext!=="function")return;const context=await window.getAdminCompanyContext(),db=getSupabase(),result=await db.from("admin_notifications").select("id",{count:"exact",head:true}).eq("company_id",context.companyId).is("read_at",null);if(result.error)return;const count=result.count||0,topbar=document.querySelector(".topbar");if(!topbar||document.getElementById("adminNotificationLink"))return;const link=document.createElement("a");link.id="adminNotificationLink";link.className="admin-notification-link";link.href="notifications.html";link.setAttribute("aria-label",`${count} unread notifications`);link.innerHTML=`🔔 <span>${count}</span>`;topbar.appendChild(link);}catch(error){console.warn("Admin notification badge unavailable",error);}}
 
 async function loadAdminDriverMessageBadge(){try{if(typeof window.getAdminCompanyContext!=="function")return;const context=await window.getAdminCompanyContext(),db=getSupabase();const{data,error}=await db.functions.invoke("driver-portal",{body:{action:"admin_message_inbox",company_id:context.companyId}});if(error||!data?.ok)return;const unread=(data.messages||[]).filter(row=>row.sender_type==="driver"&&!row.read_at).length;document.querySelectorAll(".admin-message-count").forEach(el=>{el.textContent=String(unread);el.classList.toggle("hidden",unread<1);});}catch(error){console.warn("Driver message badge unavailable",error);}}
 
