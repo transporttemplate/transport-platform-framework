@@ -182,6 +182,7 @@ button{cursor:pointer}
 }
 .route-badge.pickup{background:#315fe9}
 .route-badge.dropoff{background:#2aa65a}
+.soon-to-clear{display:flex;justify-content:space-between;gap:10px;margin:10px 0;padding:10px 12px;border:1px solid #2dd4bf;border-radius:12px;background:#0f766e;color:#ecfeff;font-weight:900}.soon-to-clear span{font-weight:650}.soon-to-clear.hidden{display:none}
 .route-line{height:28px;width:2px;background:#40506a;margin:4px 0 4px 15px}
 
 .job-grid,.mini-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}

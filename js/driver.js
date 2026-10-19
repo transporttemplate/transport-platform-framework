@@ -402,6 +402,7 @@ async function saveDriverPosition(position) {
     };
 
     latestDriverPosition = { lat: update.latitude, lng: update.longitude, accuracy: Number(position.coords.accuracy || 0), heading: position.coords.heading == null ? null : Number(position.coords.heading), speed: position.coords.speed == null ? null : Number(position.coords.speed), timestamp: Number(position.timestamp || Date.now()) };
+    updateSoonToClear();
     navigationController?.update(latestDriverPosition);
 
     try { await driverPortalRequest("gps", {...update,accuracy:latestDriverPosition.accuracy,speed:latestDriverPosition.speed,booking_id:currentJob?.id||null}); Object.assign(currentDriver, update); }
@@ -413,6 +414,7 @@ function renderCurrentJob() {
 
     currentJob =
         driverBookings.find(job => active.includes(normaliseStatus(job.status))) || null;
+    updateSoonToClear();
 
     const card = document.getElementById("currentJobCard");
     const empty = document.getElementById("noCurrentJob");
@@ -439,6 +441,8 @@ function renderCurrentJob() {
 
     renderJobActions();
 }
+
+function updateSoonToClear(){const indicator=document.getElementById('soonToClearIndicator');if(!indicator||!window.DriverPortalCore)return;const state=window.DriverPortalCore.soonToClear(currentJob,latestDriverPosition,2000);indicator.classList.toggle('hidden',!state.active);if(state.active)setText('soonToClearDistance',state.distance<1000?`${Math.round(state.distance)} m from destination`:`${(state.distance/1000).toFixed(1)} km from destination`)}
 
 function renderJobActions() {
     if (!currentJob) return;
