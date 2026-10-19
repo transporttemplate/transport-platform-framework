@@ -46,9 +46,10 @@ Deno.serve(async request => {
     return reply({ok:false,error:"Unknown action"},400);
   } catch (error) {
     const status = error instanceof ApiError ? error.status : 500;
-    const message = error instanceof Error ? error.message : "Unexpected error";
-    console.error("driver-portal", {status, error:message});
-    return reply({ok:false,error:message},status);
+    const internalMessage=error instanceof Error?error.message:typeof error==="object"&&error&&"message" in error?String((error as {message:unknown}).message):"Unexpected error";
+    const publicMessage=error instanceof ApiError?internalMessage:"Driver Portal service could not load the requested data. Please retry.";
+    console.error("driver-portal", {status, error:internalMessage});
+    return reply({ok:false,error:publicMessage},status);
   }
 });
 

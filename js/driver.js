@@ -78,6 +78,7 @@ function bindDriverUI() {
     document.getElementById("awaitingJobsList")?.addEventListener("click", handleDiaryAction);
     document.getElementById("acceptedJobsList")?.addEventListener("click", handleDiaryAction);
     document.getElementById("completedJobsList")?.addEventListener("click", handleDiaryAction);
+    ["completedSearch","completedFrom","completedTo"].forEach(id=>document.getElementById(id)?.addEventListener("input",renderDiary));
     document.getElementById("paymentConfirmPaid")?.addEventListener("click", () => settlePaymentConfirmation("paid"));
     document.getElementById("paymentConfirmUnpaid")?.addEventListener("click", () => settlePaymentConfirmation("unpaid"));
     document.getElementById("paymentConfirmCancel")?.addEventListener("click", () => settlePaymentConfirmation("cancel"));
@@ -164,7 +165,7 @@ async function enterDriverPortal() {
     await refreshDriverPortal();
 
     if (driverRefreshTimer) clearInterval(driverRefreshTimer);
-    driverRefreshTimer = setInterval(refreshDriverPortal, 7000);
+    driverRefreshTimer = setInterval(refreshDriverPortal, 15000);
     if (driverStaleTimer) clearInterval(driverStaleTimer);
     if (driverMessagePollTimer) clearInterval(driverMessagePollTimer);
     driverStaleTimer = setInterval(updateLastUpdatedText, 5000);
@@ -245,7 +246,7 @@ function applyDriverPortalData(data) {
     driverVehicles = data.vehicles || [];
     currentDriverVehicle = data.current_vehicle || null;
     renderDriverVehicle();
-    currentPrivacyNotice=data.privacy||currentPrivacyNotice;renderPrivacyNotice();
+    currentPrivacyNotice=data.privacy??null;renderPrivacyNotice();
     applyDriverPreferences(data.driver);
     renderUnreadMessages(Number(data.unread_messages||0));
     driverNavigationConfig = data.navigation || { enabled: data.settings?.driver_integrated_navigation === true, browser_maps_key: null };
@@ -264,7 +265,7 @@ function applyDriverPortalData(data) {
     }
 }
 
-function renderDriverVehicle(){const box=document.getElementById("driverVehicleDetails"),select=document.getElementById("driverVehicleSelect");if(!box||!select)return;const v=currentDriverVehicle;box.innerHTML=v?`<div><small>Registration</small><strong>${escapeHtml(v.registration||"-")}</strong></div><div><small>Make / model</small><strong>${escapeHtml([v.make,v.model].filter(Boolean).join(" ")||"-")}</strong></div><div><small>Colour</small><strong>${escapeHtml(v.colour||"-")}</strong></div><div><small>Status</small><strong>${escapeHtml(String(v.operational_status||"available").replaceAll("_"," "))}</strong></div>`:'<div><small>Registration</small><strong>Not assigned</strong></div>';select.innerHTML='<option value="">No vehicle assigned</option>'+driverVehicles.map(vehicle=>`<option value="${escapeHtml(vehicle.id)}" ${vehicle.active!==true||vehicle.operational_status!=="available"?"disabled":""}>${escapeHtml(`${vehicle.registration} — ${vehicle.make||""} ${vehicle.model||""}${vehicle.operational_status!=="available"?` • ${vehicle.operational_status}`:""}`.trim())}</option>`).join("");select.value=v?.id||"";}
+function renderDriverVehicle(){const box=document.getElementById("driverVehicleDetails"),select=document.getElementById("driverVehicleSelect"),message=document.getElementById("driverVehicleMessage");if(!box||!select)return;const v=currentDriverVehicle;box.innerHTML=v?`<div><small>Registration</small><strong>${escapeHtml(v.registration||"-")}</strong></div><div><small>Make / model</small><strong>${escapeHtml([v.make,v.model].filter(Boolean).join(" ")||"-")}</strong></div><div><small>Colour</small><strong>${escapeHtml(v.colour||"-")}</strong></div><div><small>Status</small><strong>${escapeHtml(String(v.operational_status||"available").replaceAll("_"," "))}</strong></div>`:'<div class="vehicle-empty"><small>Shift vehicle</small><strong>No vehicle linked</strong><span>Ask an authorised office administrator to link a fleet vehicle to your driver record.</span></div>';select.innerHTML='<option value="">No vehicle assigned</option>'+driverVehicles.map(vehicle=>`<option value="${escapeHtml(vehicle.id)}" ${vehicle.active!==true||vehicle.operational_status!=="available"?"disabled":""}>${escapeHtml(`${vehicle.registration} — ${vehicle.make||""} ${vehicle.model||""}${vehicle.operational_status!=="available"?` • ${vehicle.operational_status}`:""}`.trim())}</option>`).join("");select.value=v?.id||"";select.disabled=!driverVehicles.length;if(message&&!driverVehicles.length)message.textContent="Only vehicles linked by your office are shown here.";}
 async function selectShiftVehicle(){const select=document.getElementById("driverVehicleSelect"),message=document.getElementById("driverVehicleMessage"),previous=currentDriverVehicle?.id||"";select.disabled=true;message.textContent="Updating vehicle…";try{await driverPortalRequest("select_vehicle",{vehicle_id:select.value||null});message.textContent="Vehicle assignment updated.";applyDriverPortalData(await driverPortalRequest("refresh"));}catch(error){select.value=previous;message.textContent=error.message||"Unable to change vehicle.";}finally{select.disabled=false;}}
 
 async function refreshDriverPortal(showLoading = false) {
@@ -277,7 +278,7 @@ async function refreshDriverPortal(showLoading = false) {
         console.error("Driver refresh:", error);
         if (/session/i.test(error.message)) await driverLogout();
         refreshFailures += 1;
-        showConnectionMessage("Unable to refresh. Showing the last successful diary.", true);
+        showConnectionMessage(lastSuccessfulRefresh ? "Connection interrupted. Showing your last successful diary — tap Refresh to retry." : "Your current diary could not be loaded. Tap Refresh to retry; do not rely on cached job details.", true);
         return;
     } finally {
         refreshButton?.classList.remove("loading");
@@ -871,7 +872,9 @@ function renderDiary() {
     setText("acceptedCount", diary.accepted.length);
     renderDiaryList("awaitingJobsList", diary.awaiting, "awaiting");
     renderDiaryList("acceptedJobsList", diary.accepted, "accepted");
-    renderDiaryList("completedJobsList", diary.completed.slice().reverse(), "completed");
+    const query=(document.getElementById("completedSearch")?.value||"").trim().toLowerCase(),from=document.getElementById("completedFrom")?.value||"",to=document.getElementById("completedTo")?.value||"";
+    const completed=diary.completed.filter(job=>(!from||job.journey_date>=from)&&(!to||job.journey_date<=to)&&(!query||[job.booking_reference,pickup(job),destination(job)].some(value=>String(value||"").toLowerCase().includes(query))));
+    renderDiaryList("completedJobsList", completed.slice().reverse(), "completed");
 }
 
 function renderDiaryList(id, jobs, kind) {
@@ -1198,8 +1201,8 @@ async function savePreferences(event) {
     event.preventDefault();const payload={theme:document.getElementById("driverTheme").value,text_size:document.getElementById("driverTextSize").value,provider_phone_sharing:document.getElementById("driverProviderPhoneSharing").checked,passenger_phone_sharing:document.getElementById("driverPassengerPhoneSharing").checked,public_contact_phone:document.getElementById("driverPublicPhone").value.trim()};
     try{const data=await driverPortalRequest("save_preferences",payload);Object.assign(currentDriver,{portal_theme:payload.theme,portal_text_size:payload.text_size});Object.assign(currentDriver,data);currentDriver.public_contact_phone=data.provider_phone_sharing||data.passenger_phone_sharing?payload.public_contact_phone:null;applyDriverPreferences();const el=document.getElementById("preferencesMessage");if(el){el.textContent="Privacy preferences saved.";el.className="form-message success";}}catch(error){const el=document.getElementById("preferencesMessage");if(el){el.textContent=error.message||"Unable to save preferences.";el.className="form-message error";}}
 }
-function renderPrivacyNotice(){if(!currentPrivacyNotice)return;const text=document.getElementById('driverPrivacyNotice'),contact=document.getElementById('driverPrivacyContact'),check=document.getElementById('driverPrivacyAcknowledged');if(text)text.textContent=currentPrivacyNotice.notice_text;if(contact)contact.textContent=currentPrivacyNotice.privacy_contact;if(check){check.checked=Boolean(currentPrivacyNotice.acknowledged_at);check.disabled=Boolean(currentPrivacyNotice.acknowledged_at)}document.getElementById('acknowledgePrivacy').disabled=Boolean(currentPrivacyNotice.acknowledged_at)}
-async function acknowledgePrivacyNotice(){const check=document.getElementById('driverPrivacyAcknowledged'),message=document.getElementById('privacyMessage');if(!check?.checked){message.textContent='Tick the acknowledgement after reading the notice.';message.className='form-message error';return}try{const result=await driverPortalRequest('acknowledge_privacy',{notice_version:currentPrivacyNotice.version,acknowledged:true});currentPrivacyNotice.acknowledged_at=result.acknowledged_at;renderPrivacyNotice();message.textContent='Privacy notice acknowledgement saved.';message.className='form-message success'}catch(error){message.textContent=error.message||'Unable to save acknowledgement.';message.className='form-message error'}}
+function renderPrivacyNotice(){const text=document.getElementById('driverPrivacyNotice'),contact=document.getElementById('driverPrivacyContact'),check=document.getElementById('driverPrivacyAcknowledged'),button=document.getElementById('acknowledgePrivacy');if(!currentPrivacyNotice){if(text)text.textContent='Privacy notice not available. Contact your office before acknowledging.';if(contact)contact.textContent='Company office';if(check){check.checked=false;check.disabled=true}if(button)button.disabled=true;return}if(text)text.textContent=currentPrivacyNotice.notice_text;if(contact)contact.textContent=currentPrivacyNotice.privacy_contact||'Company office';if(check){check.checked=Boolean(currentPrivacyNotice.acknowledged_at);check.disabled=Boolean(currentPrivacyNotice.acknowledged_at)}if(button)button.disabled=Boolean(currentPrivacyNotice.acknowledged_at)}
+async function acknowledgePrivacyNotice(){const check=document.getElementById('driverPrivacyAcknowledged'),message=document.getElementById('privacyMessage');if(!currentPrivacyNotice?.version){message.textContent='The privacy notice is not available. Refresh or contact your office.';message.className='form-message error';return}if(!check?.checked){message.textContent='Tick the acknowledgement after reading the notice.';message.className='form-message error';return}try{const result=await driverPortalRequest('acknowledge_privacy',{notice_version:currentPrivacyNotice.version,acknowledged:true});currentPrivacyNotice.acknowledged_at=result.acknowledged_at;renderPrivacyNotice();message.textContent='Privacy notice acknowledgement saved.';message.className='form-message success'}catch(error){message.textContent=error.message||'Unable to save acknowledgement.';message.className='form-message error'}}
 
 function normaliseStatus(status) {
     return String(status || "").trim().toLowerCase().replaceAll(" ", "_");
