@@ -41,6 +41,9 @@ let mapsLoaderKey = null;
 let driverAccountsSnapshot = null;
 let driverMessageSending = false;
 let driverMessagePollTimer = null;
+let activeBookingTab = "upcoming";
+let busyReason = "";
+let busySheetReturnFocus = null;
 
 document.addEventListener("DOMContentLoaded", () => {
     bindDriverUI();
@@ -55,7 +58,16 @@ function bindDriverUI() {
     document.getElementById("menuButton")?.addEventListener("click", openSideMenu);
     document.getElementById("closeMenuButton")?.addEventListener("click", closeSideMenu);
     document.getElementById("menuOverlay")?.addEventListener("click", closeSideMenu);
-    document.getElementById("availabilityButton")?.addEventListener("click", toggleAvailability);
+    document.getElementById("availabilityButton")?.addEventListener("click", handleHeaderAvailability);
+    document.getElementById("homeAvailableButton")?.addEventListener("click", () => setDriverAvailability(true));
+    document.getElementById("homeBusyButton")?.addEventListener("click", openBusySheet);
+    document.getElementById("homeMenuButton")?.addEventListener("click", openSideMenu);
+    document.getElementById("busySheetOverlay")?.addEventListener("click", closeBusySheet);
+    document.getElementById("busySheetCancel")?.addEventListener("click", closeBusySheet);
+    document.querySelectorAll("[data-busy-reason]").forEach(button => button.addEventListener("click", () => setDriverAvailability(false, button.dataset.busyReason)));
+    document.querySelectorAll("[data-booking-tab]").forEach(button => button.addEventListener("click", () => { activeBookingTab = button.dataset.bookingTab; renderSimplifiedBookings(); }));
+    document.getElementById("simplifiedBookingsList")?.addEventListener("click", handleDiaryAction);
+    document.addEventListener("keydown", event => { if (event.key === "Escape" && document.getElementById("busySheet")?.classList.contains("open")) closeBusySheet(); });
     document.getElementById("driverVehicleSelect")?.addEventListener("change", selectShiftVehicle);
     document.getElementById("arrivedButton")?.addEventListener("click", setArrived);
     document.getElementById("pobButton")?.addEventListener("click", setPOB);
@@ -163,7 +175,7 @@ async function enterDriverPortal() {
     document.getElementById("driverLoginScreen")?.classList.add("hidden");
     document.getElementById("driverApp")?.classList.remove("hidden");
 
-    showDriverView("jobs");
+    showDriverView("home");
     populateDriverHeader();
     await refreshDriverPortal();
 
@@ -220,7 +232,9 @@ function populateDriverHeader() {
     setText("menuDriverNumber", driverNumber(currentDriver));
     setText("driverCompanyName", companyName);
     setText("menuCompanyName", companyName);
+    setText("homeCompanyName", companyName);
     setText("headerVehicleRegistration", currentDriverVehicle?.registration || "No vehicle");
+    setText("menuVehicleRegistration", currentDriverVehicle?.registration || "Not assigned");
     refreshAvailabilityUI();
 }
 
@@ -293,6 +307,7 @@ async function refreshDriverPortal(showLoading = false) {
     showConnectionMessage("", false);
     renderCurrentJob();
     renderDiary();
+    renderSimplifiedBookings();
     renderEarnings();
     refreshAvailabilityUI();
     updateLastUpdatedText();
@@ -306,6 +321,15 @@ function applyCompanyBranding() {
     const logo = String(driverSettings.companylogo || "").trim();
     const image = document.getElementById("loginCompanyLogo");
     if (image && /^https:\/\//i.test(logo)) { image.src = logo; image.classList.remove("hidden"); document.getElementById("loginFallbackIcon")?.classList.add("hidden"); }
+    const homeImage = document.getElementById("homeCompanyLogo");
+    const homeFallback = document.getElementById("homeCompanyFallback");
+    if (homeImage) {
+        const valid = /^https:\/\//i.test(logo);
+        homeImage.classList.toggle("hidden", !valid);
+        homeFallback?.classList.toggle("hidden", valid);
+        if (valid && homeImage.src !== logo) { homeImage.src = logo; homeImage.alt = `${currentCompany?.trading_name || currentCompany?.name || "Company"} logo`; }
+        homeImage.onerror = () => { homeImage.classList.add("hidden"); homeFallback?.classList.remove("hidden"); };
+    }
 }
 
 function safeColour(value) { return /^#[0-9a-f]{6}$/i.test(String(value || "")) ? String(value) : ""; }
@@ -330,22 +354,42 @@ function isDriverOnline(driver) {
     return Boolean(driver?.online ?? driver?.is_online ?? driver?.available ?? false);
 }
 
+function handleHeaderAvailability() { return isDriverOnline(currentDriver) && !driverUnavailable ? openBusySheet() : setDriverAvailability(true); }
 async function toggleAvailability() {
+    return setDriverAvailability(!isDriverOnline(currentDriver));
+}
+
+async function setDriverAvailability(goingOnline, reason = "") {
     if (driverUnavailable) {
         return alert("You are marked unavailable. Use I'm Back first.");
     }
-
-    const goingOnline = !isDriverOnline(currentDriver);
 
     try { await driverPortalRequest("set_online", { online: goingOnline }); }
     catch (error) { console.error(error); return alert("Unable to update availability."); }
 
     currentDriver.online = goingOnline;
+    busyReason = goingOnline ? "" : String(reason || busyReason || "Busy");
 
     if (goingOnline) startGpsTracking();
     else stopGpsTracking();
 
     refreshAvailabilityUI();
+    closeBusySheet();
+}
+
+function openBusySheet() {
+    if (driverUnavailable) return alert("You are marked unavailable. Use I'm Back first.");
+    busySheetReturnFocus = document.activeElement;
+    document.getElementById("busySheet")?.classList.add("open");
+    document.getElementById("busySheetOverlay")?.classList.add("open");
+    document.querySelector("[data-busy-reason]")?.focus();
+}
+
+function closeBusySheet() {
+    document.getElementById("busySheet")?.classList.remove("open");
+    document.getElementById("busySheetOverlay")?.classList.remove("open");
+    if (busySheetReturnFocus instanceof HTMLElement) busySheetReturnFocus.focus();
+    busySheetReturnFocus = null;
 }
 
 function refreshAvailabilityUI() {
@@ -358,10 +402,14 @@ function refreshAvailabilityUI() {
     const button = document.getElementById("availabilityButton");
     if (button) {
         button.textContent =
-            driverUnavailable ? "Unavailable" : online ? "Go Offline" : "Go Online";
+            driverUnavailable ? "Unavailable" : online ? "Available" : "Busy";
         button.classList.toggle("online", online);
         button.classList.toggle("offline", !online);
     }
+    const available = document.getElementById("homeAvailableButton"), busy = document.getElementById("homeBusyButton");
+    available?.classList.toggle("active", online);
+    busy?.classList.toggle("active", !online);
+    if (busy) busy.textContent = driverUnavailable ? "Unavailable" : online ? "I’m Busy" : busyReason || "I’m Busy";
 
     const dot = document.getElementById("availabilityDot");
     if (dot) {
@@ -422,16 +470,16 @@ function renderCurrentJob() {
     updateSoonToClear();
 
     const card = document.getElementById("currentJobCard");
-    const empty = document.getElementById("noCurrentJob");
+    const operationalJourney = document.getElementById("operationalJourney");
 
     if (!currentJob) {
         card?.classList.add("hidden");
-        empty?.classList.remove("hidden");
+        operationalJourney?.classList.add("hidden");
         return;
     }
 
     card?.classList.remove("hidden");
-    empty?.classList.add("hidden");
+    operationalJourney?.classList.remove("hidden");
 
     setText("currentJobReference", currentJob.booking_reference || shortId(currentJob.id));
     setText("currentJobStatus", prettyStatus(currentJob.status || "assigned"));
@@ -441,7 +489,7 @@ function renderCurrentJob() {
     setText("currentPassenger", currentJob.customer_name || "-");
     setText("currentPassengers", currentJob.passengers ?? "-");
     setText("currentFlight", currentJob.flight_number || "-");
-    setText("currentFare", money(jobPrice(currentJob)));
+    setText("currentFare", money(driverEarning(currentJob)));
     setText("currentPayment", `${currentJob.payment_method || "-"} — ${prettyStatus(currentJob.payment_status || "unpaid")}`);
 
     renderJobActions();
@@ -848,7 +896,7 @@ function openJobDetails(job) {
     setText("detailSuitcases", job.suitcases ?? "-");
     setText("detailHandLuggage", job.hand_luggage ?? "-");
     setText("detailFlightNumber", job.flight_number || "-");
-    setText("detailFare", money(jobPrice(job)));
+    setText("detailFare", money(driverEarning(job)));
     setText("detailPayment", `${job.payment_method || "-"} — ${prettyStatus(job.payment_status || "unpaid")}`);
     selectedJob = job;
     document.getElementById("detailMarkPaidButton")?.classList.toggle("hidden", !canDriverMarkPaid(job));
@@ -879,6 +927,32 @@ function renderDiary() {
     const query=(document.getElementById("completedSearch")?.value||"").trim().toLowerCase(),from=document.getElementById("completedFrom")?.value||"",to=document.getElementById("completedTo")?.value||"";
     const completed=diary.completed.filter(job=>(!from||job.journey_date>=from)&&(!to||job.journey_date<=to)&&(!query||[job.booking_reference,pickup(job),destination(job)].some(value=>String(value||"").toLowerCase().includes(query))));
     renderDiaryList("completedJobsList", completed.slice().reverse(), "completed");
+}
+
+function renderSimplifiedBookings() {
+    const list = document.getElementById("simplifiedBookingsList");
+    if (!list || !window.DriverWorkflow) return;
+    const diary = window.DriverWorkflow.classifyJobs(driverBookings);
+    const today = companyDateKey(trustedNow());
+    const tomorrowDate = new Date(`${today}T12:00:00Z`);
+    tomorrowDate.setUTCDate(tomorrowDate.getUTCDate() + 1);
+    const tomorrow = tomorrowDate.toISOString().slice(0, 10);
+    const rows = activeBookingTab === "completed" ? diary.completed.slice().reverse()
+        : activeBookingTab === "next_day" ? [...diary.awaiting, ...diary.accepted].filter(job => job.journey_date === tomorrow)
+        : activeBookingTab === "my_jobs" ? diary.accepted
+        : [...diary.awaiting, ...diary.accepted];
+    document.querySelectorAll("[data-booking-tab]").forEach(button => { const active = button.dataset.bookingTab === activeBookingTab; button.classList.toggle("active", active); button.setAttribute("aria-selected", String(active)); });
+    if (!rows.length) { list.innerHTML = `<div class="empty-list">No ${activeBookingTab.replaceAll("_", " ")} bookings.</div>`; return; }
+    list.innerHTML = rows.map(job => simplifiedBookingRow(job, activeBookingTab === "completed" ? "completed" : diary.awaiting.includes(job) ? "awaiting" : "accepted")).join("");
+}
+
+function simplifiedBookingRow(job, kind) {
+    const busy = pendingJobActions.has(String(job.id));
+    const startReady = kind === "accepted" && window.DriverWorkflow.canStart(job, trustedNow(), driverSettings.timezone || "Europe/London");
+    const decline = kind === "awaiting" && window.DriverWorkflow.canDecline(driverSettings, job);
+    const sourceColour = safeColour(job.source_account_colour) || "#64748b";
+    if (kind === "completed") return `<article class="simple-booking-row completed" style="--job-accent:${escapeHtml(sourceColour)}"><button type="button" data-job-action="details" data-job-id="${escapeHtml(job.id)}"><span class="simple-money"><strong>${escapeHtml(money(driverEarning(job)))}</strong><small>${escapeHtml(job.payment_method || driverPaymentLabel(job))}</small></span><span class="simple-place"><strong>${escapeHtml(destination(job))}</strong><small>${escapeHtml(formatDate(job.journey_date))} · ${escapeHtml(job.booking_reference || shortId(job.id))}</small></span><b aria-hidden="true">›</b></button></article>`;
+    return `<article class="simple-booking-row" style="--job-accent:${escapeHtml(sourceColour)}"><button type="button" data-job-action="details" data-job-id="${escapeHtml(job.id)}"><span class="simple-time"><strong>${escapeHtml(formatTime(job.journey_time))}</strong><small>${escapeHtml(formatDate(job.journey_date))}</small></span><span class="simple-place"><strong>${escapeHtml(pickup(job))}</strong><small>${escapeHtml(job.booking_reference || shortId(job.id))} · ${escapeHtml(driverPaymentLabel(job))}</small></span><b aria-hidden="true">›</b></button>${kind === "awaiting" ? `<div class="simple-row-actions"><button data-job-action="accepted" data-job-id="${escapeHtml(job.id)}" ${busy ? "disabled" : ""}>Accept</button>${decline ? `<button class="danger" data-job-action="declined" data-job-id="${escapeHtml(job.id)}" ${busy ? "disabled" : ""}>Decline</button>` : ""}</div>` : startReady ? `<div class="simple-row-actions"><button data-job-action="on_way" data-job-id="${escapeHtml(job.id)}" ${busy ? "disabled" : ""}>On Route</button></div>` : ""}</article>`;
 }
 
 function renderDiaryList(id, jobs, kind) {
@@ -990,6 +1064,7 @@ function renderEarnings() {
 }
 
 function driverEarning(job) {
+    if (job?.driver_amount != null && Number.isFinite(Number(job.driver_amount))) return Math.max(0, Number(job.driver_amount));
     if (currentDriver?.pay_type === "fixed") return Number(currentDriver.fixed_job_amount || 0);
     const rate = Number(currentDriver?.commission_percent ?? driverCommissionDefault ?? 0);
     const grossFare = jobPrice(job);
@@ -1072,10 +1147,13 @@ function showDriverView(name) {
         .forEach(view => view.classList.remove("active"));
 
     document.getElementById(`view-${name}`)?.classList.add("active");
+    document.body.classList.toggle("viewing-driver-home", name === "home");
     document.querySelectorAll(".bottom-nav [data-view]").forEach(button=>button.classList.toggle("active",button.dataset.view===name||(name==="earnings"&&button.dataset.view==="more")));
 
     if (name === "earnings") renderEarnings();
     if (name === "completed") renderDiary();
+    if (name === "jobs") renderSimplifiedBookings();
+    if (name === "devices") { setText("deviceGpsStatus", navigator.geolocation ? (isDriverOnline(currentDriver) ? "Sharing while available" : "Paused while busy") : "Not supported on this device"); setText("deviceNavigationStatus", driverNavigationConfig.enabled ? "Enabled by your company" : "Not enabled by your company"); }
     if (name === "holidays") refreshHolidayStatus();
     if (name === "accounts" && currentDriver?.driver_expenses_enabled === true) loadDriverAccounts();
     if (driverMessagePollTimer) clearInterval(driverMessagePollTimer);
@@ -1183,7 +1261,7 @@ function money(value) {
 }
 
 function renderUnreadMessages(count) {
-    for (const id of ["menuUnreadCount","homeUnreadCount","headerUnreadCount","bottomUnreadCount"]) { const el=document.getElementById(id); if(el){el.textContent=String(count);el.classList.toggle("hidden",count<1);} }
+    for (const id of ["menuUnreadCount","homeUnreadCount","homeTileUnreadCount","headerUnreadCount","bottomUnreadCount"]) { const el=document.getElementById(id); if(el){el.textContent=String(count);el.classList.toggle("hidden",count<1);} }
     document.getElementById("messageAlert")?.classList.toggle("hidden",count<1);
 }
 async function loadDriverMessages(markRead=false) {
@@ -1273,6 +1351,14 @@ function compareJobs(a, b) {
 
 function localDateKey(date) {
     return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+}
+
+function companyDateKey(date) {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
+        timeZone: driverSettings.timezone || "Europe/London",
+        year: "numeric", month: "2-digit", day: "2-digit"
+    }).formatToParts(date).map(part => [part.type, part.value]));
+    return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
 function getWeekStart(date) {

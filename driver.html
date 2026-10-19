@@ -50,16 +50,20 @@
         <h2 id="menuDriverName">Driver</h2>
         <p>Driver #<span id="menuDriverNumber">-</span></p>
         <p id="menuCompanyName">Company</p>
+        <p>Vehicle <span id="menuVehicleRegistration">Not assigned</span></p>
     </div>
 
     <nav class="side-nav">
-        <button type="button" data-view="jobs"><span class="nav-icon" aria-hidden="true">⌂</span><span>My Jobs</span></button>
+        <button type="button" data-view="home"><span class="nav-icon" aria-hidden="true">⌂</span><span>Home</span></button>
+        <button type="button" data-view="jobs"><span class="nav-icon" aria-hidden="true">▤</span><span>Bookings</span></button>
         <button type="button" data-view="earnings"><span class="nav-icon" aria-hidden="true">£</span><span>Earnings</span></button>
-        <button id="driverExpensesNav" class="hidden" type="button" data-view="accounts"><span class="nav-icon" aria-hidden="true">▤</span><span>Expenses</span></button>
         <button type="button" data-view="messages"><span class="nav-icon" aria-hidden="true">✉</span><span>Messages</span><span id="menuUnreadCount" class="nav-count hidden">0</span></button>
-        <button type="button" data-view="holidays"><span class="nav-icon" aria-hidden="true">○</span><span>Holidays / Off Days</span></button>
-        <button type="button" data-view="completed"><span class="nav-icon" aria-hidden="true">✓</span><span>Completed Jobs</span></button>
+        <button type="button" data-view="holidays"><span class="nav-icon" aria-hidden="true">○</span><span>Availability</span></button>
+        <button type="button" data-view="more" data-focus-vehicle="true"><span class="nav-icon" aria-hidden="true">▣</span><span>Vehicle</span></button>
+        <button id="driverExpensesNav" class="hidden" type="button" data-view="accounts"><span class="nav-icon" aria-hidden="true">£</span><span>Expenses</span></button>
         <button type="button" data-view="settings"><span class="nav-icon" aria-hidden="true">⚙</span><span>Settings</span></button>
+        <button type="button" data-view="devices"><span class="nav-icon" aria-hidden="true">⌖</span><span>Devices / GPS</span></button>
+        <button type="button" data-view="help"><span class="nav-icon" aria-hidden="true">?</span><span>Help</span></button>
     </nav>
 
     <button id="driverLogoutButton" class="logout-button" type="button">Log Off</button>
@@ -67,24 +71,48 @@
 
 <main class="app-main">
 
-<section id="view-jobs" class="driver-view active">
+<section id="view-home" class="driver-view active minimalist-home">
     <div id="connectionBanner" class="connection-banner hidden" role="status"></div>
     <button id="messageAlert" class="message-alert hidden" type="button" data-view="messages"><span>●</span><strong>You have a new message</strong><b id="homeUnreadCount">0</b></button>
-    <div class="diary-heading">
-        <div><span class="eyebrow">DRIVER PORTAL</span><h1>Your day</h1><p id="lastUpdatedText">Loading your work…</p></div>
-        <button id="refreshDiaryButton" class="icon-button" type="button" aria-label="Refresh diary">↻</button>
-    </div>
-    <div class="home-overview"><div class="status-card">
-        <div>
-            <span>Availability</span>
-            <strong id="availabilityText">Offline</strong>
+    <div class="home-availability-bar">
+        <div class="availability-segment" role="group" aria-label="Driver availability">
+            <button id="homeAvailableButton" type="button">Available</button>
+            <button id="homeBusyButton" type="button">I’m Busy</button>
         </div>
-        <span id="availabilityDot" class="status-dot offline"></span>
-    </div><div class="home-shortcuts" aria-label="Today at a glance">
-        <button type="button" data-view="earnings"><span>Today's earnings</span><strong id="todayEarnings">£0.00</strong></button>
-        <button type="button" data-view="jobs"><span>Jobs today</span><strong id="todayJobs">0</strong></button>
-        <button id="expensesShortcut" class="hidden" type="button" data-view="accounts"><span>Expenses</span><strong>Open</strong></button>
-    </div></div>
+        <button id="homeMenuButton" class="home-menu-button" type="button" aria-label="Open menu">☰</button>
+    </div>
+    <div class="home-brand-stage">
+        <img id="homeCompanyLogo" class="home-company-logo hidden" alt="">
+        <div id="homeCompanyFallback" class="home-company-fallback"><span>TP</span><strong id="homeCompanyName">Your company</strong></div>
+    </div>
+    <nav class="home-tiles" aria-label="Driver tools">
+        <button type="button" data-view="jobs"><span>▤</span><strong>Bookings</strong></button>
+        <button type="button" data-view="messages"><span>✉</span><strong>Messages</strong><i id="homeTileUnreadCount" class="hidden">0</i></button>
+        <button type="button" data-view="earnings"><span>£</span><strong>Earnings</strong></button>
+        <button type="button" data-view="more"><span>•••</span><strong>More</strong></button>
+    </nav>
+    <p id="lastUpdatedText" class="home-updated">Loading your work…</p>
+</section>
+
+<section id="view-jobs" class="driver-view">
+    <div class="bookings-heading">
+        <div><span class="eyebrow">DRIVER DIARY</span><h1>Bookings</h1></div>
+        <button id="refreshDiaryButton" class="icon-button" type="button" aria-label="Refresh bookings">↻</button>
+    </div>
+    <div class="bookings-tabs" role="tablist" aria-label="Booking sections">
+        <button class="active" type="button" role="tab" data-booking-tab="upcoming">Upcoming</button>
+        <button type="button" role="tab" data-booking-tab="next_day">Next Day</button>
+        <button type="button" role="tab" data-booking-tab="my_jobs">My Jobs</button>
+        <button type="button" role="tab" data-booking-tab="completed">Completed</button>
+    </div>
+    <div id="simplifiedBookingsList" class="simplified-bookings-list"><div class="empty-list">Loading bookings…</div></div>
+
+    <div id="operationalJourney" class="operational-journey hidden">
+        <div class="operational-label">Active journey</div>
+        <div class="home-overview legacy-availability"><div class="status-card">
+            <div><span>Availability</span><strong id="availabilityText">Offline</strong></div><span id="availabilityDot" class="status-dot offline"></span>
+        </div>
+        <div class="home-shortcuts"><button type="button"><strong id="todayEarnings">£0.00</strong></button><button type="button"><strong id="todayJobs">0</strong></button><button id="expensesShortcut" class="hidden" type="button"></button></div></div>
 
     <section id="currentJobCard" class="current-job-card hidden">
         <div class="job-top">
@@ -119,7 +147,7 @@
             <div><small>Passenger</small><strong id="currentPassenger">-</strong></div>
             <div><small>Passengers</small><strong id="currentPassengers">-</strong></div>
             <div><small>Flight</small><strong id="currentFlight">-</strong></div>
-            <div><small>Fare</small><strong id="currentFare">£0.00</strong></div>
+            <div><small>Driver earnings</small><strong id="currentFare">£0.00</strong></div>
             <div><small>Payment</small><strong id="currentPayment">-</strong></div>
         </div>
 
@@ -136,21 +164,26 @@
         </div>
     </section>
 
-    <section id="noCurrentJob" class="empty-card">
-        <h2>No Job In Progress</h2>
-        <p>Your accepted work is listed below.</p>
-    </section>
-
-    <section class="diary-section" aria-labelledby="awaitingHeading">
+    <section class="diary-section legacy-diary-section" aria-labelledby="awaitingHeading">
         <div class="section-heading"><div><span class="section-kicker">ACTION REQUIRED</span><h2 id="awaitingHeading">Awaiting Your Response</h2></div><span id="awaitingCount" class="count-badge">0</span></div>
         <div id="awaitingJobsList" class="list-stack"><div class="empty-list">No jobs awaiting your response.</div></div>
     </section>
 
-    <section class="diary-section" aria-labelledby="acceptedHeading">
+    <section class="diary-section legacy-diary-section" aria-labelledby="acceptedHeading">
         <div class="section-heading"><div><span class="section-kicker accepted">YOUR SCHEDULE</span><h2 id="acceptedHeading">Accepted / Upcoming</h2></div><span id="acceptedCount" class="count-badge">0</span></div>
         <div id="acceptedJobsList" class="list-stack"><div class="empty-list">No accepted upcoming jobs.</div></div>
     </section>
 
+</section>
+
+<section id="view-devices" class="driver-view">
+    <div class="page-title"><h2>Devices / GPS</h2><p>Location and navigation status for this device.</p></div>
+    <div class="form-card device-status"><div><span>GPS sharing</span><strong id="deviceGpsStatus">Available when online</strong></div><div><span>Integrated navigation</span><strong id="deviceNavigationStatus">Checking…</strong></div></div>
+</section>
+
+<section id="view-help" class="driver-view">
+    <div class="page-title"><h2>Help</h2><p>Contact your office if a job, payment or allocation needs correction.</p></div>
+    <div class="form-card help-card"><h3>Driver Portal help</h3><p>Keep this screen open during an active journey. If navigation or GPS is unavailable, use the Google Maps fallback and contact the office when safely parked.</p><button type="button" class="btn btn-secondary btn-full" data-view="messages">Message the office</button></div>
 </section>
 
 <section id="view-messages" class="driver-view">
@@ -271,12 +304,21 @@
 </main>
 
 <nav class="bottom-nav" aria-label="Driver Portal">
-  <button class="active" type="button" data-view="jobs"><span>⌂</span><b>Home</b></button>
-  <button type="button" data-view="completed"><span>▤</span><b>Jobs</b></button>
+  <button class="active" type="button" data-view="home"><span>⌂</span><b>Home</b></button>
+  <button type="button" data-view="jobs"><span>▤</span><b>Jobs</b></button>
   <button id="bottomNavigationButton" type="button"><span>➤</span><b>Navigation</b></button>
   <button type="button" data-view="messages"><span>✉</span><b>Messages</b><i id="bottomUnreadCount" class="hidden">0</i></button>
   <button type="button" data-view="more"><span>•••</span><b>More</b></button>
 </nav>
+
+<div id="busySheetOverlay" class="busy-sheet-overlay"></div>
+<section id="busySheet" class="busy-sheet" role="dialog" aria-modal="true" aria-labelledby="busySheetTitle">
+    <div class="busy-sheet-handle"></div><h2 id="busySheetTitle">I’m Busy</h2><p>Select the closest operational reason. Your journey status will not change.</p>
+    <button type="button" data-busy-reason="Short break">Short break</button>
+    <button type="button" data-busy-reason="Long break / Engaged">Long break / Engaged</button>
+    <button type="button" data-busy-reason="Hired">Hired</button>
+    <button id="busySheetCancel" class="busy-sheet-cancel" type="button">Cancel</button>
+</section>
 
 <section id="driverNavigationView" class="driver-navigation hidden" aria-label="Integrated navigation">
     <header class="navigation-header">
@@ -347,7 +389,7 @@
         <div class="detail-row"><span>Suitcases</span><strong id="detailSuitcases">-</strong></div>
         <div class="detail-row"><span>Hand Luggage</span><strong id="detailHandLuggage">-</strong></div>
         <div class="detail-row"><span>Flight Number</span><strong id="detailFlightNumber">-</strong></div>
-        <div class="detail-row"><span>Fare</span><strong id="detailFare">£0.00</strong></div>
+        <div class="detail-row"><span>Driver earnings</span><strong id="detailFare">£0.00</strong></div>
         <div class="detail-row"><span>Payment</span><strong id="detailPayment">-</strong></div>
         <div class="detail-row"><span>Status</span><strong id="detailStatus">-</strong></div>
         <div class="detail-row"><span>Workflow available</span><strong id="detailActivation">-</strong></div>
