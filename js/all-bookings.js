@@ -3,6 +3,7 @@ const bookingsDb = getSupabase();
 
 let allBookings = [];
 let allDrivers = [];
+let driverLoadError = null;
 let unavailableDriverIds = new Set();
 let allAccountCustomers = [];
 let customerPortalCustomerIds = new Set();
@@ -39,7 +40,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         setRangeForTab(currentTab);
         bindBookingEvents();
 
-        await Promise.all([loadDrivers(), loadBookings(), loadAccountCustomers(), loadCustomerPortalUsers(), loadAllBookingsSettings(), loadUnavailableDrivers()]);
+        await Promise.all([loadDrivers(), loadAccountCustomers()]);
+        await loadUnavailableDrivers();
+        await Promise.all([loadBookings(), loadCustomerPortalUsers(), loadAllBookingsSettings()]);
         startLiveRefresh();
 
     } catch (error) {
@@ -74,10 +77,9 @@ function bindBookingEvents() {
     document
         .getElementById("refreshBookings")
         ?.addEventListener("click", async () => {
-            await Promise.all([
-                loadDrivers(),
-                loadBookings()
-            ]);
+            await loadDrivers();
+            await loadUnavailableDrivers();
+            await loadBookings();
 
             refreshDriverMarkers();
         });
@@ -380,11 +382,11 @@ async function loadDrivers() {
             "Unable to load drivers:",
             error
         );
-        allDrivers=[];const select=document.getElementById("driverSelect");if(select)select.innerHTML='<option value="">Drivers unavailable — refresh or contact an administrator</option>';
+        driverLoadError=error;allDrivers=[];const select=document.getElementById("driverSelect");if(select)select.innerHTML='<option value="">Drivers unavailable — refresh or contact an administrator</option>';if(allBookings.length)renderBookings();
         return;
     }
 
-    allDrivers =
+    driverLoadError=null;allDrivers =
         data || [];
 
     await loadDriverVehicleSuggestions();
@@ -451,7 +453,7 @@ async function loadBookings() {
     if (body) {
 
         body.innerHTML =
-            '<tr><td colspan="15" class="empty-row">Loading bookings…</td></tr>';
+            '<tr><td colspan="11" class="empty-row">Loading bookings…</td></tr>';
     }
 
     let bookingsQuery = bookingsDb
@@ -707,8 +709,12 @@ function bookingRowHtml(booking) {
     const canAllocate = currentTab === "upcoming";
     const paymentClass = bookingPaymentClass(booking);
 
+    const assignedDriverKnown = !booking.driver_id || allDrivers.some(driver => String(driver.id) === String(booking.driver_id));
+    const assignedFallback = booking.driver_id && !assignedDriverKnown
+        ? `<option value="${escapeHtml(booking.driver_id)}" selected>${escapeHtml(driverLoadError ? "Driver list unavailable — refresh" : `Assigned driver unavailable (${String(booking.driver_id).slice(0,8)})`)}</option>`
+        : "";
     const driverOptions = [
-        '<option value="">Unassigned</option>',
+        '<option value="">Unassigned</option>', assignedFallback,
 
         ...allDrivers.map(driver => {
 
@@ -718,20 +724,18 @@ function bookingRowHtml(booking) {
                 ? " selected"
                 : "";
 
-            const online =
-                driver.online
-                    ? " • ONLINE"
-                    : "";
             const unavailable = unavailableDriverIds.has(String(driver.id));
+            const state = driver.active === false ? "INACTIVE" : driver.online ? "ONLINE" : "OFFLINE";
+            const vehicle = driver.suggested_vehicle_registration ? ` • ${driver.suggested_vehicle_registration}` : " • NO VEHICLE";
 
             return `
                 <option
                     value="${escapeHtml(driver.id)}"
                     ${selected}
-                    ${unavailable && !selected ? "disabled" : ""}
+                    ${(unavailable || driver.active === false) && !selected ? "disabled" : ""}
                 >
                     ${escapeHtml(
-                        `${driver.driver_number || "-"} — ${driver.full_name || "Driver"}${online}${unavailable ? " • UNAVAILABLE" : ""}`
+                        `${driver.driver_number || "-"} — ${driver.full_name || "Driver"} • ${state}${unavailable ? " • UNAVAILABLE" : ""}${vehicle}`
                     )}
                 </option>
             `;
@@ -754,7 +758,7 @@ function bookingRowHtml(booking) {
                 </select>
             `;
 
-    const actionButtons = `<button type="button" class="booking-menu-trigger" data-booking-menu="${escapeHtml(booking.id)}" aria-label="Actions for booking ${escapeHtml(booking.booking_reference || shortId(booking.id))}">Actions ▾</button>`;
+    const actionButtons = `<button type="button" class="booking-menu-trigger" data-booking-menu="${escapeHtml(booking.id)}" aria-haspopup="menu" aria-expanded="false" aria-label="Actions for booking ${escapeHtml(booking.booking_reference || shortId(booking.id))}">Actions ▾</button>`;
     const fare=Number(booking.price??booking.job_price??0),paid=Number(booking.amount_paid||0),outstanding=bookingPaymentKind(booking)==="paid"?0:Math.max(0,Number(booking.balance_due||0),fare-paid);
 
     return `
@@ -780,7 +784,7 @@ function bookingRowHtml(booking) {
 
             <td data-label="Source / Account">${sourceAccountLabel(booking)}</td>
 
-            <td data-label="Route" class="compact-route-cell" title="${escapeHtml(`${booking.pickup_address||booking.pickup||"-"} → ${booking.dropoff_address||booking.destination||"-"}`)}"><span>${escapeHtml(booking.pickup_address||booking.pickup||"-")}</span><b>→</b><span>${escapeHtml(booking.dropoff_address||booking.destination||"-")}</span></td>
+            <td data-label="Route" class="compact-route-cell" tabindex="0" title="${escapeHtml(`${booking.pickup_address||booking.pickup||"-"} → ${booking.dropoff_address||booking.destination||"-"}`)}"><span>${escapeHtml(booking.pickup_address||booking.pickup||"-")}</span><b>→</b><span>${escapeHtml(booking.dropoff_address||booking.destination||"-")}</span></td>
 
             <td data-label="Driver">
                 ${driverCell}
@@ -2178,7 +2182,9 @@ async function runGuardedLiveRefresh() {
     if (document.hidden || adminBookingFormDirty || bookingEditorOpen || liveRefreshRunning) return;
     liveRefreshRunning = true;
     try {
-        await Promise.all([loadDrivers(), loadBookings()]);
+        await loadDrivers();
+        await loadUnavailableDrivers();
+        await loadBookings();
         refreshDriverMarkers();
     } finally {
         liveRefreshRunning = false;
@@ -2255,10 +2261,12 @@ function driverDisplayName(id) {
         );
 
     if (!driver) {
-        return "Driver";
+        return driverLoadError ? "Driver list unavailable — refresh" : `Assigned driver unavailable (${String(id).slice(0,8)})`;
     }
 
-    return `${driver.driver_number || "-"} — ${driver.full_name || "Driver"}${driver.suggested_vehicle_registration?` · ${driver.suggested_vehicle_registration}`:" · No vehicle"}`;
+    const state = driver.active === false ? "Inactive" : driver.online ? "Online" : "Offline";
+    const unavailable = unavailableDriverIds.has(String(driver.id)) ? " · Unavailable" : "";
+    return `${driver.driver_number || "-"} — ${driver.full_name || "Driver"} · ${state}${unavailable}${driver.suggested_vehicle_registration?` · ${driver.suggested_vehicle_registration}`:" · No vehicle"}`;
 }
 
 async function loadDriverVehicleSuggestions(){const [links,assignments,vehicles]=await Promise.all([bookingsDb.from("driver_vehicle_links").select("driver_id,vehicle_id,link_type").eq("company_id",adminCompanyId),bookingsDb.from("driver_vehicle_assignments").select("driver_id,vehicle_id,effective_from").eq("company_id",adminCompanyId).is("effective_to",null),bookingsDb.from("vehicles").select("id,registration,active,operational_status").eq("company_id",adminCompanyId)]);if(links.error||assignments.error||vehicles.error){console.warn("Vehicle suggestions unavailable",links.error||assignments.error||vehicles.error);return;}const byId=new Map((vehicles.data||[]).filter(v=>v.active&&v.operational_status==="available").map(v=>[v.id,v]));allDrivers.forEach(driver=>{const current=(assignments.data||[]).filter(a=>a.driver_id===driver.id).sort((a,b)=>String(b.effective_from).localeCompare(String(a.effective_from)))[0],fallback=(links.data||[]).find(l=>l.driver_id===driver.id&&l.link_type==="default"),vehicle=byId.get(current?.vehicle_id)||byId.get(fallback?.vehicle_id);driver.suggested_vehicle_registration=vehicle?.registration||null;});}

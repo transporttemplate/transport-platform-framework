@@ -5,23 +5,30 @@
     menu.hidden = true;
     document.body.appendChild(menu);
     let activeBooking = null;
+    let activeAnchor = null;
 
-    const terminal = new Set(["accepted", "on_way", "arrived", "passenger_onboard", "completed", "cancelled", "canceled", "no_show"]);
+    const terminal = new Set(["completed", "cancelled", "canceled", "no_show", "archived"]);
+    const journeyStatuses = new Set(["accepted", "on_way", "arrived", "passenger_onboard", "completed"]);
     const statusOf = booking => String(booking?.status || booking?.booking_status || "waiting").toLowerCase();
-    const close = () => { menu.hidden = true; activeBooking = null; };
+    const close = (restoreFocus = false) => { const anchor = activeAnchor; menu.hidden = true; activeBooking = null; activeAnchor = null; document.querySelectorAll('[data-booking-menu][aria-expanded="true"]').forEach(item => item.setAttribute("aria-expanded", "false")); if (restoreFocus) anchor?.focus(); };
     const findBooking = id => allBookings.find(row => String(row.id) === String(id));
-    const icons={view:"◉",edit:"✎",fare:"£",exchange:"⇆",driver:"⇄",customer_message:"✉",driver_message:"↗",resend:"↻",payments:"£",journey:"⌖",activity:"≡",complete:"✓",cancel:"×",archive:"□",delete:"!"};
+    const icons={view:"◉",edit:"✎",fare:"£",exchange:"⇆",external_status:"↗",driver:"⇄",customer_message:"✉",driver_message:"↗",resend:"↻",payments:"£",journey:"⌖",activity:"≡",complete:"✓",no_show:"–",cancel:"×",archive:"□",delete:"!"};
     const action = (label, name, options = {}) => `<button type="button" role="menuitem" data-menu-action="${name}"${options.danger ? ' class="danger"' : ""}><span aria-hidden="true">${icons[name]||"•"}</span>${label}</button>`;
 
     function openMenu(booking, x, y, anchor) {
         if (!booking || String(booking.company_id) !== String(adminCompanyId)) return;
+        close();
         activeBooking = booking;
+        activeAnchor = anchor || null;
+        activeAnchor?.setAttribute("aria-expanded", "true");
         const editable = !terminal.has(statusOf(booking));
+        const external = Boolean(booking.external_provider_reference || booking.external_dispatch_id || ["integration","external_dispatch"].includes(String(booking.booking_source || "")));
         menu.innerHTML = [
             action("View booking details", "view"),
             editable ? action("Edit booking", "edit") : "",
             !["cancelled","canceled","no_show","archived"].includes(statusOf(booking)) ? action("Adjust fare", "fare") : "",
             editable ? action("Offer to another company", "exchange") : "",
+            external ? action("View external dispatch status", "external_status") : "",
             editable ? action(booking.driver_id ? "Change driver" : "Assign driver", "driver") : "",
             booking.customer_phone || booking.phone ? action("Message customer", "customer_message") : "",
             booking.driver_id ? action("Message driver", "driver_message") : "",
@@ -29,7 +36,8 @@
             action("View payment history", "payments"),
             action("View journey / GPS playback", "journey"),
             action("View booking activity", "activity"),
-            ["accepted","on_way","arrived","passenger_onboard"].includes(statusOf(booking)) ? action("Mark complete", "complete") : "",
+            journeyStatuses.has(statusOf(booking)) && statusOf(booking) !== "completed" ? action("Mark complete", "complete") : "",
+            editable ? action("Mark No Show", "no_show", { danger: true }) : "",
             editable ? action("Cancel booking", "cancel", { danger: true }) : "",
             action("Archive / Void", "archive"),
             '<div class="booking-action-danger" role="separator"><small>Danger zone</small></div>',
@@ -37,8 +45,11 @@
         ].join("");
         menu.hidden = false;
         const rect = menu.getBoundingClientRect();
-        const left = Math.max(8, Math.min(x, innerWidth - rect.width - 8));
-        const top = Math.max(8, Math.min(y, innerHeight - rect.height - 8));
+        const anchorRect = anchor?.getBoundingClientRect();
+        const preferredLeft = anchorRect ? anchorRect.right - rect.width : x;
+        const preferredTop = anchorRect ? (anchorRect.bottom + rect.height <= innerHeight - 8 ? anchorRect.bottom + 4 : anchorRect.top - rect.height - 4) : y;
+        const left = Math.max(8, Math.min(preferredLeft, innerWidth - rect.width - 8));
+        const top = Math.max(8, Math.min(preferredTop, innerHeight - rect.height - 8));
         menu.style.left = `${left}px`; menu.style.top = `${top}px`;
         menu.dataset.anchorId = anchor?.dataset.bookingMenu || "";
         menu.querySelector("button")?.focus();
@@ -50,6 +61,7 @@
         if (name === "edit") return typeof beginBookingEdit === "function" ? beginBookingEdit(booking.id) : location.assign(`bookings.html?edit=${encodeURIComponent(booking.id)}`);
         if (name === "fare") return adjustFare(booking);
         if (name === "exchange") return location.assign(`job-exchange.html?booking=${encodeURIComponent(booking.id)}`);
+        if (name === "external_status") return openBookingView(booking.id);
         if (name === "driver") return assignDriver(booking);
         if (name === "journey") return location.assign(`journey-playback.html?company=${encodeURIComponent(new URLSearchParams(location.search).get("company")||"")}&booking=${encodeURIComponent(booking.id)}`);
         if (name === "customer_message") return messageCustomer(booking);
@@ -59,6 +71,7 @@
         if (name === "activity") return showHistory("Booking activity", await bookingsDb.from("admin_booking_audit").select("changed_fields,change_reason,price_override_reason,created_at").eq("company_id", adminCompanyId).eq("booking_id", booking.id).order("created_at", { ascending: false }), row => `${dateTime(row.created_at)} — ${(row.changed_fields || []).join(", ") || "Booking updated"}${row.change_reason||row.price_override_reason ? ` — ${row.change_reason||row.price_override_reason}` : ""}`);
         if (name === "cancel") return cancelBooking(booking.id);
         if (name === "complete") return typeof updateBookingStatus==="function"?updateBookingStatus(booking.id,"completed"):alert("Open booking details to complete this journey safely.");
+        if (name === "no_show") return typeof markBookingNoShow === "function" ? markBookingNoShow(booking.id) : alert("Open booking details to mark this journey No Show safely.");
         if (name === "archive") return archiveBooking(booking);
         if (name === "delete") return permanentlyDeleteBooking(booking);
     }
@@ -112,6 +125,6 @@
     document.addEventListener("contextmenu", event => { const row = event.target.closest("tr[data-booking-id]"); if (!row) return; event.preventDefault(); openMenu(findBooking(row.dataset.bookingId), event.clientX, event.clientY, row); });
     document.addEventListener("click", event => { const trigger = event.target.closest("[data-booking-menu]"); if (trigger) { event.preventDefault(); const rect=trigger.getBoundingClientRect(); openMenu(findBooking(trigger.dataset.bookingMenu), rect.right, rect.bottom, trigger); return; } if (!event.target.closest(".booking-action-menu")) close(); });
     menu.addEventListener("click", event => { const button=event.target.closest("[data-menu-action]"); if(button) run(button.dataset.menuAction); });
-    menu.addEventListener("keydown", event => { const buttons=[...menu.querySelectorAll("button")]; const index=buttons.indexOf(document.activeElement); if(event.key==="Escape"){close();return;} if(["ArrowDown","ArrowUp","Home","End"].includes(event.key)){event.preventDefault(); const next=event.key==="Home"?0:event.key==="End"?buttons.length-1:(index+(event.key==="ArrowDown"?1:-1)+buttons.length)%buttons.length; buttons[next]?.focus();} });
+    menu.addEventListener("keydown", event => { const buttons=[...menu.querySelectorAll("button")]; const index=buttons.indexOf(document.activeElement); if(event.key==="Escape"){event.preventDefault();close(true);return;} if(event.key==="Tab"){event.preventDefault();const next=(index+(event.shiftKey?-1:1)+buttons.length)%buttons.length;buttons[next]?.focus();return;} if(["ArrowDown","ArrowUp","Home","End"].includes(event.key)){event.preventDefault(); const next=event.key==="Home"?0:event.key==="End"?buttons.length-1:(index+(event.key==="ArrowDown"?1:-1)+buttons.length)%buttons.length; buttons[next]?.focus();} });
     window.addEventListener("resize", close); window.addEventListener("scroll", close, true);
 })();
