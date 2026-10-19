@@ -35,8 +35,9 @@
     <button id="menuButton" class="icon-button" type="button" aria-label="Open menu">☰</button>
     <div class="header-copy">
         <strong id="driverName">Driver</strong>
-        <span id="driverCompanyName">Company</span>
+        <span><b id="driverCompanyName">Company</b><i id="headerVehicleRegistration">No vehicle</i></span>
     </div>
+    <button class="header-notification" type="button" data-view="messages" aria-label="Messages"><span>●</span><b id="headerUnreadCount" class="hidden">0</b></button>
     <button id="availabilityButton" class="availability-button offline" type="button">Offline</button>
 </header>
 
@@ -138,14 +139,6 @@
     <section id="noCurrentJob" class="empty-card">
         <h2>No Job In Progress</h2>
         <p>Your accepted work is listed below.</p>
-    </section>
-
-    <section class="form-card" aria-labelledby="assignedVehicleHeading">
-        <h2 id="assignedVehicleHeading">Assigned Vehicle</h2>
-        <div id="driverVehicleDetails" class="job-grid"><div><small>Registration</small><strong>Not assigned</strong></div></div>
-        <label for="driverVehicleSelect">Vehicle for this shift</label>
-        <select id="driverVehicleSelect"><option value="">No vehicle assigned</option></select>
-        <p id="driverVehicleMessage" class="form-message" role="status"></p>
     </section>
 
     <section class="diary-section" aria-labelledby="awaitingHeading">
@@ -255,7 +248,35 @@
     <div id="holidayList" class="list-stack"><div class="empty-list">No holidays or off days saved.</div></div>
 </section>
 
+<section id="view-more" class="driver-view">
+    <div class="page-title"><span class="eyebrow">DRIVER TOOLS</span><h2>More</h2><p>Account, vehicle and work preferences.</p></div>
+    <div class="more-grid">
+      <button type="button" data-view="settings"><span>◉</span><strong>Profile &amp; Privacy</strong><small>Appearance, text and consent</small></button>
+      <button type="button" data-view="holidays"><span>◷</span><strong>Availability</strong><small>Holidays and off days</small></button>
+      <button type="button" data-view="more" data-focus-vehicle="true"><span>▣</span><strong>Vehicle</strong><small>Current and eligible vehicles</small></button>
+      <button id="moreExpenses" type="button" data-view="accounts"><span>£</span><strong>Expenses</strong><small>Records and summaries</small></button>
+      <button type="button" data-view="completed"><span>✓</span><strong>Completed Jobs</strong><small>Search journey history</small></button>
+      <button type="button" data-view="earnings"><span>↗</span><strong>Earnings</strong><small>Today and this week</small></button>
+    </div>
+    <section class="form-card more-vehicle" aria-labelledby="assignedVehicleHeading">
+        <h2 id="assignedVehicleHeading">Shift Vehicle</h2>
+        <div id="driverVehicleDetails" class="job-grid"><div><small>Registration</small><strong>Not assigned</strong></div></div>
+        <label for="driverVehicleSelect">Eligible vehicle for this shift</label>
+        <select id="driverVehicleSelect"><option value="">No vehicle assigned</option></select>
+        <p id="driverVehicleMessage" class="form-message" role="status"></p>
+    </section>
+    <button id="moreLogoutButton" class="more-logout" type="button">Log out of Driver Portal</button>
+</section>
+
 </main>
+
+<nav class="bottom-nav" aria-label="Driver Portal">
+  <button class="active" type="button" data-view="jobs"><span>⌂</span><b>Home</b></button>
+  <button type="button" data-view="completed"><span>▤</span><b>Jobs</b></button>
+  <button id="bottomNavigationButton" type="button"><span>➤</span><b>Navigation</b></button>
+  <button type="button" data-view="messages"><span>✉</span><b>Messages</b><i id="bottomUnreadCount" class="hidden">0</i></button>
+  <button type="button" data-view="more"><span>•••</span><b>More</b></button>
+</nav>
 
 <section id="driverNavigationView" class="driver-navigation hidden" aria-label="Integrated navigation">
     <header class="navigation-header">

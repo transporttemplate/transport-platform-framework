@@ -123,7 +123,7 @@ async function refresh(s:DriverSession){
       "pickup_name","pickup_address","dropoff_name","dropoff_address","airport","flight_number",
       "passengers","suitcases","hand_luggage","vehicle_tier","vehicle_type","customer_name","phone",
       "notes","payment_method","payment_type","payment_status","amount_paid","balance_due","price","job_price",
-      "account_customer_id","driver_amount","dispatched_at","accepted_at","on_way_at","arrived_at","passenger_onboard_at","completed_at",
+      "account_customer_id","source_channel","source_account_name","source_account_colour","booking_source","driver_amount","dispatched_at","accepted_at","on_way_at","arrived_at","passenger_onboard_at","completed_at",
       "cancelled_at","cancellation_reason","no_show_at","route_duration_minutes"
     ].join(",")).eq("company_id",s.company_id).eq("driver_id",s.driver_id).or(`status.not.in.(completed,cancelled,canceled,no_show),journey_date.gte.${historyCutoff}`).order("journey_date").order("journey_time"),
     db.from("driver_unavailability").select("id,company_id,driver_id,from_datetime,to_datetime,reason,active,created_at").eq("company_id",s.company_id).eq("driver_id",s.driver_id).order("from_datetime",{ascending:false}),
@@ -134,7 +134,7 @@ async function refresh(s:DriverSession){
   if(ids.length){const r=await db.from("booking_stops").select("booking_id,stop_order,label,address_name,formatted_address,postcode").eq("company_id",s.company_id).in("booking_id",ids).order("stop_order");if(r.error)throw r.error;stops=r.data||[];}
   const timezone=String(settingsResult.data?.timezone||"Europe/London");
   const driverJobs=jobs.map(j=>{
-    const {price,job_price,driver_amount,account_customer_id,account_po_reference,...safeJob}=j;
+    const {price,job_price,driver_amount,account_po_reference,...safeJob}=j;
     const visibleAmount=driver_amount??null;
     const method=normal(j.payment_method),paymentType=normal(j.payment_type),paymentState=normal(j.payment_status);
     const cashEligible=["cash","pay_in_car","pay_by_cash"].includes(method)||paymentType==="pay_in_car"||(paymentType==="deposit"&&paymentState==="deposit_paid");

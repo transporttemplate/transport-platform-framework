@@ -50,6 +50,8 @@ document.addEventListener("DOMContentLoaded", () => {
 function bindDriverUI() {
     document.getElementById("driverLoginButton")?.addEventListener("click", driverLogin);
     document.getElementById("driverLogoutButton")?.addEventListener("click", driverLogout);
+    document.getElementById("moreLogoutButton")?.addEventListener("click", driverLogout);
+    document.getElementById("bottomNavigationButton")?.addEventListener("click",()=>currentJob?navigateJob(currentJob):showDriverView("jobs"));
     document.getElementById("menuButton")?.addEventListener("click", openSideMenu);
     document.getElementById("closeMenuButton")?.addEventListener("click", closeSideMenu);
     document.getElementById("menuOverlay")?.addEventListener("click", closeSideMenu);
@@ -104,6 +106,7 @@ function bindDriverUI() {
             showDriverView(btn.dataset.view);
             if(btn.dataset.view==="messages") loadDriverMessages(true);
             closeSideMenu();
+            if(btn.dataset.focusVehicle)document.getElementById("assignedVehicleHeading")?.scrollIntoView({behavior:"smooth",block:"start"});
         });
     });
 
@@ -217,6 +220,7 @@ function populateDriverHeader() {
     setText("menuDriverNumber", driverNumber(currentDriver));
     setText("driverCompanyName", companyName);
     setText("menuCompanyName", companyName);
+    setText("headerVehicleRegistration", currentDriverVehicle?.registration || "No vehicle");
     refreshAvailabilityUI();
 }
 
@@ -896,9 +900,10 @@ function diaryCard(job, kind) {
     const decline = kind === "awaiting" && window.DriverWorkflow.canDecline(driverSettings, job);
     const startReady = kind === "accepted" && window.DriverWorkflow.canStart(job, trustedNow(), driverSettings.timezone || "Europe/London");
     const payment = driverPaymentLabel(job);
-    return `<article class="diary-card ${busy ? "busy" : ""}">
+    const source=job.source_account_name||prettyStatus(job.source_channel||job.booking_source||"office"),sourceColour=safeColour(job.source_account_colour)||"#64748b";
+    return `<article class="diary-card ${busy ? "busy" : ""}" style="--job-accent:${escapeHtml(sourceColour)}">
         <div class="diary-card-top"><div><time>${escapeHtml(formatTime(job.journey_time))}</time><span>${escapeHtml(formatDate(job.journey_date))}</span></div><span class="status-pill status-${escapeHtml(normaliseStatus(job.status))}">${escapeHtml(prettyStatus(job.status))}</span></div>
-        <strong class="booking-reference">${escapeHtml(job.booking_reference || shortId(job.id))}</strong>
+        <div class="job-identity"><strong class="booking-reference">${escapeHtml(job.booking_reference || shortId(job.id))}</strong><span class="job-source">${escapeHtml(source)}</span></div>
         <div class="compact-route"><span><b>A</b>${escapeHtml(pickup(job))}</span><span><b>B</b>${escapeHtml(destination(job))}</span></div>
         <div class="job-meta"><span>${escapeHtml(String(job.passengers ?? "—"))} passengers</span>${job.driver_amount==null?"":`<span>${escapeHtml(money(jobPrice(job)))} earnings</span>`}<span class="driver-payment ${escapeHtml(driverPaymentKind(job))}">${escapeHtml(payment)}</span></div>
         ${kind === "accepted" ? `<p class="activation-note ${startReady ? "ready" : ""}">${escapeHtml(startReady ? "Ready to start" : activationLabel(job))}</p>` : ""}
@@ -1067,6 +1072,7 @@ function showDriverView(name) {
         .forEach(view => view.classList.remove("active"));
 
     document.getElementById(`view-${name}`)?.classList.add("active");
+    document.querySelectorAll(".bottom-nav [data-view]").forEach(button=>button.classList.toggle("active",button.dataset.view===name||(name==="earnings"&&button.dataset.view==="more")));
 
     if (name === "earnings") renderEarnings();
     if (name === "completed") renderDiary();
@@ -1177,7 +1183,7 @@ function money(value) {
 }
 
 function renderUnreadMessages(count) {
-    for (const id of ["menuUnreadCount","homeUnreadCount"]) { const el=document.getElementById(id); if(el){el.textContent=String(count);el.classList.toggle("hidden",count<1);} }
+    for (const id of ["menuUnreadCount","homeUnreadCount","headerUnreadCount","bottomUnreadCount"]) { const el=document.getElementById(id); if(el){el.textContent=String(count);el.classList.toggle("hidden",count<1);} }
     document.getElementById("messageAlert")?.classList.toggle("hidden",count<1);
 }
 async function loadDriverMessages(markRead=false) {
