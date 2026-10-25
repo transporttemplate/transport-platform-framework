@@ -68,6 +68,7 @@ Deno.serve(async (request) => {
         "allowvehicle_5_7", "vehicleuplift_5_7_percent", "enablecardbookingfee", "cardbookingfeepercent",
         "allowvehicle_executive_5_7", "vehicleuplift_executive_5_7_percent",
         "returndiscount", "requiredeposit", "airportdepositrequired", "depositpercent", "stripepublishablekey",
+        "show_wheelchair_requirements", "show_accessibility_requirements",
       ].join(",")).eq("company_id", companyId).maybeSingle(),
       db.from("service_areas").select("id,company_id,postcode_prefix,radius_miles,active")
         .eq("company_id", companyId).eq("active", true),
@@ -98,6 +99,8 @@ Deno.serve(async (request) => {
     }
 
     validateBasicBooking(booking, stops, settings);
+    booking.wheelchair_required = bool(settings.show_wheelchair_requirements) ? bool(booking.wheelchair_required) : false;
+    booking.accessibility_requirements = bool(settings.show_accessibility_requirements) ? clean(booking.accessibility_requirements).slice(0,1000) || null : null;
     const timezone = validTimeZone(settings.timezone) ? String(settings.timezone) : "Europe/London";
     const outboundAt = zonedDateTime(booking.journey_date, booking.journey_time, timezone);
     validateBookingTime(outboundAt, settings, timezone);
@@ -628,7 +631,7 @@ function bookingPayload(booking: Row, fixed: Row) {
     "customer_name", "pickup_address", "pickup_name", "pickup_postcode", "pickup_place_id", "pickup_lat", "pickup_lng",
     "dropoff_address", "dropoff_name", "dropoff_postcode", "dropoff_place_id", "dropoff_lat", "dropoff_lng", "airport",
     "flight_number", "journey_type", "journey_date", "journey_time", "return_journey", "return_date", "return_time",
-    "phone", "email", "passengers", "suitcases", "hand_luggage", "vehicle_type", "vehicle_tier", "notes",
+    "phone", "email", "passengers", "suitcases", "hand_luggage", "wheelchair_required", "accessibility_requirements", "vehicle_type", "vehicle_tier", "notes",
   ];
   const output: Row = {};
   for (const key of allowed) output[key] = booking[key] ?? null;

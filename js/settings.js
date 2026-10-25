@@ -137,6 +137,8 @@ const fieldMap = {
     airportPricing: "airportpricing",
     distanceCalculator: "distancecalculator",
     returnBookings: "returnbookings",
+    showWheelchairRequirements: "show_wheelchair_requirements",
+    showAccessibilityRequirements: "show_accessibility_requirements",
     allowVehicleStandard: "allowvehicle_standard",
     allowVehicleExecutiveCar: "allowvehicle_executive_car",
     allowVehicle5To7: "allowvehicle_5_7",

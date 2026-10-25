@@ -10,6 +10,7 @@ let activeQuickRange = "this_month";
 let adminCompanyId = null;
 let adminCompany = null;
 let adminTimezone = "Europe/London";
+let bookingFieldRules = { wheelchair: false, accessibility: false };
 let adminStopCounters = { pickup: 0, dropoff: 0 };
 
 let dispatchMap = null;
@@ -34,8 +35,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         const context = await window.getAdminCompanyContext();
         adminCompanyId = context.companyId;
         adminCompany = context.company;
-        const timezoneResult=await bookingsDb.from("settings").select("timezone").eq("company_id",adminCompanyId).maybeSingle();
+        const timezoneResult=await bookingsDb.from("settings").select("timezone,show_wheelchair_requirements,show_accessibility_requirements").eq("company_id",adminCompanyId).maybeSingle();
         adminTimezone=timezoneResult.data?.timezone||"Europe/London";
+        bookingFieldRules={wheelchair:timezoneResult.data?.show_wheelchair_requirements===true,accessibility:timezoneResult.data?.show_accessibility_requirements===true};
+        applyAdminBookingFieldRules();
         currentTab = resolveInitialBookingTab();
         applyBookingTabSelection();
         setRangeForTab(currentTab);
@@ -174,6 +177,19 @@ function bindBookingEvents() {
     window.addEventListener("beforeunload", event => {
         if (editingBooking && adminBookingFormDirty) { event.preventDefault(); event.returnValue = ""; }
     });
+}
+
+function applyAdminBookingFieldRules(booking=null){
+    const hasWheelchair=Boolean(booking?.wheelchair_required);
+    const hasAccessibility=Boolean(String(booking?.accessibility_requirements||"").trim());
+    const wheelchairField=document.getElementById("wheelchairRequirementsField");
+    const accessibilityField=document.getElementById("accessibilityRequirementsField");
+    if(wheelchairField)wheelchairField.hidden=!(bookingFieldRules.wheelchair||hasWheelchair);
+    if(accessibilityField)accessibilityField.hidden=!(bookingFieldRules.accessibility||hasAccessibility);
+    const wheelchair=document.getElementById("wheelchairRequired");
+    const accessibility=document.getElementById("accessibilityRequirements");
+    if(wheelchair)wheelchair.required=false;
+    if(accessibility)accessibility.required=false;
 }
 
 async function loadAccountCustomers() {
@@ -961,6 +977,7 @@ async function beginBookingEdit(id) {
     Object.entries(values).forEach(([id, value]) => { const input=document.getElementById(id); if(input) input.value=value; });
     document.getElementById("returnJourney").checked = Boolean(booking.return_journey);
     document.getElementById("wheelchairRequired").checked = Boolean(booking.wheelchair_required);
+    applyAdminBookingFieldRules(booking);
     updateReturnFields(); updateAdminAccountSelector();
     setAddressFromBooking("pickupAddress", booking, "pickup");
     setAddressFromBooking("dropoffAddress", booking, "dropoff");
@@ -997,6 +1014,7 @@ function cancelBookingEdit(confirmDirty=false) {
     document.getElementById("bookingFormTitle").textContent="New Admin Booking"; document.getElementById("saveBookingButton").textContent="Save Job";
     document.getElementById("cancelBookingEdit").hidden=true; document.getElementById("bookingEditNotice").hidden=true; document.getElementById("paidFareWarning").hidden=true; document.getElementById("priceOverrideReasonField").hidden=true;document.getElementById("bookingCorrectionReasonField").hidden=true;document.getElementById("bookingCorrectionReason").required=false;
     document.getElementById("suitcases").value="0"; document.getElementById("handLuggage").value="0"; updateReturnFields(); clearRouteQuote();
+    applyAdminBookingFieldRules();
     history.replaceState({}, "", location.pathname);
 }
 
@@ -1181,8 +1199,8 @@ async function createAdminBooking(event) {
 
         hand_luggage: luggageValues.hand_luggage,
 
-        wheelchair_required: Boolean(document.getElementById("wheelchairRequired")?.checked),
-        accessibility_requirements: document.getElementById("accessibilityRequirements")?.value.trim() || null,
+        wheelchair_required: bookingFieldRules.wheelchair ? Boolean(document.getElementById("wheelchairRequired")?.checked) : false,
+        accessibility_requirements: bookingFieldRules.accessibility ? (document.getElementById("accessibilityRequirements")?.value.trim() || null) : null,
         special_instructions: document.getElementById("specialInstructions")?.value.trim() || null,
         airport_information: document.getElementById("airportInformation")?.value.trim() || null,
 

@@ -170,3 +170,4 @@
     .stripe-payment-panel{padding:12px}.stripe-payment-divider{margin:14px 0}
     .payment-confirmation{padding:24px 14px}.payment-success-icon{width:62px;height:62px;font-size:36px}.payment-confirmation-details div{grid-template-columns:1fr;gap:3px}.payment-confirmation-details dd{text-align:left}.payment-confirmation-actions{flex-direction:column}.payment-confirmation-actions a{width:100%}
 }
+.booking-requirement-field[hidden]{display:none!important}

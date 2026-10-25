@@ -188,7 +188,7 @@ async function loadPricingSettings(){
 
     const {data,error}=await bookingdb
         .from("settings")
-        .select("company_id,airportpricing,distancecalculator,maxadvancedays,minimumnotice,timezone,googlemapsapi,minimumfare,firstmile,mileband1,mileband2,mileband3,mileband4,mileband5,mileband6,bookingfee,returndiscount,currencysymbol,returnbookings,multiplestops,allowcash,allowcard,enablecash,enablestripe,allowaccounts,enableaccounts,requiredeposit,airportdepositrequired,depositpercent")
+        .select("company_id,airportpricing,distancecalculator,maxadvancedays,minimumnotice,timezone,googlemapsapi,minimumfare,firstmile,mileband1,mileband2,mileband3,mileband4,mileband5,mileband6,bookingfee,returndiscount,currencysymbol,returnbookings,multiplestops,allowcash,allowcard,enablecash,enablestripe,allowaccounts,enableaccounts,requiredeposit,airportdepositrequired,depositpercent,show_wheelchair_requirements,show_accessibility_requirements")
         .eq("company_id",bookingCompany.id)
         .maybeSingle();
 
@@ -219,6 +219,17 @@ async function loadPricingSettings(){
 }
 
 function applyBookingRules(){
+
+    const showWheelchair=pricingSettings.show_wheelchair_requirements===true;
+    const showAccessibility=pricingSettings.show_accessibility_requirements===true;
+    const wheelchairField=document.getElementById("publicWheelchairRequirementsField");
+    const accessibilityField=document.getElementById("publicAccessibilityRequirementsField");
+    if(wheelchairField)wheelchairField.hidden=!showWheelchair;
+    if(accessibilityField)accessibilityField.hidden=!showAccessibility;
+    const wheelchairInput=document.getElementById("publicWheelchairRequired");
+    const accessibilityInput=document.getElementById("publicAccessibilityRequirements");
+    if(wheelchairInput){wheelchairInput.required=false;if(!showWheelchair)wheelchairInput.checked=false;}
+    if(accessibilityInput){accessibilityInput.required=false;if(!showAccessibility)accessibilityInput.value="";}
 
     const airportEnabled =
         pricingSettings.airportpricing === true;
@@ -2204,6 +2215,9 @@ async function saveBooking(event){
                 Number(
                     document.getElementById("handLuggage").value
                 ),
+
+            wheelchair_required: pricingSettings.show_wheelchair_requirements===true && Boolean(document.getElementById("publicWheelchairRequired")?.checked),
+            accessibility_requirements: pricingSettings.show_accessibility_requirements===true ? (document.getElementById("publicAccessibilityRequirements")?.value.trim() || null) : null,
 
             vehicle_type:
                 document.getElementById("vehicleType").value,
