@@ -5,11 +5,11 @@ const smsEl = id => document.getElementById(id);
 const smsEscape = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const smsChannels = ["customer_booking_confirmation", "office_new_booking", "driver_assignment", "driver_on_route", "driver_arrived", "passenger_on_board", "booking_completed", "cancellations", "customer_reminder", "driver_booking_reminder_12h", "office_booking_reminder_24h", "unassigned_48h", "unassigned_24h", "driver_document_expiry", "review_request"];
 const smsEmailKeys = new Set(["customer_booking_confirmation","office_new_booking","driver_assignment","cancellations","driver_booking_reminder_12h","office_booking_reminder_24h","unassigned_48h","unassigned_24h","driver_document_expiry"]);
-const smsTriggers = ["booking_created", "booking_confirmed", "driver_assigned", "driver_on_route", "driver_arrived", "passenger_on_board", "booking_completed", "booking_cancelled", "pickup_reminder_due", "driver_reminder_due", "office_reminder_due", "office_unassigned_48h", "office_unassigned_24h", "driver_document_expiry", "review_request"];
+const smsTriggers = ["booking_created", "booking_confirmed", "booking_changed", "driver_assigned", "driver_allocated", "driver_on_route", "driver_arrived", "passenger_on_board", "booking_completed", "booking_cancelled", "pickup_reminder_due", "driver_reminder_due", "office_reminder_due", "office_unassigned_48h", "office_unassigned_24h", "driver_document_expiry", "review_request", "external_booking_created"];
 const smsTriggerMeta = {
-  booking_created:["Customer","Booking created"],booking_confirmed:["Customer","Booking confirmed"],driver_on_route:["Customer","Driver on route"],driver_arrived:["Customer","Driver arrived / outside"],passenger_on_board:["Customer","Passenger on board"],booking_completed:["Customer","Booking completed"],booking_cancelled:["Customer","Booking cancelled"],pickup_reminder_due:["Customer","Pickup reminder (12 hours)"],review_request:["Customer","Review request"],
+  booking_created:["Customer","Booking created"],booking_confirmed:["Customer","Booking confirmed"],booking_changed:["Customer","Booking changed"],driver_allocated:["Customer","Driver allocated"],driver_on_route:["Customer","Driver on route"],driver_arrived:["Customer","Driver arrived / outside"],passenger_on_board:["Customer","Passenger on board"],booking_completed:["Customer","Booking completed"],booking_cancelled:["Customer","Booking cancelled"],pickup_reminder_due:["Customer","Pickup reminder (12 hours)"],review_request:["Customer","Review request"],
   driver_assigned:["Driver","New job assigned"],driver_reminder_due:["Driver","Journey reminder (12 hours)"],driver_document_expiry:["Driver","Document expiry"],
-  office_reminder_due:["Office","Booking reminder (24 hours)"],office_unassigned_48h:["Office","Unassigned warning (48 hours)"],office_unassigned_24h:["Office","Unassigned warning (24 hours)"]
+  office_reminder_due:["Office","Booking reminder (24 hours)"],office_unassigned_48h:["Office","Unassigned warning (48 hours)"],office_unassigned_24h:["Office","Unassigned warning (24 hours)"],external_booking_created:["Office","New external API booking"]
 };
 const smsExampleValues = {company_name:"Example Cars",booking_reference:"BK-1234",customer_name:"Chris",pickup_date:"24/10/2026",pickup_time:"14:30",pickup_address:"10 High Street, Cardiff",destination_address:"Cardiff Airport",driver_name:"Alex Driver",driver_phone:"+447700900000",google_review_link:"https://example.com/review",document_label:"Driving licence",expiry_date:"31/10/2026"};
 function smsSegments(value) { const text=String(value||""), gsm=/^[\x00-\x7F\n\r£€]*$/.test(text), single=gsm?160:70, multi=gsm?153:67; return {characters:text.length,segments:text.length<=single?1:Math.ceil(text.length/multi),encoding:gsm?"GSM-7 compatible":"Unicode"}; }
@@ -26,6 +26,27 @@ document.addEventListener("DOMContentLoaded", () => smsRun(async () => {
   document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { location.hash = b.dataset.tab; smsTab(b.dataset.tab); });
   window.addEventListener("hashchange", () => smsTab(location.hash.slice(1)));
   smsEl("refreshSms").onclick = () => smsRun(loadSms);
+  smsEl("changeMasterSms").onclick = () => smsRun(async () => {
+    const turningOn = !smsSnapshot.settings.sending_enabled;
+    if (turningOn) {
+      if (!smsSnapshot.readiness.ready) throw new Error(`SMS is not ready: ${smsSnapshot.readiness.missing.join("; ")}`);
+      const confirmation = prompt("Activation can send enabled rules to real recipients. Type ENABLE SMS to confirm.");
+      if (confirmation !== "ENABLE SMS") return;
+      const reason = prompt("Record the activation reason (optional):") || "";
+      await smsRpc("master", { enabled:true, confirmation, reason, manual_only:rules.every(r=>!r.enabled) });
+      smsNote("Master SMS is ON. Only enabled rules and authorised manual replies can send.");
+    } else {
+      if (!confirm("Switch Master SMS OFF immediately and cancel every queued or claimed message?")) return;
+      await smsRpc("master", { enabled:false, confirmation:"DISABLE SMS", reason:"Paused by Admin" });
+      smsNote("Master SMS is OFF. Outgoing messages are paused and stale queued work was cancelled.");
+    }
+    await loadSms();
+  });
+  smsEl("runSmsTest").onclick = () => smsRun(async () => {
+    const phone=prompt("Controlled test recipient (UK or international mobile):");if(!phone)return;
+    if(!confirm(`Queue one 10-minute gateway test to ${phone}? No other message can send in test mode.`))return;
+    await smsRpc("test",{phone});await loadSms();smsNote("Controlled test queued. Reply TEST from that phone, then refresh readiness.");
+  });
   smsEl("smsSearch").oninput = renderConversations;
   smsEl("ruleTrigger").innerHTML = ["Customer","Driver","Office"].map(group=>`<optgroup label="${group}">${smsTriggers.filter(x=>smsTriggerMeta[x][0]===group).map(x=>`<option value="${x}">${smsTriggerMeta[x][1]}</option>`).join("")}</optgroup>`).join("");
   smsEl("templateBody").addEventListener("input",renderTemplatePreview); smsEl("templateForm").addEventListener("reset",()=>setTimeout(renderTemplatePreview)); renderTemplatePreview();
@@ -70,6 +91,11 @@ function renderConversations() {
 async function loadSms(refreshForms = true) {
   const [snapshot, cs, ts, rs] = await Promise.all([smsRpc("snapshot"), smsQuery(smsDb.from("sms_conversations").select("*").eq("company_id", smsCompany).order("last_message_at", { ascending: false }).limit(1000)), smsQuery(smsDb.from("sms_templates").select("*").eq("company_id", smsCompany).order("name")), smsQuery(smsDb.from("sms_automation_rules").select("*").eq("company_id", smsCompany).order("name"))]);
   smsSnapshot = snapshot; conversations = cs; templates = ts; rules = rs; renderConversations();
+  smsEl("masterSms").checked = snapshot.settings.sending_enabled;
+  smsEl("masterSms").disabled = true;
+  smsEl("masterSummary").textContent = snapshot.settings.sending_enabled ? "ON — approved rules and manual replies may use the paired gateway." : "OFF — no outgoing SMS can be claimed by the gateway. Incoming messages and history remain available.";
+  smsEl("changeMasterSms").textContent = snapshot.settings.sending_enabled ? "Switch OFF now" : "Review activation";
+  smsEl("readinessList").innerHTML = snapshot.readiness.missing.length ? snapshot.readiness.missing.map(x=>`<li>${smsEscape(x)}</li>`).join("") : "<li>Gateway, permissions, SIM and company configuration checks passed.</li>";
   if (refreshForms) {
     const s = snapshot.settings; smsEl("smsEnabled").checked = s.enabled; smsEl("officeSmsPhone").value = s.office_phone || ""; smsEl("reviewLink").value = s.google_review_link || ""; smsEl("quietStart").value = s.quiet_start.slice(0, 5); smsEl("quietEnd").value = s.quiet_end.slice(0, 5);
     document.querySelectorAll("[data-channel]").forEach(x => x.value = [...(s.channels[x.dataset.channel] || [])].sort().join(","));

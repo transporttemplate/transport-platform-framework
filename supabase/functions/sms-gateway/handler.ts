@@ -28,7 +28,7 @@ export function gatewayHandler(db: Db, liveSending = false) {
         const credential = request.headers.get("x-gateway-token") || "";
         if (!/^[a-f0-9]{64}$/.test(credential)) return reply({ ok: false, error: "Paired gateway credential required" }, 401);
         tokenHash = await hash(credential);
-        const fields = action === "heartbeat" ? ["sim_status", "network_status", "send_sms", "receive_sms", "apk_version"] : action === "inbound" ? ["phone_e164", "body", "idempotency_key"] : ["message_id", "state", "attempt", "error_code"];
+        const fields = action === "heartbeat" ? ["sim_status", "network_status", "send_sms", "receive_sms", "apk_version", "selected_sim", "gateway_running"] : action === "inbound" ? ["phone_e164", "body", "idempotency_key"] : ["message_id", "state", "attempt", "error_code"];
         for (const field of fields) if (input[field] !== undefined) payload[field] = input[field];
         if (["prepare", "status"].includes(action) && (!/^[0-9a-f-]{36}$/i.test(String(input.message_id || "")) || !Number.isInteger(input.attempt) || input.attempt < 1 || input.attempt > 4)) return reply({ ok: false, error: "Message lease required" }, 400);
       }
