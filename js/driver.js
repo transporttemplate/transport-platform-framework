@@ -865,7 +865,7 @@ function updateNavigationJob(job, externalUrl) {
     setText("navigationPassengerCount", job.passengers ?? "-");
     setText("navigationLuggage", `${job.suitcases ?? 0} cases · ${job.hand_luggage ?? 0} hand`);
     setText("navigationFlight", job.flight_number || "-");
-    setText("navigationNotes", job.notes || "");
+    setText("navigationNotes", [job.wheelchair_required ? "Wheelchair required" : "", job.accessibility_requirements, job.special_instructions, job.airport_information, job.notes].filter(Boolean).join(" · "));
     const phone = String(job.phone || job.customer_phone || "").trim();
     const phoneLink = document.getElementById("navigationPassengerPhone"); if (phoneLink) { phoneLink.textContent = phone || "-"; phoneLink.href = phone ? `tel:${phone.replace(/\s+/g, "")}` : "#"; }
     const external = document.getElementById("navigationExternalButton"); if (external) external.href = externalUrl || window.DriverNavigation.externalMapsUrl(job) || "#";
@@ -902,7 +902,7 @@ function openJobDetails(job) {
     document.getElementById("detailMarkPaidButton")?.classList.toggle("hidden", !canDriverMarkPaid(job));
     setText("detailStatus", prettyStatus(job.status));
     setText("detailActivation", normaliseStatus(job.status) === "accepted" ? activationLabel(job) : "—");
-    setText("detailNotes", job.notes || "-");
+    setText("detailNotes", [job.wheelchair_required ? "Wheelchair required" : "", job.accessibility_requirements, job.special_instructions, job.airport_information, job.notes].filter(Boolean).join(" · ") || "-");
 
     const phone = job.phone ?? job.customer_phone ?? "";
     const call = document.getElementById("callPassengerButton");

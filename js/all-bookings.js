@@ -19,6 +19,7 @@ let driverMarkers = [];
 let liveTimer = null;
 let adminBookingFormDirty = false;
 let liveRefreshRunning = false;
+let bookingsRealtimeChannel = null;
 let quoteSettings = {};
 let quoteAirports = [];
 let quoteDirectionsService = null;
@@ -44,6 +45,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         await loadUnavailableDrivers();
         await Promise.all([loadBookings(), loadCustomerPortalUsers(), loadAllBookingsSettings()]);
         startLiveRefresh();
+        subscribeToBookingChanges();
 
     } catch (error) {
         console.error("Bookings startup error:", error);
@@ -1443,6 +1445,7 @@ async function openBookingView(id) {
         booking.flight_number ||
         "-"
     );
+    setText("viewAirportInformation", booking.airport_information || "-");
 
     setText(
         "viewPassengers",
@@ -1463,6 +1466,9 @@ async function openBookingView(id) {
         booking.hand_luggage ??
         "-"
     );
+    setText("viewWheelchair", booking.wheelchair_required ? "Required" : "No");
+    setText("viewAccessibility", booking.accessibility_requirements || "-");
+    setText("viewSpecialInstructions", booking.special_instructions || "-");
 
     setText(
         "viewPrice",
@@ -2177,6 +2183,11 @@ function startLiveRefresh() {
     });
 }
 
+function subscribeToBookingChanges(){
+    if(bookingsRealtimeChannel||!adminCompanyId)return;
+    bookingsRealtimeChannel=bookingsDb.channel(`all-bookings:${adminCompanyId}`).on("postgres_changes",{event:"*",schema:"public",table:"bookings",filter:`company_id=eq.${adminCompanyId}`},()=>runGuardedLiveRefresh()).on("postgres_changes",{event:"*",schema:"public",table:"booking_stops",filter:`company_id=eq.${adminCompanyId}`},()=>runGuardedLiveRefresh()).subscribe();
+}
+
 async function runGuardedLiveRefresh() {
     const bookingEditorOpen = document.getElementById("bookingViewBackdrop")?.classList.contains("open");
     if (document.hidden || adminBookingFormDirty || bookingEditorOpen || liveRefreshRunning) return;
@@ -2202,6 +2213,7 @@ window.addEventListener(
                 liveTimer
             );
         }
+        if(bookingsRealtimeChannel) bookingsDb.removeChannel(bookingsRealtimeChannel);
     }
 );
 
@@ -2269,7 +2281,7 @@ function driverDisplayName(id) {
     return `${driver.driver_number || "-"} — ${driver.full_name || "Driver"} · ${state}${unavailable}${driver.suggested_vehicle_registration?` · ${driver.suggested_vehicle_registration}`:" · No vehicle"}`;
 }
 
-async function loadDriverVehicleSuggestions(){const [links,assignments,vehicles]=await Promise.all([bookingsDb.from("driver_vehicle_links").select("driver_id,vehicle_id,link_type").eq("company_id",adminCompanyId),bookingsDb.from("driver_vehicle_assignments").select("driver_id,vehicle_id,effective_from").eq("company_id",adminCompanyId).is("effective_to",null),bookingsDb.from("vehicles").select("id,registration,active,operational_status").eq("company_id",adminCompanyId)]);if(links.error||assignments.error||vehicles.error){console.warn("Vehicle suggestions unavailable",links.error||assignments.error||vehicles.error);return;}const byId=new Map((vehicles.data||[]).filter(v=>v.active&&v.operational_status==="available").map(v=>[v.id,v]));allDrivers.forEach(driver=>{const current=(assignments.data||[]).filter(a=>a.driver_id===driver.id).sort((a,b)=>String(b.effective_from).localeCompare(String(a.effective_from)))[0],fallback=(links.data||[]).find(l=>l.driver_id===driver.id&&l.link_type==="default"),vehicle=byId.get(current?.vehicle_id)||byId.get(fallback?.vehicle_id);driver.suggested_vehicle_registration=vehicle?.registration||null;});}
+async function loadDriverVehicleSuggestions(){const [links,assignments,vehicles]=await Promise.all([bookingsDb.from("driver_vehicle_links").select("driver_id,vehicle_id,link_type").eq("company_id",adminCompanyId),bookingsDb.from("driver_vehicle_assignments").select("driver_id,vehicle_id,effective_from,assignment_type").eq("company_id",adminCompanyId).is("effective_to",null),bookingsDb.from("vehicles").select("id,registration,active,operational_status").eq("company_id",adminCompanyId)]);if(links.error||assignments.error||vehicles.error){console.warn("Vehicle suggestions unavailable",links.error||assignments.error||vehicles.error);return;}const byId=new Map((vehicles.data||[]).filter(v=>v.active&&v.operational_status==="available").map(v=>[v.id,v]));allDrivers.forEach(driver=>{const current=(assignments.data||[]).filter(a=>a.driver_id===driver.id).sort((a,b)=>String(b.effective_from).localeCompare(String(a.effective_from)))[0],fallback=(links.data||[]).find(l=>l.driver_id===driver.id&&l.link_type==="default"),vehicle=byId.get(current?.vehicle_id)||byId.get(fallback?.vehicle_id);driver.suggested_vehicle_id=vehicle?.id||null;driver.suggested_vehicle_registration=vehicle?.registration||null;driver.vehicle_assignment_type=current?.assignment_type||null;});}
 
 
 function shortId(id) {

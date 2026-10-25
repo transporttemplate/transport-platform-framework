@@ -17,6 +17,7 @@ let driverMarkers = [];
 let liveTimer = null;
 let adminBookingFormDirty = false;
 let liveRefreshRunning = false;
+let bookingsRealtimeChannel = null;
 let quoteSettings = {};
 let quoteAirports = [];
 let quoteDirectionsService = null;
@@ -48,6 +49,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const requestedEdit = new URLSearchParams(location.search).get("edit");
         if (requestedEdit) beginBookingEdit(requestedEdit);
         startLiveRefresh();
+        subscribeToBookingChanges();
 
     } catch (error) {
         console.error("Bookings startup error:", error);
@@ -953,10 +955,12 @@ async function beginBookingEdit(id) {
         driverAmount: booking.driver_amount ?? "", driverSelect: booking.driver_id || "", paymentMethod: canonicalPaymentMethod(booking.payment_method),
         bookingStatus: status, accountCustomerSelect: booking.account_customer_id || "", accountPoReference: booking.account_po_reference || "",
         notes: booking.notes || "", flightNumber: booking.flight_number || "", returnDate: booking.return_date || "",
-        returnTime: String(booking.return_time || "").slice(0,5)
+        returnTime: String(booking.return_time || "").slice(0,5), airportInformation: booking.airport_information || "",
+        accessibilityRequirements: booking.accessibility_requirements || "", specialInstructions: booking.special_instructions || ""
     };
     Object.entries(values).forEach(([id, value]) => { const input=document.getElementById(id); if(input) input.value=value; });
     document.getElementById("returnJourney").checked = Boolean(booking.return_journey);
+    document.getElementById("wheelchairRequired").checked = Boolean(booking.wheelchair_required);
     updateReturnFields(); updateAdminAccountSelector();
     setAddressFromBooking("pickupAddress", booking, "pickup");
     setAddressFromBooking("dropoffAddress", booking, "dropoff");
@@ -1013,7 +1017,10 @@ async function saveAdminBookingEdit() {
     const fareReason = price!==oldPrice ? `${correctionReason}${manualOverride?` — ${document.getElementById("priceOverrideReason").value.trim()}`:" — route recalculated using company pricing"}` : correctionReason;
     const {data,error}=await bookingsDb.rpc("admin_edit_booking",{target_company_id:adminCompanyId,target_booking_id:editingBooking.id,expected_edit_version:Number(editingBooking.edit_version||0),requested_changes:changes,requested_stops:collectAdminViaStops(),override_reason:fareReason});
     button.disabled=false;
-    if(error){message.textContent=error.message.includes("conflict")?"This booking was changed elsewhere. Reload and review it before trying again.":`Could not save: ${error.message}`;return;}
+    const requirementsChanged=Boolean(editingBooking.wheelchair_required)!==Boolean(document.getElementById("wheelchairRequired").checked)||String(editingBooking.accessibility_requirements||"")!==document.getElementById("accessibilityRequirements").value.trim()||String(editingBooking.special_instructions||"")!==document.getElementById("specialInstructions").value.trim()||String(editingBooking.airport_information||"")!==document.getElementById("airportInformation").value.trim();
+    if(error&&!(/No booking changes/i.test(error.message||"")&&requirementsChanged)){message.textContent=error.message.includes("conflict")?"This booking was changed elsewhere. Reload and review it before trying again.":`Could not save: ${error.message}`;return;}
+    const requirementsResult=await bookingsDb.rpc("admin_update_booking_requirements",{target_company_id:adminCompanyId,target_booking_id:editingBooking.id,wheelchair_required_value:Boolean(document.getElementById("wheelchairRequired").checked),accessibility_requirements_value:document.getElementById("accessibilityRequirements").value.trim(),special_instructions_value:document.getElementById("specialInstructions").value.trim(),airport_information_value:document.getElementById("airportInformation").value.trim(),correction_reason:correctionReason});
+    if(requirementsResult.error){message.textContent=`Core booking changes were saved, but passenger requirements need review: ${requirementsResult.error.message}`;await loadBookings();return;}
     const id=editingBooking.id,previousDriver=editingBooking.driver_id; adminBookingFormDirty=false; cancelBookingEdit(false); await loadBookings();
     let notification="";if(data?.notification_required){const event=data.driver_changed?"driver_assignment":"booking_changed",sent=await bookingsDb.functions.invoke("send-booking-email",{body:{company_id:adminCompanyId,booking_id:id,event,audience:"driver",event_id:data.audit_id,previous_driver_id:previousDriver}});notification=sent.error||!sent.data?.ok?" The correction was saved, but the driver email was not accepted; contact the driver directly.":" The assigned driver was notified through the enabled email channel.";}
     message.textContent=`Booking correction saved with immutable audit history.${data?.document_resolution_required?" An issued invoice requires its separate correction workflow.":""}${notification}`; openBookingView(id);
@@ -1173,6 +1180,11 @@ async function createAdminBooking(event) {
         suitcases: luggageValues.suitcases,
 
         hand_luggage: luggageValues.hand_luggage,
+
+        wheelchair_required: Boolean(document.getElementById("wheelchairRequired")?.checked),
+        accessibility_requirements: document.getElementById("accessibilityRequirements")?.value.trim() || null,
+        special_instructions: document.getElementById("specialInstructions")?.value.trim() || null,
+        airport_information: document.getElementById("airportInformation")?.value.trim() || null,
 
         price:
             document
@@ -1617,6 +1629,7 @@ async function openBookingView(id) {
         booking.flight_number ||
         "-"
     );
+    setText("viewAirportInformation", booking.airport_information || "-");
 
     setText(
         "viewPassengers",
@@ -1637,6 +1650,9 @@ async function openBookingView(id) {
         booking.hand_luggage ??
         "-"
     );
+    setText("viewWheelchair", booking.wheelchair_required ? "Required" : "No");
+    setText("viewAccessibility", booking.accessibility_requirements || "-");
+    setText("viewSpecialInstructions", booking.special_instructions || "-");
 
     setText(
         "viewPrice",
@@ -2268,6 +2284,11 @@ function startLiveRefresh() {
     });
 }
 
+function subscribeToBookingChanges(){
+    if(bookingsRealtimeChannel||!adminCompanyId)return;
+    bookingsRealtimeChannel=bookingsDb.channel(`admin-bookings:${adminCompanyId}`).on("postgres_changes",{event:"*",schema:"public",table:"bookings",filter:`company_id=eq.${adminCompanyId}`},()=>runGuardedLiveRefresh()).on("postgres_changes",{event:"*",schema:"public",table:"booking_stops",filter:`company_id=eq.${adminCompanyId}`},()=>runGuardedLiveRefresh()).subscribe();
+}
+
 async function runGuardedLiveRefresh() {
     const bookingEditorOpen = document.getElementById("bookingViewBackdrop")?.classList.contains("open");
     if (document.hidden || adminBookingFormDirty || bookingEditorOpen || liveRefreshRunning) return;
@@ -2293,6 +2314,7 @@ window.addEventListener(
                 liveTimer
             );
         }
+        if(bookingsRealtimeChannel) bookingsDb.removeChannel(bookingsRealtimeChannel);
     }
 );
 
@@ -2351,7 +2373,7 @@ function driverDisplayName(id) {
 
 function sourceAccountLabel(booking){const account=allAccountCustomers.find(row=>String(row.id)===String(booking.account_customer_id));const source=booking.source_channel||({integration:"External API",external_dispatch:"External API",job_exchange:"Internal Job Exchange",admin:"Manual Admin"}[booking.booking_source])||booking.booking_source||"Website";const name=booking.source_account_name||account?.business_name;const colour=booking.source_account_colour||account?.account_colour||"#64748b";return `<span class="account-source-label" style="--account-colour:${escapeHtml(colour)}">${escapeHtml(name?`${name} — ${prettyStatus(source)}`:prettyStatus(source))}</span>`;}
 
-async function loadDriverVehicleSuggestions(){const [links,assignments,vehicles]=await Promise.all([bookingsDb.from("driver_vehicle_links").select("driver_id,vehicle_id,link_type").eq("company_id",adminCompanyId),bookingsDb.from("driver_vehicle_assignments").select("driver_id,vehicle_id,effective_from").eq("company_id",adminCompanyId).is("effective_to",null),bookingsDb.from("vehicles").select("id,registration,active,operational_status").eq("company_id",adminCompanyId)]);if(links.error||assignments.error||vehicles.error){console.warn("Vehicle suggestions unavailable",links.error||assignments.error||vehicles.error);return;}const byId=new Map((vehicles.data||[]).filter(v=>v.active&&v.operational_status==="available").map(v=>[v.id,v]));allDrivers.forEach(driver=>{const current=(assignments.data||[]).filter(a=>a.driver_id===driver.id).sort((a,b)=>String(b.effective_from).localeCompare(String(a.effective_from)))[0],fallback=(links.data||[]).find(l=>l.driver_id===driver.id&&l.link_type==="default"),vehicle=byId.get(current?.vehicle_id)||byId.get(fallback?.vehicle_id);driver.suggested_vehicle_registration=vehicle?.registration||null;});}
+async function loadDriverVehicleSuggestions(){const [links,assignments,vehicles]=await Promise.all([bookingsDb.from("driver_vehicle_links").select("driver_id,vehicle_id,link_type").eq("company_id",adminCompanyId),bookingsDb.from("driver_vehicle_assignments").select("driver_id,vehicle_id,effective_from,assignment_type").eq("company_id",adminCompanyId).is("effective_to",null),bookingsDb.from("vehicles").select("id,registration,active,operational_status").eq("company_id",adminCompanyId)]);if(links.error||assignments.error||vehicles.error){console.warn("Vehicle suggestions unavailable",links.error||assignments.error||vehicles.error);return;}const byId=new Map((vehicles.data||[]).filter(v=>v.active&&v.operational_status==="available").map(v=>[v.id,v]));allDrivers.forEach(driver=>{const current=(assignments.data||[]).filter(a=>a.driver_id===driver.id).sort((a,b)=>String(b.effective_from).localeCompare(String(a.effective_from)))[0],fallback=(links.data||[]).find(l=>l.driver_id===driver.id&&l.link_type==="default"),vehicle=byId.get(current?.vehicle_id)||byId.get(fallback?.vehicle_id);driver.suggested_vehicle_id=vehicle?.id||null;driver.suggested_vehicle_registration=vehicle?.registration||null;driver.vehicle_assignment_type=current?.assignment_type||null;});}
 
 
 function shortId(id) {
