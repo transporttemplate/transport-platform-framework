@@ -32,11 +32,12 @@ export function gatewayHandler(db: Db, liveSending = false) {
         for (const field of fields) if (input[field] !== undefined) payload[field] = input[field];
         if (["prepare", "status"].includes(action) && (!/^[0-9a-f-]{36}$/i.test(String(input.message_id || "")) || !Number.isInteger(input.attempt) || input.attempt < 1 || input.attempt > 4)) return reply({ ok: false, error: "Message lease required" }, 400);
       }
-      const disabled = !liveSending && ["claim", "prepare"].includes(action);
-      const { data, error } = await db.rpc("sms_gateway", { action: disabled ? "heartbeat" : action, payload: disabled ? {} : payload, token_hash: tokenHash });
+      // The database is the authoritative per-company/final-send gate.  Claims
+      // must reach it even while ordinary live sending is disabled because its
+      // short-lived controlled-test mode is intentionally allowed through.
+      const { data, error } = await db.rpc("sms_gateway", { action, payload, token_hash: tokenHash });
       if (error) { console.error("sms_gateway rpc failed", { action, code: error.code }); return reply({ ok: false, error: "Gateway operation rejected. Check request and pairing, then retry.", code: error.code }, error.code === "42501" ? 403 : 400); }
       if (!data?.ok) return reply({ ok: false, error: data?.error || "Gateway request rejected" }, [400, 401, 403, 409, 429].includes(data?.status) ? data.status : 400);
-      if (disabled) return action === "claim" ? reply({ ok: true, messages: [], sending_enabled: false }) : reply({ ok: false, error: "Live SMS sending is disabled" }, 409);
       if (action === "pair") return reply({ ...data, token, sending_enabled: false });
       return reply({ ...data, ...(action === "heartbeat" && !liveSending ? { sending_enabled: false } : {}) });
     } catch { return reply({ ok: false, error: "Gateway unavailable; retry safely" }, 503); }

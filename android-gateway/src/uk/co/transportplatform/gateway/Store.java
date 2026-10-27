@@ -19,7 +19,7 @@ final class Store extends SQLiteOpenHelper {
    if(part<0||part>=count)return;String prefix=scope+":"+id+":"+attempt+":"+type+":";
    ContentValues v=new ContentValues();v.put("k",prefix+part);v.put("result",result);db.insertWithOnConflict("receipts",null,v,SQLiteDatabase.CONFLICT_IGNORE);
    int all=0,good=0;for(int i=0;i<count;i++)try(Cursor c=db.rawQuery("SELECT result FROM receipts WHERE k=?",new String[]{prefix+i})){if(c.moveToFirst()){all++;if(c.getInt(0)==android.app.Activity.RESULT_OK)good++;}}
-   if(all==count){String state=good==count?(type.equals("sent")?"sent":"delivered"):"uncertain";JSONObject b=new JSONObject().put("action","status").put("message_id",id).put("attempt",attempt).put("state",state);if(good!=count)b.put("error_code","MULTIPART_"+type.toUpperCase()+"_PARTIAL_OR_FAILED");queue(scope,id+":"+attempt+":"+type,b);}
+   if(all==count){String state;if(good==count)state=type.equals("sent")?"sent":"delivered";else if(good==0)state="failed";else state="uncertain";JSONObject b=new JSONObject().put("action","status").put("message_id",id).put("attempt",attempt).put("state",state);if(good!=count)b.put("error_code",good==0?"SMS_"+type.toUpperCase()+"_FAILED":"MULTIPART_"+type.toUpperCase()+"_PARTIAL");queue(scope,id+":"+attempt+":"+type,b);}
    db.setTransactionSuccessful();
   }finally{db.endTransaction();}
  }
