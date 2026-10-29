@@ -50,6 +50,8 @@
 <label>Payment Due Within (Days)</label><input id="paymentTerms" type="number">
 </div><div>
 <label><input id="enableStripe" type="checkbox" style="width:auto;"> Enable Stripe</label>
+<label><input id="enableStripePaymentLinks" type="checkbox" style="width:auto;"> Stripe Payment Links — ON/OFF</label>
+<small>Default OFF. This controls only the Admin booking payment-link actions and does not change existing Stripe booking payments.</small>
 <label><input id="enableCash" type="checkbox" style="width:auto;"> Enable Cash</label>
 <label><input id="enableAccounts" type="checkbox" style="width:auto;"> Enable Account Customers</label>
 <label><input id="requirePaymentBeforeTravel" type="checkbox" style="width:auto;"> Require Payment Before Travel</label>
@@ -58,6 +60,8 @@
 <small>Only enable this where a payment surcharge is legally permitted. The fee is added only when Card is selected.</small>
 </div></div>
 <p><strong>Security:</strong> Stripe secret keys are intentionally not included on this browser page. They should be handled securely server-side.</p></div>
+
+<div class="card payment-readiness"><h3>Stripe Payment Links Readiness</h3><p>Payment links remain unavailable until every item is complete:</p><ul><li>Company master switch is ON.</li><li>Stripe is enabled with a company-owned <code>pk_test_</code> publishable key.</li><li>The matching server-side <code>sk_test_</code> key and webhook signing secret are configured.</li><li><code>PUBLIC_SITE_URL</code> is configured as an authorised HTTPS origin.</li><li>Sandbox creation, reconciliation and duplicate-prevention checks have passed.</li><li>Live activation has been separately authorised.</li></ul><p><strong>Current release:</strong> test mode only. Turning this switch on cannot authorise live credentials.</p></div>
 
 </main>
 </div>

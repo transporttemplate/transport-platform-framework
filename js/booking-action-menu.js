@@ -6,6 +6,7 @@
     document.body.appendChild(menu);
     let activeBooking = null;
     let activeAnchor = null;
+    let paymentLinksEnabled = false;
 
     const terminal = new Set(["completed", "cancelled", "canceled", "no_show", "archived"]);
     const journeyStatuses = new Set(["accepted", "on_way", "arrived", "passenger_onboard", "completed"]);
@@ -13,7 +14,7 @@
     const close = (restoreFocus = false) => { const anchor = activeAnchor; menu.hidden = true; activeBooking = null; activeAnchor = null; document.querySelectorAll('[data-booking-menu][aria-expanded="true"]').forEach(item => item.setAttribute("aria-expanded", "false")); if (restoreFocus) anchor?.focus(); };
     const findBooking = id => allBookings.find(row => String(row.id) === String(id));
     const icons={view:"◉",edit:"✎",fare:"£",exchange:"⇆",external_status:"↗",driver:"⇄",customer_message:"✉",driver_message:"↗",resend:"↻",deposit_link:"20",full_link:"£",payments:"£",journey:"⌖",activity:"≡",complete:"✓",no_show:"–",cancel:"×",archive:"□",delete:"!"};
-    const action = (label, name, options = {}) => `<button type="button" role="menuitem" data-menu-action="${name}"${options.danger ? ' class="danger"' : ""}><span aria-hidden="true">${icons[name]||"•"}</span>${label}</button>`;
+    const action = (label, name, options = {}) => `<button type="button" role="menuitem" data-menu-action="${name}"${options.danger ? ' class="danger"' : ""}${options.disabled ? ' disabled aria-disabled="true" title="Enable Stripe Payment Links in Payment Settings after sandbox readiness checks"' : ""}><span aria-hidden="true">${icons[name]||"•"}</span>${label}</button>`;
 
     function openMenu(booking, x, y, anchor) {
         if (!booking || String(booking.company_id) !== String(adminCompanyId)) return;
@@ -33,8 +34,8 @@
             booking.customer_phone || booking.phone ? action("Message customer", "customer_message") : "",
             booking.driver_id ? action("Message driver", "driver_message") : "",
             action("Resend confirmation email", "resend"),
-            Number(booking.balance_due)>0 && Number(booking.amount_paid||0)<=0 ? action("Send 20% Deposit Link", "deposit_link") : "",
-            Number(booking.balance_due)>0 ? action("Send Full Payment Link", "full_link") : "",
+            Number(booking.balance_due)>0 && Number(booking.amount_paid||0)<=0 ? action(paymentLinksEnabled ? "Send 20% Deposit Payment Link" : "20% Deposit Payment Link — Not Configured", "deposit_link", {disabled:!paymentLinksEnabled}) : "",
+            Number(booking.balance_due)>0 ? action(paymentLinksEnabled ? "Send Full Payment Link" : "Full Payment Link — Not Configured", "full_link", {disabled:!paymentLinksEnabled}) : "",
             action("View payment history", "payments"),
             action("View journey / GPS playback", "journey"),
             action("View booking activity", "activity"),
@@ -139,8 +140,9 @@
     const dateTime = value => value ? new Date(value).toLocaleString("en-GB") : "—";
 
     document.addEventListener("contextmenu", event => { const row = event.target.closest("tr[data-booking-id]"); if (!row) return; event.preventDefault(); openMenu(findBooking(row.dataset.bookingId), event.clientX, event.clientY, row); });
+    document.addEventListener("DOMContentLoaded", async()=>{try{const context=await window.getAdminCompanyContext();const result=await bookingsDb.from("settings").select("stripe_payment_links_enabled").eq("company_id",context.companyId).maybeSingle();paymentLinksEnabled=result.data?.stripe_payment_links_enabled===true;}catch(error){console.info("Stripe Payment Links remain disabled until their company setting is available.");}});
     document.addEventListener("click", event => { const trigger = event.target.closest("[data-booking-menu]"); if (trigger) { event.preventDefault(); const rect=trigger.getBoundingClientRect(); openMenu(findBooking(trigger.dataset.bookingMenu), rect.right, rect.bottom, trigger); return; } if (!event.target.closest(".booking-action-menu")) close(); });
     menu.addEventListener("click", event => { const button=event.target.closest("[data-menu-action]"); if(button) run(button.dataset.menuAction); });
-    menu.addEventListener("keydown", event => { const buttons=[...menu.querySelectorAll("button")]; const index=buttons.indexOf(document.activeElement); if(event.key==="Escape"){event.preventDefault();close(true);return;} if(event.key==="Tab"){event.preventDefault();const next=(index+(event.shiftKey?-1:1)+buttons.length)%buttons.length;buttons[next]?.focus();return;} if(["ArrowDown","ArrowUp","Home","End"].includes(event.key)){event.preventDefault(); const next=event.key==="Home"?0:event.key==="End"?buttons.length-1:(index+(event.key==="ArrowDown"?1:-1)+buttons.length)%buttons.length; buttons[next]?.focus();} });
+    menu.addEventListener("keydown", event => { const buttons=[...menu.querySelectorAll("button:not(:disabled)")]; const index=buttons.indexOf(document.activeElement); if(event.key==="Escape"){event.preventDefault();close(true);return;} if(event.key==="Tab"){event.preventDefault();const next=(index+(event.shiftKey?-1:1)+buttons.length)%buttons.length;buttons[next]?.focus();return;} if(["ArrowDown","ArrowUp","Home","End"].includes(event.key)){event.preventDefault(); const next=event.key==="Home"?0:event.key==="End"?buttons.length-1:(index+(event.key==="ArrowDown"?1:-1)+buttons.length)%buttons.length; buttons[next]?.focus();} });
     window.addEventListener("resize", close); window.addEventListener("scroll", close, true);
 })();

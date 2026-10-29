@@ -2,7 +2,7 @@ const test=require("node:test");
 const assert=require("node:assert/strict");
 const fs=require("node:fs");
 const read=file=>fs.readFileSync(file,"utf8");
-const maps=read("js/address-autocomplete.js"),theme=read("css/admin-premium.css"),compact=read("css/booking-compact.css"),menu=read("js/booking-action-menu.js"),admin=read("js/admin.js"),auth=read("js/auth.js"),edge=read("supabase/functions/admin-stripe-payment-link/index.ts"),webhook=read("supabase/functions/stripe-webhook/index.ts"),migration=read("supabase/migrations/202610290001_release931_admin_payment_links.sql"),integrations=read("settings-integrations.html");
+const maps=read("js/address-autocomplete.js"),theme=read("css/admin-premium.css"),compact=read("css/booking-compact.css"),menu=read("js/booking-action-menu.js"),admin=read("js/admin.js"),auth=read("js/auth.js"),edge=read("supabase/functions/admin-stripe-payment-link/index.ts"),webhook=read("supabase/functions/stripe-webhook/index.ts"),migration=read("supabase/migrations/202610290001_release931_admin_payment_links.sql"),switchMigration=read("supabase/migrations/202610290002_release931_payment_link_switch.sql"),payments=read("settings-payments.html"),integrations=read("settings-integrations.html");
 
 test("Maps uses only the selected company's key and reports restriction failures",()=>{
   assert.match(maps,/return ownKey/);
@@ -17,8 +17,8 @@ test("Maps uses only the selected company's key and reports restriction failures
 
 test("premium Admin canvas is light grayscale with a charcoal sidebar",()=>{
   assert.match(theme,/--premium-bg:#f3f4f6/);
-  assert.match(theme,/--sidebar:#202225/);
-  assert.match(theme,/\.sidebar\{[^}]*background:#202225!important/);
+  assert.match(theme,/--sidebar:#1c2228/);
+  assert.match(theme,/\.sidebar\{[^}]*background:#1c2228!important/);
   assert.match(theme,/\.topbar\{[^}]*background:#fff!important/);
   assert.match(theme,/\.card\{[^}]*background:#fff!important/);
   assert.match(theme,/@media\(max-width:760px\)/);
@@ -51,12 +51,15 @@ test("booking rows are sharper and retain payment and account semantics",()=>{
 });
 
 test("existing Actions menus offer test-only deposit and full payment links",()=>{
-  assert.match(menu,/Send 20% Deposit Link/);
+  assert.match(menu,/Send 20% Deposit Payment Link/);
   assert.match(menu,/Send Full Payment Link/);
   assert.match(menu,/admin-stripe-payment-link/);
   assert.match(menu,/payment_kind:paymentKind/);
   assert.match(menu,/Stripe TEST MODE/);
   assert.match(menu,/sms_admin/);
+  assert.match(menu,/Not Configured/);
+  assert.match(payments,/enableStripePaymentLinks/);
+  assert.match(payments,/Stripe Payment Links Readiness/);
 });
 
 test("payment-link endpoint is authenticated tenant-scoped test-only and duplicate-safe",()=>{
@@ -75,6 +78,9 @@ test("payment-link endpoint is authenticated tenant-scoped test-only and duplica
   assert.match(migration,/where status='pending'/);
   assert.match(migration,/revoke all on public\.admin_payment_links from public,anon,authenticated/);
   assert.match(edge,/test_mode:true/);
+  assert.match(edge,/stripe_payment_links_enabled!==true/);
+  assert.match(switchMigration,/default false/);
+  assert.match(switchMigration,/set stripe_payment_links_enabled = false/);
 });
 
 test("webhook accumulates partial payments and covers configured company webhooks",()=>{

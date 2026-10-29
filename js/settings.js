@@ -162,6 +162,7 @@ const fieldMap = {
     defaultPaymentMethod: "defaultpaymentmethod",
     paymentTerms: "paymentterms",
     enableStripe: "enablestripe",
+    enableStripePaymentLinks: "stripe_payment_links_enabled",
     enableCash: "enablecash",
     enableAccounts: "enableaccounts",
     requirePaymentBeforeTravel: "requirepaymentbeforetravel",
@@ -218,7 +219,7 @@ const OPTIONAL_SETTING_COLUMNS = new Set([
     "bankpaymentreferenceinstruction", "showbankdetailsoninvoices",
     "vehicleuplift_executive_car_percent", "vehicleuplift_5_7_percent", "vehicleuplift_executive_5_7_percent", "vehicleuplift_5_8_percent", "vehicleuplift_9_16_percent", "vehicleuplift_17_23_percent", "vehicleuplift_24_52_percent",
     "allowvehicle_standard", "allowvehicle_executive_car", "allowvehicle_5_7", "allowvehicle_executive_5_7", "allowvehicle_5_8", "allowvehicle_9_16", "allowvehicle_17_23", "allowvehicle_24_52",
-    "enablecardbookingfee", "cardbookingfeepercent"
+    "enablecardbookingfee", "cardbookingfeepercent", "stripe_payment_links_enabled"
 ]);
 const pendingCompanyMediaFiles = {};
 const pendingCompanyMediaPreviewUrls = {};
@@ -364,11 +365,13 @@ async function loadSettings() {
         allowvehicle_24_52: data.allowvehicle_24_52 ?? false,
         enablecardbookingfee: data.enablecardbookingfee ?? false,
         cardbookingfeepercent: data.cardbookingfeepercent ?? 0
+        ,stripe_payment_links_enabled: data.stripe_payment_links_enabled ?? false
     };
     if (document.getElementById("stripePublishableKey")) {
         savedPaymentSettings = {
             stripepublishablekey: loadedData.stripepublishablekey || "",
             enablestripe: Boolean(loadedData.enablestripe),
+            stripe_payment_links_enabled: Boolean(loadedData.stripe_payment_links_enabled),
             enablecardbookingfee: Boolean(loadedData.enablecardbookingfee),
             cardbookingfeepercent: Number(loadedData.cardbookingfeepercent || 0),
             requirepaymentbeforetravel: Boolean(loadedData.requirepaymentbeforetravel),
@@ -548,6 +551,7 @@ async function saveSettings() {
         savedPaymentSettings = {
             stripepublishablekey: result.data.stripepublishablekey || "",
             enablestripe: Boolean(result.data.enablestripe),
+            stripe_payment_links_enabled: Boolean(result.data.stripe_payment_links_enabled),
             enablecardbookingfee: Boolean(result.data.enablecardbookingfee),
             cardbookingfeepercent: Number(result.data.cardbookingfeepercent || 0),
             requirepaymentbeforetravel: Boolean(result.data.requirepaymentbeforetravel),
@@ -579,7 +583,7 @@ function validateCardBookingFee() {
 
 function paymentSettingChanges(settings) {
     if (!savedPaymentSettings) return [];
-    const labels = { stripepublishablekey:"Stripe publishable key", enablestripe:"Enable Stripe", enablecardbookingfee:"Card surcharge", cardbookingfeepercent:"Card surcharge percentage", requirepaymentbeforetravel:"Require payment before travel", defaultpaymentmethod:"Default payment method" };
+    const labels = { stripepublishablekey:"Stripe publishable key", enablestripe:"Enable Stripe", stripe_payment_links_enabled:"Stripe Payment Links", enablecardbookingfee:"Card surcharge", cardbookingfeepercent:"Card surcharge percentage", requirepaymentbeforetravel:"Require payment before travel", defaultpaymentmethod:"Default payment method" };
     return Object.keys(labels).filter(key => key in settings && String(settings[key] ?? "") !== String(savedPaymentSettings[key] ?? "")).map(key => labels[key]);
 }
 

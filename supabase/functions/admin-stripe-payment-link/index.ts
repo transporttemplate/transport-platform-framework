@@ -22,10 +22,11 @@ Deno.serve(async request=>{
     const [{data:company,error:companyError},{data:booking,error:bookingError},{data:settings,error:settingsError}]=await Promise.all([
       db.from("companies").select("id,company_code,trading_name,name,company_status").eq("id",companyId).maybeSingle(),
       db.from("bookings").select("id,company_id,booking_reference,customer_name,email,phone,price,amount_paid,balance_due,payment_status,status").eq("company_id",companyId).eq("id",bookingId).maybeSingle(),
-      db.from("settings").select("company_id,enablestripe,stripepublishablekey,currencysymbol").eq("company_id",companyId).maybeSingle()
+      db.from("settings").select("company_id,enablestripe,stripe_payment_links_enabled,stripepublishablekey,currencysymbol").eq("company_id",companyId).maybeSingle()
     ]);
     if(companyError||bookingError||settingsError)throw companyError||bookingError||settingsError;
     if(!company||!booking||!settings)throw new SafeError(404,"Booking or company payment settings were not found");
+    if(settings.stripe_payment_links_enabled!==true)throw new SafeError(403,"Stripe Payment Links are not enabled for this company");
     if(["trial","suspended","cancelled"].includes(String(company.company_status||"active").toLowerCase()))throw new SafeError(403,"Payment links are unavailable for this company status");
     if(["cancelled","canceled","archived","no_show"].includes(String(booking.status||"").toLowerCase()))throw new SafeError(409,"Payment links cannot be created for this booking status");
     const balance=moneyNumber(booking.balance_due);

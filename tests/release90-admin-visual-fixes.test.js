@@ -20,7 +20,7 @@ test('premium admin theme repairs legacy light surfaces centrally', () => {
   ]) {
     assert.match(css, new RegExp(selector.replace('.', '\\.')));
   }
-  assert.match(css, /--premium-muted:\s*#62666d/);
+  assert.match(css, /--premium-muted:\s*#6b7280/);
   assert.match(css, /input::placeholder/);
 });
 

@@ -1,14 +1,14 @@
 :root{
   --premium-bg:#f3f4f6;--premium-panel:#fff;--premium-panel-raised:#f8fafc;
-  --premium-border:#d1d5db;--premium-text:#18181b;--premium-muted:#62666d;
+  --premium-border:#e5e7eb;--premium-text:#111827;--premium-muted:#6b7280;
   --premium-link:#1f4f82;--premium-accent:#374151;
-  --bg:var(--premium-bg);--sidebar:#202225;--sidebar-hover:#34373b;--card:#fff;
+  --bg:var(--premium-bg);--sidebar:#1c2228;--sidebar-hover:#303840;--card:#fff;
   --text:var(--premium-text);--border:var(--premium-border);--shadow:0 1px 2px rgba(0,0,0,.06),0 7px 22px rgba(17,24,39,.045);--radius:10px;
 }
 html,body{background:var(--premium-bg)!important;color-scheme:light}
 body{background:var(--premium-bg)!important;color:var(--premium-text)}
 .main{max-width:1680px;min-width:0;padding:18px 22px 28px}
-.sidebar{border-right:1px solid #151719;background:#202225!important;color:#f5f5f5;box-shadow:3px 0 16px rgba(0,0,0,.08)}
+.sidebar{border-right:1px solid #151719;background:#1c2228!important;color:#f5f5f5;box-shadow:3px 0 16px rgba(0,0,0,.08)}
 .sidebar h2{color:#fff;letter-spacing:-.02em}.sidebar a{border-radius:7px;color:#d5d7da}.sidebar a:hover,.sidebar a.active{background:#34373b;color:#fff}.sidebar hr{border-color:#43464b!important}
 .topbar{border:1px solid var(--premium-border);border-radius:10px;background:#fff!important;box-shadow:var(--shadow);padding:15px 20px;margin-bottom:20px}
 .card{border:1px solid var(--premium-border);border-radius:10px;background:#fff!important;box-shadow:var(--shadow);padding:18px}
@@ -19,6 +19,7 @@ input,select,textarea{border:1px solid #bfc3c8;border-radius:7px;background:#fff
 input:focus,select:focus,textarea:focus{border-color:#66717f;outline:2px solid rgba(75,85,99,.16);outline-offset:1px}
 input::placeholder,textarea::placeholder{color:#777c83;opacity:1}input:disabled,select:disabled,textarea:disabled{background:#eef0f2;color:#666b72;opacity:1}
 button,.button{min-height:38px;border-radius:7px;font-weight:750}.status-pill,.payment-pill,.source-pill{border-radius:999px;padding:4px 8px}
+.save-job-button,#saveSettings,.topbar>button[type="button"],button[type="submit"]{background:#20262d!important;color:#fff!important;border-color:#20262d!important}.booking-action-menu button:disabled{cursor:not-allowed!important;color:#aeb4bb!important;opacity:.72}.booking-action-menu button:disabled:hover{background:transparent!important}.payment-readiness ul{margin:10px 0 12px;padding-left:22px}.payment-readiness li{margin:6px 0;color:#374151}
 .account-tabs,.booking-tabs{display:flex;gap:5px;padding:4px;overflow:auto;border:1px solid var(--premium-border);border-radius:9px;background:#f1f2f4}.account-tabs button,.booking-tabs button{white-space:nowrap;background:transparent;color:#34373b}.account-tabs button.active,.booking-tabs button.active{background:#374151;color:#fff}
 
 /* Override older route-specific dark releases after the shared theme loads. */
