@@ -42,7 +42,7 @@ Deno.serve(async request => {
     if (!payment) return json({ ok: true, ignored: true });
 
     const { data: booking, error: bookingError } = await db.from("bookings")
-      .select("id,company_id,booking_reference,price,balance_due,payment_type")
+      .select("id,company_id,booking_reference,price,amount_paid,balance_due,payment_type")
       .eq("id", payment.booking_id)
       .eq("company_id", companyId)
       .maybeSingle();
@@ -68,6 +68,7 @@ Deno.serve(async request => {
       if (payment.status === "paid") return json({ ok: true, duplicate: true });
 
       const paid = Number(payment.amount);
+      const previouslyPaid = Math.max(0, Number(booking.amount_paid || 0));
       const balance = Math.max(0, Number(booking.balance_due || 0) - paid);
       const paymentStatus = balance > 0 ? "deposit_paid" : "paid";
       const paidAt = new Date().toISOString();
@@ -81,10 +82,11 @@ Deno.serve(async request => {
       if (paymentUpdate.error) throw paymentUpdate.error;
       if (!paymentUpdate.data) return json({ ok: true, duplicate: true });
       const bookingUpdate = await db.from("bookings")
-        .update({ payment_status: paymentStatus, amount_paid: paid, balance_due: balance, paid_at: paidAt })
+        .update({ payment_status: paymentStatus, amount_paid: previouslyPaid + paid, balance_due: balance, paid_at: paidAt })
         .eq("id", booking.id)
         .eq("company_id", companyId);
       if (bookingUpdate.error) throw bookingUpdate.error;
+      await db.from("admin_payment_links").update({ status: "paid", updated_at: paidAt }).eq("company_id", companyId).eq("stripe_payment_intent_id", String(intent.id)).eq("status", "pending");
       const linked = await db.from("bookings")
         .update({ payment_status: paymentStatus, paid_at: paidAt })
         .eq("company_id", companyId)
@@ -102,6 +104,9 @@ Deno.serve(async request => {
         .maybeSingle();
       if (paymentUpdate.error) throw paymentUpdate.error;
       if (!paymentUpdate.data) return json({ ok: true, ignored: true });
+      if (event.type === "payment_intent.canceled") {
+        await db.from("admin_payment_links").update({ status: "expired", updated_at: new Date().toISOString() }).eq("company_id", companyId).eq("stripe_payment_intent_id", String(intent.id)).eq("status", "pending");
+      }
       const bookingUpdate = await db.from("bookings")
         .update({ payment_status: event.type === "payment_intent.canceled" ? "payment_cancelled" : "payment_failed" })
         .eq("id", payment.booking_id)
@@ -118,8 +123,10 @@ Deno.serve(async request => {
 
 async function companyCodeForValidSignature(payload: string, signature: string) {
   const candidates = [
+    ["0001", Deno.env.get("STRIPE_WEBHOOK_SECRET_0001") || Deno.env.get("STRIPE_WEBHOOK_SECRET") || ""],
     ["0002", Deno.env.get("STRIPE_WEBHOOK_SECRET_0002") || ""],
     ["0003", Deno.env.get("STRIPE_WEBHOOK_SECRET_0003") || ""],
+    ["0004", Deno.env.get("STRIPE_WEBHOOK_SECRET_0004") || ""],
   ] as const;
   for (const [companyCode, secret] of candidates) {
     if (secret && await validStripeSignature(payload, signature, secret)) return companyCode;

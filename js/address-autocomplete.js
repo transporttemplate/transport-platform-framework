@@ -1,61 +1,68 @@
 (function initialiseTransportAddressAutocomplete() {
     let mapsPromise = null;
+    let mapsLoaderKey = "";
     const providers = [];
     const ukBounds = { north: 61.0, south: 49.5, east: 2.0, west: -8.7 };
 
     function loadGoogleMaps(apiKey) {
+        const key = String(apiKey || "").trim();
+        if (!key) return Promise.reject(new Error("Google Maps is not configured for this company."));
         if (window.google?.maps?.places?.Autocomplete) return Promise.resolve(window.google.maps);
-        if (mapsPromise) return mapsPromise;
+        if (mapsPromise && mapsLoaderKey === key) return mapsPromise;
+        if (mapsPromise && mapsLoaderKey !== key) return Promise.reject(new Error("A different company Google Maps key is already loaded. Reload this page after switching company."));
+        mapsLoaderKey = key;
 
         mapsPromise = new Promise((resolve, reject) => {
             const existing = document.querySelector('script[data-transport-google-maps="true"]');
             if (existing) {
-                existing.addEventListener("load", () => resolve(window.google.maps), { once: true });
-                existing.addEventListener("error", () => reject(new Error("Google Maps JavaScript API failed to load.")), { once: true });
+                if (window.google?.maps) return ready(resolve, reject);
+                existing.addEventListener("load", () => ready(resolve, reject), { once: true });
+                existing.addEventListener("error", () => fail(reject, "Google Maps JavaScript API failed to load."), { once: true });
                 return;
             }
 
             const callbackName = `__transportGoogleMapsLoaded_${Date.now()}`;
             window[callbackName] = () => {
                 delete window[callbackName];
-                resolve(window.google.maps);
+                ready(resolve, reject);
+            };
+            const previousAuthFailure = window.gm_authFailure;
+            window.gm_authFailure = () => {
+                previousAuthFailure?.();
+                fail(reject, "Google Maps rejected this company's browser key. Check billing, referrer restrictions, and the Maps JavaScript and Places APIs.");
             };
             const script = document.createElement("script");
             script.dataset.transportGoogleMaps = "true";
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&v=weekly&loading=async&callback=${callbackName}`;
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places&v=weekly&loading=async&callback=${callbackName}`;
             script.async = true;
             script.onerror = () => {
                 delete window[callbackName];
-                mapsPromise = null;
-                reject(new Error("Google Maps JavaScript API failed to load."));
+                fail(reject, "Google Maps JavaScript API failed to load. Check the network and this company's key restrictions.");
             };
             document.head.appendChild(script);
+            setTimeout(() => {
+                if (!window.google?.maps?.places?.Autocomplete) fail(reject, "Google Maps timed out while loading for this company.");
+            }, 15000);
         });
         return mapsPromise;
+
+        async function ready(resolve, reject) {
+            try {
+                if (!window.google?.maps?.places?.Autocomplete && window.google?.maps?.importLibrary) await window.google.maps.importLibrary("places");
+                if (!window.google?.maps?.places?.Autocomplete) throw new Error("Google Places is not enabled for this company's browser key.");
+                resolve(window.google.maps);
+            } catch (error) { fail(reject, error.message || "Google Places failed to initialise."); }
+        }
+        function fail(reject, message) {
+            mapsPromise = null;
+            mapsLoaderKey = "";
+            reject(new Error(message));
+        }
     }
 
-    async function resolveBrowserMapsKey(_db, company, configuredKey) {
+    async function resolveBrowserMapsKey(_db, _company, configuredKey) {
         const ownKey = String(configuredKey || "").trim();
-        if (ownKey) return ownKey;
-
-        const companyCode = String(company?.company_code || "").trim();
-        const companyStatus = String(company?.company_status || "trial").toLowerCase();
-        if (companyCode !== "0004" || companyStatus !== "trial") return "";
-
-        try {
-            const headers = { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` };
-            const companyResponse = await fetch(`${SUPABASE_URL}/rest/v1/companies?select=id&company_code=eq.0001&limit=1`, { headers });
-            if (!companyResponse.ok) return "";
-            const [platformCompany] = await companyResponse.json();
-            if (!platformCompany?.id) return "";
-
-            const settingsResponse = await fetch(`${SUPABASE_URL}/rest/v1/settings?select=googlemapsapi&company_id=eq.${encodeURIComponent(platformCompany.id)}&limit=1`, { headers });
-            if (!settingsResponse.ok) return "";
-            const [platformSettings] = await settingsResponse.json();
-            return String(platformSettings?.googlemapsapi || "").trim();
-        } catch {
-            return "";
-        }
+        return ownKey;
     }
 
     function clearMetadata(input) {

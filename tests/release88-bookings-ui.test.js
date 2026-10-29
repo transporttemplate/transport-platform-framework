@@ -44,7 +44,7 @@ test("Actions menu is viewport-aware and keyboard accessible", () => {
 });
 
 test("compact desktop rows and responsive booking cards are shared", () => {
-  assert.match(css, /height:52px/);
+  assert.match(css, /height:46px/);
   assert.match(css, /@media\(max-width:900px\)/);
   assert.match(css, /@media\(max-width:520px\)/);
   assert.match(css, /grid-template-columns/);

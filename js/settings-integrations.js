@@ -18,6 +18,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         integrationCompanyId = context.companyId;
         integrationCompany = context.company;
         await loadIntegrationSettings();
+        document.getElementById("testGoogleMaps")?.addEventListener("click", testGoogleMapsKey);
         await loadEmailProviderStatus();
         if (saveButton) {
             saveButton.disabled = false;
@@ -28,6 +29,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         showIntegrationStatus(error.message || "Integration settings could not be loaded.", true);
     }
 });
+
+async function testGoogleMapsKey() {
+    const button = document.getElementById("testGoogleMaps");
+    const result = document.getElementById("googleMapsTestResult");
+    const key = document.getElementById("googleMapsApi")?.value.trim();
+    if (!key) { if (result) result.textContent = "Enter this company's restricted browser key first."; return; }
+    button.disabled = true;
+    if (result) result.textContent = "Testing Maps JavaScript and Places…";
+    try {
+        await window.TransportAddressAutocomplete.loadGoogleMaps(key);
+        if (result) result.textContent = "Working: Maps JavaScript and Places loaded for this company and browser origin.";
+    } catch (error) {
+        if (result) result.textContent = error.message || "Google Maps test failed.";
+    } finally { button.disabled = false; }
+}
 
 async function loadIntegrationSettings() {
     if (!integrationCompanyId) throw new Error("Authenticated company context is unavailable.");

@@ -1,25 +1,26 @@
 /* Release 8.8 shared Bookings / All Bookings presentation. */
-.jobs-panel{overflow:visible!important;border:1px solid #26344b;border-radius:12px;background:#101827}
+.jobs-panel{overflow:visible!important;border:1px solid #c9cdd2;border-radius:9px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04)}
 .jobs-table-scroll{overflow-x:auto!important;overflow-y:visible!important;border-radius:12px}
 .jobs-panel table{width:100%;min-width:1050px!important;border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:11px!important}
-.jobs-panel th{position:sticky;top:0;z-index:3;padding:7px 8px!important;background:#172338!important;color:#b8c5d6!important;font-size:9px;text-transform:uppercase;letter-spacing:.055em;white-space:nowrap}
-.jobs-panel td{height:52px;padding:5px 8px!important;border-bottom:1px solid rgba(148,163,184,.13)!important;vertical-align:middle;line-height:1.18!important;color:#e5e7eb}
+.jobs-panel th{position:sticky;top:0;z-index:3;padding:6px 7px!important;background:#eceef0!important;color:#50555c!important;font-size:9px;text-transform:uppercase;letter-spacing:.055em;white-space:nowrap}
+.jobs-panel td{height:46px;padding:4px 7px!important;border-bottom:1px solid #e2e4e7!important;vertical-align:middle;line-height:1.15!important;color:#24272b}
 .jobs-panel tbody tr{cursor:default;transition:background .14s ease,box-shadow .14s ease}
-.jobs-panel tbody tr:hover td{background:rgba(79,140,255,.07)!important}
-.jobs-panel td strong{display:block;font-size:11px}.jobs-panel td small{display:block;margin-top:3px;color:#94a3b8;font-size:9px}
+.jobs-panel tbody tr:hover td{box-shadow:inset 0 0 0 999px rgba(255,255,255,.055)}
+.jobs-panel td strong{display:block;font-size:11px}.jobs-panel td small{display:block;margin-top:2px;color:inherit;opacity:.72;font-size:9px}
 .jobs-panel th:nth-child(1){width:92px}.jobs-panel th:nth-child(2){width:104px}.jobs-panel th:nth-child(3){width:126px}.jobs-panel th:nth-child(4){width:135px}.jobs-panel th:nth-child(5){width:auto}.jobs-panel th:nth-child(6){width:205px}.jobs-panel th:nth-child(7){width:82px}.jobs-panel th:nth-child(8){width:104px}.jobs-panel th:nth-last-child(2){width:92px}.jobs-panel th:last-child{width:92px}
-.compact-route-cell{max-width:none!important}.compact-route-cell span{display:-webkit-box!important;overflow:hidden;white-space:normal!important;text-overflow:ellipsis;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}.compact-route-cell b{display:block;margin:1px 0;color:#94a3b8;font-size:9px}.compact-route-cell:focus{outline:2px solid #75a7ff;outline-offset:2px}
+.compact-route-cell{max-width:none!important}.compact-route-cell span{display:-webkit-box!important;overflow:hidden;white-space:normal!important;text-overflow:ellipsis;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}.compact-route-cell b{display:block;margin:1px 0;color:inherit;opacity:.68;font-size:9px}.compact-route-cell:focus{outline:2px solid #64748b;outline-offset:2px}
 .jobs-panel tr.payment-paid,.jobs-panel tr.payment-paid td:last-child{background:#102a22!important}
 .jobs-panel tr.payment-unpaid,.jobs-panel tr.payment-unpaid td:last-child{background:#2b171d!important}
 .jobs-panel tr.payment-partial,.jobs-panel tr.payment-partial td:last-child{background:#2b2514!important}
 .jobs-panel tr.payment-account,.jobs-panel tr.payment-account td:last-child{background:#221b35!important}
 .jobs-panel tr.payment-prepaid,.jobs-panel tr.payment-prepaid td:last-child{background:#132443!important}
+.jobs-panel tr.payment-paid td,.jobs-panel tr.payment-unpaid td,.jobs-panel tr.payment-partial td,.jobs-panel tr.payment-account td,.jobs-panel tr.payment-prepaid td{color:#f8fafc!important}
 .account-source-label{display:block;padding-left:8px;border-left:4px solid var(--account-colour,#64748b);font-size:10px;font-weight:750;line-height:1.25;overflow-wrap:anywhere}
-.booking-driver-select{width:100%;min-width:0!important;min-height:31px!important;padding:4px 24px 4px 6px!important;border:1px solid #33435d!important;border-radius:7px!important;background:#0c1525!important;color:#f8fafc!important;font-size:10px!important;text-overflow:ellipsis}
-.booking-menu-trigger{min-width:78px!important;min-height:32px!important;padding:5px 8px!important;border:1px solid #49617e!important;border-radius:7px!important;background:#18253a!important;color:#eff6ff!important;font-size:10px!important;font-weight:800!important;white-space:nowrap}
+.booking-driver-select{width:100%;min-width:0!important;min-height:29px!important;padding:3px 24px 3px 6px!important;border:1px solid #aeb4bb!important;border-radius:6px!important;background:#fff!important;color:#202328!important;font-size:10px!important;text-overflow:ellipsis}
+.booking-menu-trigger{min-width:76px!important;min-height:30px!important;padding:4px 8px!important;border:1px solid #555b63!important;border-radius:6px!important;background:#34383d!important;color:#fff!important;font-size:10px!important;font-weight:800!important;white-space:nowrap}
 .booking-menu-trigger:hover,.booking-menu-trigger:focus-visible{outline:2px solid #75a7ff!important;outline-offset:1px;background:#203451!important}
-.jobs-panel th:last-child,.jobs-panel td:last-child{position:sticky;right:0;z-index:2;min-width:92px!important;background:#101827!important;box-shadow:-7px 0 12px rgba(2,6,23,.26)}
-.jobs-panel th:last-child{z-index:4;background:#172338!important}
+.jobs-panel th:last-child,.jobs-panel td:last-child{position:sticky;right:0;z-index:2;min-width:92px!important;background:#fff!important;box-shadow:-7px 0 12px rgba(17,24,39,.08)}
+.jobs-panel th:last-child{z-index:4;background:#eceef0!important}
 .payment-pill,.status-pill{padding:3px 6px!important;font-size:8px!important;line-height:1.2}.payment-method{font-size:8px!important}
 .booking-action-menu{width:min(280px,calc(100vw - 16px))!important;max-height:min(70dvh,560px)!important;overscroll-behavior:contain}.booking-action-menu button{min-height:38px!important;font-size:11px!important}.booking-action-danger{margin:5px 4px 2px;padding-top:6px;border-top:1px solid #475569}.booking-action-danger small{color:#fca5a5;font-size:9px;text-transform:uppercase;letter-spacing:.08em}
 .booking-modal{width:min(1120px,96vw)!important}.booking-modal-body{gap:12px!important}.booking-modal .detail-grid{gap:7px!important}.booking-modal .detail-card{padding:10px!important}
