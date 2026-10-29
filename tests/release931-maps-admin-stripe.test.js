@@ -2,7 +2,7 @@ const test=require("node:test");
 const assert=require("node:assert/strict");
 const fs=require("node:fs");
 const read=file=>fs.readFileSync(file,"utf8");
-const maps=read("js/address-autocomplete.js"),theme=read("css/admin-premium.css"),compact=read("css/booking-compact.css"),menu=read("js/booking-action-menu.js"),edge=read("supabase/functions/admin-stripe-payment-link/index.ts"),webhook=read("supabase/functions/stripe-webhook/index.ts"),migration=read("supabase/migrations/202610290001_release931_admin_payment_links.sql"),integrations=read("settings-integrations.html");
+const maps=read("js/address-autocomplete.js"),theme=read("css/admin-premium.css"),compact=read("css/booking-compact.css"),menu=read("js/booking-action-menu.js"),admin=read("js/admin.js"),auth=read("js/auth.js"),edge=read("supabase/functions/admin-stripe-payment-link/index.ts"),webhook=read("supabase/functions/stripe-webhook/index.ts"),migration=read("supabase/migrations/202610290001_release931_admin_payment_links.sql"),integrations=read("settings-integrations.html");
 
 test("Maps uses only the selected company's key and reports restriction failures",()=>{
   assert.match(maps,/return ownKey/);
@@ -22,6 +22,24 @@ test("premium Admin canvas is light grayscale with a charcoal sidebar",()=>{
   assert.match(theme,/\.topbar\{[^}]*background:#fff!important/);
   assert.match(theme,/\.card\{[^}]*background:#fff!important/);
   assert.match(theme,/@media\(max-width:760px\)/);
+  assert.ok(admin.indexOf('link[href="css/admin-premium.css"]')<admin.indexOf('document.addEventListener("DOMContentLoaded"'));
+  assert.match(theme,/\.bookings-page \.dispatch-panel[^}]*background:#fff!important/);
+  assert.match(theme,/\.sms-admin[^}]*background:var\(--premium-bg\)!important/);
+  assert.doesNotMatch(theme,/filter:\s*grayscale/);
+});
+
+test("Admin company context honours a branded hostname without weakening explicit switching",()=>{
+  assert.match(auth,/requestedAdminCompanyCode\(\) \|\| await loginCompanyCode\(\)/);
+  assert.match(auth,/\.from\("company_domains"\)/);
+  assert.match(auth,/memberships\.find\(item => String\(item\.companies\.company_code\)/);
+  assert.match(auth,/Requested admin company is not accessible/);
+});
+
+test("address fields and Places predictions have non-overlapping responsive presentation",()=>{
+  assert.match(theme,/\.admin-location-group>\*\{min-width:0\}/);
+  assert.match(theme,/\.admin-location-group input[^}]*text-overflow:ellipsis/);
+  assert.match(theme,/\.pac-item[^}]*white-space:normal!important/);
+  assert.match(theme,/\.admin-location-group\{grid-template-columns:minmax\(0,1fr\)!important\}/);
 });
 
 test("booking rows are sharper and retain payment and account semantics",()=>{

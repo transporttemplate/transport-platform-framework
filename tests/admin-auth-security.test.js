@@ -40,6 +40,7 @@ test('company identity is preserved and wrong-company logins are rejected', () =
   assert.match(login, /resolveLoginCompanyCode\(db\)/);
   assert.match(login, /Your login is not authorised for this company/);
   assert.match(login, /\["admin","owner","office_manager","office_staff"\]/);
+  assert.match(auth, /requestedAdminCompanyCode\(\) \|\| await loginCompanyCode\(\)/);
 });
 
 test('idle logout, warning, multi-tab logout and bfcache revalidation remain enforced', () => {

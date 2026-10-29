@@ -192,7 +192,10 @@ window.adminCompanyReadyPromise = (async () => {
         throw new Error("User does not have an Admin company role");
     }
 
-    const requestedCode = requestedAdminCompanyCode();
+    // An explicit, authorised switch remains authoritative. Without one, use
+    // the active hostname mapping before falling back to the user's first
+    // membership; this prevents branded domains silently opening company 0001.
+    const requestedCode = requestedAdminCompanyCode() || await loginCompanyCode();
     const memberships = adminMemberships.filter(item => item.companies?.company_code);
     const companyUser = requestedCode
         ? memberships.find(item => String(item.companies.company_code).toLowerCase() === requestedCode.toLowerCase())
